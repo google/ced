@@ -1,0 +1,3 @@
+[submodule "terminal-library"]
+	path = terminal-library
+	url = git@github.com:ctiller/terminal-library
