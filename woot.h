@@ -73,7 +73,12 @@ class String {
     String str;
     CommandPtr command;
   };
-  RemoveResult Remove(ID chr);
+  RemoveResult Remove(ID chr) {
+    assert(avl_.Lookup(chr));
+    CommandPtr command(new DeleteCommand(chr));
+    String str = Integrate(command);
+    return RemoveResult{str, std::move(command)};
+  }
 
   String Integrate(const CommandPtr& command) {
     return command->Integrate(*this);
@@ -84,7 +89,7 @@ class String {
     ID cur = avl_.Lookup(begin_)->next;
     while (cur != end_) {
       const CharInfo* c = avl_.Lookup(cur);
-      out += c->chr;
+      if (c->visible) out += c->chr;
       cur = c->next;
     }
     return out;
@@ -106,6 +111,15 @@ class String {
   Site* root_site() {
     static SitePtr p = Site::Make();
     return p.get();
+  }
+
+  String IntegrateDelete(ID id) {
+    const CharInfo* cdel = avl_.Lookup(id);
+    if (!cdel->visible) return *this;
+    return String(
+        begin_, end_,
+        avl_.Add(id, CharInfo{false, cdel->chr, cdel->next, cdel->prev,
+                              cdel->after, cdel->before}));
   }
 
   String IntegrateInsert(ID id, Char c, ID after, ID before) {
@@ -163,10 +177,20 @@ class String {
     }
 
    private:
-    ID id_;
-    Char c_;
-    ID after_;
-    ID before_;
+    const ID id_;
+    const Char c_;
+    const ID after_;
+    const ID before_;
+  };
+
+  class DeleteCommand final : public Command {
+   public:
+    DeleteCommand(ID id) : id_(id) {}
+
+    String Integrate(String s) { return s.IntegrateDelete(id_); }
+
+   private:
+    const ID id_;
   };
 
   ID begin_;

@@ -6,7 +6,7 @@ namespace testing {
 
 TEST(String, NoOp) { String<char> s; }
 
-TEST(String, InsertThenRender) {
+TEST(String, MutateThenRender) {
   String<char> s;
   SitePtr site = Site::Make();
   auto r = s.Insert(site, 'a', s.begin());
@@ -15,6 +15,9 @@ TEST(String, InsertThenRender) {
   s = r.str;
   r = s.Insert(site, 'b', r.id);
   EXPECT_EQ(r.str.Render(), "ab");
+  s = r.str;
+  auto rr = s.Remove(r.id);
+  EXPECT_EQ(rr.str.Render(), "a");
 }
 
 }  // namespace testing
