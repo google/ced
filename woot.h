@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <map>
 #include <memory>
 #include <tuple>
 #include <vector>
@@ -121,23 +122,35 @@ class String {
               .Add(before, CharInfo{cbef->visible, cbef->chr, cbef->next, id,
                                     cbef->after, cbef->before}));
     }
-    std::vector<ID> L;
-    L.push_back(after);
+    typedef std::map<ID, const CharInfo*> LMap;
+    LMap inL;
+    std::vector<typename LMap::iterator> L;
+    auto addToL = [&](ID id, const CharInfo* ci) {
+      L.push_back(inL.emplace(id, ci).first);
+    };
+    addToL(after, caft);
     ID n = caft->next;
     do {
       const CharInfo* cn = avl_.Lookup(n);
       assert(cn != nullptr);
-      // TODO(ctiller) - check if we should search back/forward here
-      if (cn->before == before && cn->after == after) {
-        L.push_back(n);
-      }
+      addToL(n, cn);
       n = cn->next;
     } while (n != before);
-    L.push_back(before);
-    size_t i = 1;
-    for (; i < L.size() - 1 && L[i] < id; i++)
+    addToL(before, cbef);
+    size_t i, j;
+    for (i = 1, j = 1; i < L.size() - 1; i++) {
+      auto it = L[i];
+      auto ai = inL.find(it->second->after);
+      if (ai == inL.end()) continue;
+      auto bi = inL.find(it->second->before);
+      if (bi == inL.end()) continue;
+      L[j++] = L[i];
+    }
+    L[j++] = L[i];
+    L.resize(j);
+    for (i = 1; i < L.size() - 1 && L[i]->first < id; i++)
       ;
-    return IntegrateInsert(id, c, L[i - 1], L[i]);
+    return IntegrateInsert(id, c, L[i - 1]->first, L[i]->first);
   }
 
   class InsertCommand final : public Command {
