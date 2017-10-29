@@ -18,7 +18,8 @@ int main(void) {
           set_done();
           return;
         }
-        if (c->is_character() && c->character() == 'q') {
+        if (c->is_character() && tolower(c->character()) == 'q' &&
+            c->mods() == tl::Key::CTRL) {
           set_done();
           return;
         }
