@@ -198,6 +198,32 @@ class String {
   };
 
   functional_util::AVL<ID, CharInfo> avl_;
+
+ public:
+  class Iterator {
+   public:
+    Iterator(const String& str, ID where)
+        : str_(str), pos_(where), cur_(str_.avl_.Lookup(pos_)) {}
+    Iterator(const String& str)
+        : str_(str),
+          pos_(str_.avl_.Lookup(Begin())->next),
+          cur_(str_.avl_.Lookup(pos_)) {}
+
+    bool is_end() const { return pos_ == End(); }
+    bool is_visible() const { return cur_->visible; }
+
+    void MoveNext() {
+      pos_ = cur_->next;
+      cur_ = str_.avl_.Lookup(pos_);
+    }
+
+    const Char* value() const { return &cur_->chr; }
+
+   private:
+    String str_;
+    ID pos_;
+    const CharInfo* cur_;
+  };
 };
 
 }  // namespace woot

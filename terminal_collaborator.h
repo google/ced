@@ -13,6 +13,8 @@ class TerminalCollaborator final : public Collaborator {
   virtual void Push(const EditNotification& notification) override;
   virtual EditResponse Pull() override;
 
+  void Render(tl::FrameBuffer* fb);
+
  private:
   tl::Fullscreen* const terminal_;
   absl::Mutex mu_;

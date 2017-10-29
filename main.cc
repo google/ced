@@ -37,11 +37,7 @@ int main(void) {
       set_done();
       return;
     }
-    const char* foo = "hello world";
-    for (int i = 0; foo[i]; i++) {
-      fb->cell(i, 0)->set_glyph(foo[i]);
-    }
-    fb->set_cursor_pos(10, 10);
+    terminal_collaborator->Render(fb);
     terminal.NextRender(rdr_cb);
   };
 
