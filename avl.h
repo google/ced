@@ -44,7 +44,7 @@ class AVL {
   static NodePtr MakeNode(K key, V value, const NodePtr &left,
                           const NodePtr &right) {
     return std::make_shared<Node>(std::move(key), std::move(value), left, right,
-                                  std::max(Height(left), Height(right)));
+                                  1 + std::max(Height(left), Height(right)));
   }
 
   static NodePtr Get(const NodePtr &node, const K &key) {
