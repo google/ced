@@ -12,6 +12,7 @@ cc_test(
 cc_library(
   name = "woot",
   hdrs = ["woot.h"],
+  srcs = ["woot.cc"],
   deps = [":avl"]
 )
 

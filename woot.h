@@ -12,26 +12,40 @@
 namespace woot {
 
 class Site;
-typedef std::shared_ptr<Site> SitePtr;
 
-typedef std::tuple<SitePtr, uint64_t> ID;
+typedef std::tuple<uint64_t, uint64_t> ID;
 
-class Site : public std::enable_shared_from_this<Site> {
+class Site {
  public:
+  Site() : id_(id_gen_.fetch_add(1, std::memory_order_relaxed)) {}
+
+  Site(const Site&) = delete;
+  Site& operator=(const Site&) = delete;
+
   ID GenerateID() {
-    return ID(shared_from_this(),
-              clock_.fetch_add(1, std::memory_order_relaxed));
+    return ID(id_, clock_.fetch_add(1, std::memory_order_relaxed));
   }
 
-  static SitePtr Make() { return SitePtr(new Site); }
+ private:
+  Site(uint64_t id) : id_(id) {}
+  const uint64_t id_;
+  std::atomic<uint64_t> clock_{0};
+  static std::atomic<uint64_t> id_gen_;
+};
+
+class StringBase {
+ public:
+  static ID Begin() { return begin_id_; }
+  static ID End() { return end_id_; }
 
  private:
-  Site() {}
-  std::atomic<uint64_t> clock_{0};
+  static Site root_site_;
+  static ID begin_id_;
+  static ID end_id_;
 };
 
 template <class Char>
-class String {
+class String : public StringBase {
  public:
   String() {
     avl_ =
@@ -54,27 +68,18 @@ class String {
   };
   typedef std::unique_ptr<Command> CommandPtr;
 
-  static ID Begin() {
-    static ID begin_id = root_site()->GenerateID();
-    return begin_id;
-  }
-  static ID End() {
-    static ID end_id = root_site()->GenerateID();
-    return end_id;
-  }
-
   struct InsertResult {
     String str;
     CommandPtr command;
   };
-  static CommandPtr MakeRawInsert(SitePtr site, Char c, ID after, ID before) {
+  static CommandPtr MakeRawInsert(Site* site, Char c, ID after, ID before) {
     ID new_id = site->GenerateID();
     return CommandPtr(new InsertCommand(new_id, c, after, before));
   }
-  CommandPtr MakeInsert(SitePtr site, Char c, ID after) {
+  CommandPtr MakeInsert(Site* site, Char c, ID after) {
     return MakeRawInsert(site, c, after, avl_.Lookup(after)->next);
   }
-  InsertResult Insert(SitePtr site, Char c, ID after) {
+  InsertResult Insert(Site* site, Char c, ID after) {
     auto command = MakeInsert(site, c, after);
     String str = Integrate(command);
     return InsertResult{str, std::move(command)};
@@ -117,11 +122,6 @@ class String {
   };
 
   String(functional_util::AVL<ID, CharInfo> avl) : avl_(avl) {}
-
-  static Site* root_site() {
-    static SitePtr p = Site::Make();
-    return p.get();
-  }
 
   String IntegrateDelete(ID id) {
     const CharInfo* cdel = avl_.Lookup(id);

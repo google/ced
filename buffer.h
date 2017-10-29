@@ -27,10 +27,10 @@ class Collaborator {
   virtual void Push(const EditNotification& notification) = 0;
   virtual EditResponse Pull() = 0;
 
-  woot::SitePtr site() const { return site_; }
+  woot::Site* site() { return &site_; }
 
  private:
-  const woot::SitePtr site_ = woot::Site::Make();
+  woot::Site site_;
 };
 
 typedef std::unique_ptr<Collaborator> CollaboratorPtr;
