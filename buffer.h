@@ -43,9 +43,16 @@ class Buffer {
   Buffer(const Buffer&) = delete;
   Buffer& operator=(const Buffer&) = delete;
 
-  void AddCollaborator(CollaboratorPtr&& collaborator);
+  template <class T, typename... Args>
+  T* MakeCollaborator(Args&&... args) {
+    T* p = new T(std::forward<Args>(args)...);
+    AddCollaborator(CollaboratorPtr(p));
+    return p;
+  }
 
  private:
+  void AddCollaborator(CollaboratorPtr&& collaborator);
+
   void RunPush(Collaborator* collaborator);
   void RunPull(Collaborator* collaborator);
 

@@ -3,7 +3,9 @@
 namespace ced {
 namespace buffer {
 
-Buffer::Buffer() : shutdown_(false), version_(0), updating_(false) {}
+Buffer::Buffer() : shutdown_(false), version_(0), updating_(false) {
+  views_ = views_.Add("main", ElemString());
+}
 
 Buffer::~Buffer() {
   mu_.Lock();

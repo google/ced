@@ -24,7 +24,12 @@ cc_test(
 cc_binary(
   name = "ced",
   srcs = ["main.cc"],
-  deps = ["@tl//:fullscreen"]
+  deps = [
+    "@tl//:fullscreen",
+    ":buffer",
+    ":io_collaborator",
+    ":terminal_collaborator",
+  ]
 )
 
 cc_library(
@@ -48,4 +53,11 @@ cc_library(
   srcs = ["io_collaborator.cc"],
   hdrs = ["io_collaborator.h"],
   deps = [":buffer", "@tl//:wrap_syscall"],
+)
+
+cc_library(
+  name = "terminal_collaborator",
+  srcs = ["terminal_collaborator.cc"],
+  hdrs = ["terminal_collaborator.h"],
+  deps = [":buffer", "@tl//:fullscreen"],
 )

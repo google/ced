@@ -1,7 +1,14 @@
+#include "buffer.h"
 #include "fullscreen.h"
+#include "io_collaborator.h"
+#include "terminal_collaborator.h"
 
 int main(void) {
   tl::Fullscreen terminal;
+  ced::buffer::Buffer buffer;
+  auto* terminal_collaborator =
+      buffer.MakeCollaborator<ced::buffer::TerminalCollaborator>(&terminal);
+  buffer.MakeCollaborator<ced::buffer::IOCollaborator>("avl.h");
 
   absl::Mutex mu;
   bool done = false;
