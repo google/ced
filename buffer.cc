@@ -23,13 +23,6 @@ void Buffer::AddCollaborator(CollaboratorPtr&& collaborator) {
   collaborator_threads_.emplace_back([this, raw]() { RunPush(raw); });
 }
 
-static bool IsEmpty(const EditResponse& response) {
-  for (const auto& cmdp : response.commands) {
-    if (!cmdp.second.empty()) return false;
-  }
-  return true;
-}
-
 void Buffer::RunPush(Collaborator* collaborator) {
   uint64_t processed_version = 0;
   auto processable = [this, &processed_version]() {
@@ -54,6 +47,13 @@ void Buffer::RunPush(Collaborator* collaborator) {
   }
 }
 
+static bool HasUpdates(const EditResponse& response) {
+  for (const auto& cmdp : response.commands) {
+    if (!cmdp.second.empty()) return true;
+  }
+  return false;
+}
+
 void Buffer::RunPull(ced::buffer::Collaborator* collaborator) {
   auto updatable = [this]() {
     mu_.AssertHeld();
@@ -63,7 +63,7 @@ void Buffer::RunPull(ced::buffer::Collaborator* collaborator) {
   for (;;) {
     EditResponse response = collaborator->Pull();
 
-    if (!IsEmpty(response)) {
+    if (HasUpdates(response)) {
       // get the update lock
       mu_.LockWhen(absl::Condition(&updatable));
       if (shutdown_) {
@@ -89,6 +89,10 @@ void Buffer::RunPull(ced::buffer::Collaborator* collaborator) {
       auto old_views = views_;  // destruct outside lock
       views_ = views;
       mu_.Unlock();
+    }
+
+    if (response.done) {
+      return;
     }
   }
 }

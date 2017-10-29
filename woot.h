@@ -34,39 +34,50 @@ template <class Char>
 class String {
  public:
   String() {
-    begin_ = root_site()->GenerateID();
-    end_ = root_site()->GenerateID();
     avl_ =
-        avl_.Add(begin_, CharInfo{false, Char(), end_, end_, end_, end_})
-            .Add(end_, CharInfo{false, Char(), begin_, begin_, begin_, begin_});
+        avl_.Add(Begin(), CharInfo{false, Char(), End(), End(), End(), End()})
+            .Add(End(),
+                 CharInfo{false, Char(), Begin(), Begin(), Begin(), Begin()});
   }
 
   class Command {
    public:
+    Command(ID id) : id_(id) {}
     virtual ~Command() {}
+
+    ID id() const { return id_; }
 
    private:
     friend class String;
     virtual String Integrate(String string) = 0;
+    const ID id_;
   };
   typedef std::unique_ptr<Command> CommandPtr;
 
-  ID begin() { return begin_; }
-  ID end() { return end_; }
+  static ID Begin() {
+    static ID begin_id = root_site()->GenerateID();
+    return begin_id;
+  }
+  static ID End() {
+    static ID end_id = root_site()->GenerateID();
+    return end_id;
+  }
 
   struct InsertResult {
     String str;
-    ID id;
     CommandPtr command;
   };
-  InsertResult Insert(SitePtr site, Char c, ID after) {
-    const CharInfo* aftc = avl_.Lookup(after);
-    assert(aftc);
-    ID before = aftc->next;
+  static CommandPtr MakeRawInsert(SitePtr site, Char c, ID after, ID before) {
     ID new_id = site->GenerateID();
-    CommandPtr command(new InsertCommand(new_id, c, after, before));
+    return CommandPtr(new InsertCommand(new_id, c, after, before));
+  }
+  CommandPtr MakeInsert(SitePtr site, Char c, ID after) {
+    return MakeRawInsert(site, c, after, avl_.Lookup(after)->next);
+  }
+  InsertResult Insert(SitePtr site, Char c, ID after) {
+    auto command = MakeInsert(site, c, after);
     String str = Integrate(command);
-    return InsertResult{str, new_id, std::move(command)};
+    return InsertResult{str, std::move(command)};
   }
 
   struct RemoveResult {
@@ -86,8 +97,8 @@ class String {
 
   std::basic_string<Char> Render() {
     std::basic_string<Char> out;
-    ID cur = avl_.Lookup(begin_)->next;
-    while (cur != end_) {
+    ID cur = avl_.Lookup(Begin())->next;
+    while (cur != End()) {
       const CharInfo* c = avl_.Lookup(cur);
       if (c->visible) out += c->chr;
       cur = c->next;
@@ -105,10 +116,9 @@ class String {
     ID before;
   };
 
-  String(ID begin, ID end, functional_util::AVL<ID, CharInfo> avl)
-      : begin_(begin), end_(end), avl_(avl) {}
+  String(functional_util::AVL<ID, CharInfo> avl) : avl_(avl) {}
 
-  Site* root_site() {
+  static Site* root_site() {
     static SitePtr p = Site::Make();
     return p.get();
   }
@@ -117,7 +127,6 @@ class String {
     const CharInfo* cdel = avl_.Lookup(id);
     if (!cdel->visible) return *this;
     return String(
-        begin_, end_,
         avl_.Add(id, CharInfo{false, cdel->chr, cdel->next, cdel->prev,
                               cdel->after, cdel->before}));
   }
@@ -129,7 +138,6 @@ class String {
     assert(cbef != nullptr);
     if (caft->next == before) {
       return String(
-          begin_, end_,
           avl_.Add(after, CharInfo{caft->visible, caft->chr, id, caft->prev,
                                    caft->after, caft->before})
               .Add(id, CharInfo{true, c, before, after, after, before})
@@ -170,14 +178,13 @@ class String {
   class InsertCommand final : public Command {
    public:
     InsertCommand(ID id, Char c, ID after, ID before)
-        : id_(id), c_(c), after_(after), before_(before) {}
+        : Command(id), c_(c), after_(after), before_(before) {}
 
     String Integrate(String s) {
-      return s.IntegrateInsert(id_, c_, after_, before_);
+      return s.IntegrateInsert(this->id(), c_, after_, before_);
     }
 
    private:
-    const ID id_;
     const Char c_;
     const ID after_;
     const ID before_;
@@ -185,16 +192,11 @@ class String {
 
   class DeleteCommand final : public Command {
    public:
-    DeleteCommand(ID id) : id_(id) {}
+    DeleteCommand(ID id) : Command(id) {}
 
-    String Integrate(String s) { return s.IntegrateDelete(id_); }
-
-   private:
-    const ID id_;
+    String Integrate(String s) { return s.IntegrateDelete(this->id()); }
   };
 
-  ID begin_;
-  ID end_;
   functional_util::AVL<ID, CharInfo> avl_;
 };
 

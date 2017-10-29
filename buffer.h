@@ -2,16 +2,15 @@
 
 #include <thread>
 #include "absl/synchronization/mutex.h"
+#include "absl/types/any.h"
 #include "woot.h"
 
 namespace ced {
 namespace buffer {
 
-class Elem;
-typedef std::shared_ptr<Elem> ElemPtr;
-class Elem {};
+typedef absl::any Elem;
 
-typedef woot::String<ElemPtr> ElemString;
+typedef woot::String<Elem> ElemString;
 typedef std::vector<ElemString::CommandPtr> CommandBuf;
 
 struct EditNotification {
@@ -20,12 +19,18 @@ struct EditNotification {
 
 struct EditResponse {
   std::map<std::string, CommandBuf> commands;
+  bool done = false;
 };
 
 class Collaborator {
  public:
   virtual void Push(const EditNotification& notification) = 0;
   virtual EditResponse Pull() = 0;
+
+  woot::SitePtr site() const { return site_; }
+
+ private:
+  const woot::SitePtr site_ = woot::Site::Make();
 };
 
 typedef std::unique_ptr<Collaborator> CollaboratorPtr;
