@@ -67,7 +67,10 @@ void TerminalCollaborator::Render(tl::FrameBuffer* fb) {
 
   for (int row = 0; row < fb->rows(); row++) {
     int col = 0;
-    it = ElemString::Iterator(*s, lines[row - cursor_row_ + cursor_line_idx]);
+    int rend_row = row - cursor_row_ + cursor_line_idx;
+    assert(rend_row >= 0);
+    if (rend_row >= lines.size()) break;
+    it = ElemString::Iterator(*s, lines[rend_row]);
     for (;;) {
       if (it.is_end()) break;
       if (it.is_visible()) {
