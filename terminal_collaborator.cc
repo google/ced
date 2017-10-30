@@ -22,8 +22,8 @@ EditResponse TerminalCollaborator::Pull() {
   return r;
 }
 
-static bool is_nl(const Elem& elem) {
-  const char* c = absl::any_cast<char>(&elem);
+static bool is_nl(const Elem* elem) {
+  const char* c = absl::any_cast<char>(elem);
   if (!c) return false;
   return *c == '\n';
 }
@@ -71,6 +71,7 @@ void TerminalCollaborator::Render(tl::FrameBuffer* fb) {
     assert(rend_row >= 0);
     if (rend_row >= lines.size()) break;
     it = ElemString::Iterator(*s, lines[rend_row]);
+    it.MoveNext();
     for (;;) {
       if (it.is_end()) break;
       if (it.is_visible()) {
