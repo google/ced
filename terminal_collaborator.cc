@@ -39,6 +39,9 @@ void TerminalCollaborator::Render(tl::FrameBuffer* fb) {
   while (!it.is_visible() && !it.is_begin()) {
     it.MovePrev();
   }
+  while (!it.is_visible() && !it.is_end()) {
+    it.MoveNext();
+  }
   cursor_ = it.id();
   while (!it.is_begin() && lines.size() < fb->rows()) {
     if (it.is_visible() && is_nl(it.value())) {
@@ -73,6 +76,9 @@ void TerminalCollaborator::Render(tl::FrameBuffer* fb) {
     it = ElemString::Iterator(*s, lines[rend_row]);
     it.MoveNext();
     for (;;) {
+      if (it.id() == cursor_) {
+        fb->set_cursor_pos(col, row);
+      }
       if (it.is_end()) break;
       if (it.is_visible()) {
         if (const char* c = absl::any_cast<char>(it.value())) {
