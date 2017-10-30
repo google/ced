@@ -26,6 +26,8 @@ class Site {
     return ID(id_, clock_.fetch_add(1, std::memory_order_relaxed));
   }
 
+  uint64_t site_id() const { return id_; }
+
  private:
   Site(uint64_t id) : id_(id) {}
   const uint64_t id_;
@@ -210,13 +212,19 @@ class String : public StringBase {
           cur_(str_.avl_.Lookup(pos_)) {}
 
     bool is_end() const { return pos_ == End(); }
+    bool is_begin() const { return pos_ == Begin(); }
     bool is_visible() const { return cur_->visible; }
 
     void MoveNext() {
       pos_ = cur_->next;
       cur_ = str_.avl_.Lookup(pos_);
     }
+    void MovePrev() {
+      pos_ = cur_->prev;
+      cur_ = str_.avl_.Lookup(pos_);
+    }
 
+    ID id() const { return pos_; }
     const Char* value() const { return &cur_->chr; }
 
    private:

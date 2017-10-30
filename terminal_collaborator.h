@@ -20,6 +20,8 @@ class TerminalCollaborator final : public Collaborator {
   absl::Mutex mu_;
   functional_util::AVL<std::string, ElemString> last_seen_views_
       GUARDED_BY(mu_);
+  woot::ID cursor_ GUARDED_BY(mu_);
+  int cursor_row_ GUARDED_BY(mu_);
 };
 
 }  // namespace buffer
