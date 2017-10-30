@@ -92,5 +92,35 @@ void TerminalCollaborator::Render(tl::FrameBuffer* fb) {
   }
 }
 
+void TerminalCollaborator::ProcessKey(tl::Key key) {
+  absl::MutexLock lock(&mu_);
+  const ElemString* s = last_seen_views_.Lookup("main");
+  if (!s) return;
+
+  if (key.is_function()) {
+    switch (key.function()) {
+      default:
+        break;
+      case tl::Key::LEFT: {
+        ElemString::Iterator it(*s, cursor_);
+        do {
+          if (it.is_begin()) break;
+          it.MovePrev();
+        } while (!it.is_visible());
+        terminal_->Invalidate();
+      } break;
+      case tl::Key::RIGHT: {
+        ElemString::Iterator it(*s, cursor_);
+        do {
+          if (it.is_begin()) break;
+          it.MovePrev();
+        } while (!it.is_visible());
+        terminal_->Invalidate();
+      } break;
+    }
+  } else if (key.mods() == 0) {
+  }
+}
+
 }  // namespace buffer
 }  // namespace ced

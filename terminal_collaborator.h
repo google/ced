@@ -14,6 +14,7 @@ class TerminalCollaborator final : public Collaborator {
   virtual EditResponse Pull() override;
 
   void Render(tl::FrameBuffer* fb);
+  void ProcessKey(tl::Key key);
 
  private:
   tl::Fullscreen* const terminal_;

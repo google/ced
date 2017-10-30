@@ -30,6 +30,7 @@ int main(void) {
           set_done();
           return;
         }
+        terminal_collaborator->ProcessKey(*c);
         terminal.NextInput(inp_cb);
       };
   std::function<void(tl::FrameBuffer*)> rdr_cb = [&](tl::FrameBuffer* fb) {
