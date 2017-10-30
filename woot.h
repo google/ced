@@ -6,6 +6,7 @@
 #include <memory>
 #include <tuple>
 #include <vector>
+#include <atomic>
 
 #include "avl.h"
 

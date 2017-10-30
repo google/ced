@@ -30,7 +30,8 @@ cc_binary(
     ":buffer",
     ":io_collaborator",
     ":terminal_collaborator",
-  ]
+  ],
+  linkopts = ["-lpthread"]
 )
 
 cc_library(
