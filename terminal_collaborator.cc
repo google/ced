@@ -74,6 +74,9 @@ void TerminalCollaborator::Render(tl::FrameBuffer* fb) {
     assert(rend_row >= 0);
     if (rend_row >= lines.size()) break;
     it = ElemString::Iterator(*s, lines[rend_row]);
+      if (it.id() == cursor_) {
+        fb->set_cursor_pos(col, row);
+      }
     it.MoveNext();
     for (;;) {
       if (it.id() == cursor_) {
@@ -107,14 +110,16 @@ void TerminalCollaborator::ProcessKey(tl::Key key) {
           if (it.is_begin()) break;
           it.MovePrev();
         } while (!it.is_visible());
+cursor_ = it.id();
         terminal_->Invalidate();
       } break;
       case tl::Key::RIGHT: {
         ElemString::Iterator it(*s, cursor_);
         do {
-          if (it.is_begin()) break;
-          it.MovePrev();
+          if (it.is_end()) break;
+          it.MoveNext();
         } while (!it.is_visible());
+cursor_ = it.id();
         terminal_->Invalidate();
       } break;
     }
