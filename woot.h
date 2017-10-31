@@ -39,9 +39,9 @@ class String {
  public:
   String() {
     avl_ =
-        avl_.Add(Begin(), charInfo{false, char(), End(), End(), End(), End()})
+        avl_.Add(Begin(), CharInfo{false, char(), End(), End(), End(), End()})
             .Add(End(),
-                 charInfo{false, char(), Begin(), Begin(), Begin(), Begin()});
+                 CharInfo{false, char(), Begin(), Begin(), Begin(), Begin()});
   }
 
   static ID Begin() { return begin_id_; }
@@ -62,14 +62,24 @@ class String {
   typedef std::unique_ptr<Command> CommandPtr;
 
   static CommandPtr MakeRawInsert(Site* site, char c, ID after, ID before) {
-    ID new_id = site->GenerateID();
-    return CommandPtr(new InsertCommand(new_id, c, after, before));
+    return CommandPtr(new InsertCommand(site->GenerateID(), c, after, before));
   }
   CommandPtr MakeInsert(Site* site, char c, ID after) {
     return MakeRawInsert(site, c, after, avl_.Lookup(after)->next);
   }
 
   CommandPtr MakeRemove(ID chr) { return CommandPtr(new DeleteCommand(chr)); }
+
+#if 0
+  CommandPtr MakeAnnotate(Site* site, ID id, absl::any annotation) {
+    return CommandPtr(
+        new AnnotateCommand(site->GenerateID(), id, std::move(annotation)));
+  }
+
+  CommandPtr MakeMystify(ID annotation) {
+    return CommandPtr(new MystifyCommand(annnotation));
+  }
+#endif
 
   String Integrate(const CommandPtr& command) {
     return command->Integrate(*this);
@@ -79,7 +89,7 @@ class String {
     std::basic_string<char> out;
     ID cur = avl_.Lookup(Begin())->next;
     while (cur != End()) {
-      const charInfo* c = avl_.Lookup(cur);
+      const CharInfo* c = avl_.Lookup(cur);
       if (c->visible) out += c->chr;
       cur = c->next;
     }
@@ -87,7 +97,7 @@ class String {
   }
 
  private:
-  struct charInfo {
+  struct CharInfo {
     bool visible;
     char chr;
     ID next;
@@ -96,39 +106,39 @@ class String {
     ID before;
   };
 
-  String(AVL<ID, charInfo> avl) : avl_(avl) {}
+  String(AVL<ID, CharInfo> avl) : avl_(avl) {}
 
   String IntegrateDelete(ID id) {
-    const charInfo* cdel = avl_.Lookup(id);
+    const CharInfo* cdel = avl_.Lookup(id);
     if (!cdel->visible) return *this;
     return String(
-        avl_.Add(id, charInfo{false, cdel->chr, cdel->next, cdel->prev,
+        avl_.Add(id, CharInfo{false, cdel->chr, cdel->next, cdel->prev,
                               cdel->after, cdel->before}));
   }
 
   String IntegrateInsert(ID id, char c, ID after, ID before) {
-    const charInfo* caft = avl_.Lookup(after);
-    const charInfo* cbef = avl_.Lookup(before);
+    const CharInfo* caft = avl_.Lookup(after);
+    const CharInfo* cbef = avl_.Lookup(before);
     assert(caft != nullptr);
     assert(cbef != nullptr);
     if (caft->next == before) {
       return String(
-          avl_.Add(after, charInfo{caft->visible, caft->chr, id, caft->prev,
+          avl_.Add(after, CharInfo{caft->visible, caft->chr, id, caft->prev,
                                    caft->after, caft->before})
-              .Add(id, charInfo{true, c, before, after, after, before})
-              .Add(before, charInfo{cbef->visible, cbef->chr, cbef->next, id,
+              .Add(id, CharInfo{true, c, before, after, after, before})
+              .Add(before, CharInfo{cbef->visible, cbef->chr, cbef->next, id,
                                     cbef->after, cbef->before}));
     }
-    typedef std::map<ID, const charInfo*> LMap;
+    typedef std::map<ID, const CharInfo*> LMap;
     LMap inL;
     std::vector<typename LMap::iterator> L;
-    auto addToL = [&](ID id, const charInfo* ci) {
+    auto addToL = [&](ID id, const CharInfo* ci) {
       L.push_back(inL.emplace(id, ci).first);
     };
     addToL(after, caft);
     ID n = caft->next;
     do {
-      const charInfo* cn = avl_.Lookup(n);
+      const CharInfo* cn = avl_.Lookup(n);
       assert(cn != nullptr);
       addToL(n, cn);
       n = cn->next;
@@ -172,7 +182,7 @@ class String {
     String Integrate(String s) { return s.IntegrateDelete(this->id()); }
   };
 
-  AVL<ID, charInfo> avl_;
+  AVL<ID, CharInfo> avl_;
   static Site root_site_;
   static ID begin_id_;
   static ID end_id_;
@@ -206,6 +216,6 @@ class String {
    private:
     const String* str_;
     ID pos_;
-    const charInfo* cur_;
+    const CharInfo* cur_;
   };
 };

@@ -5,7 +5,15 @@
 
 TerminalCollaborator::TerminalCollaborator(
     const std::function<void()> invalidate)
-    : invalidate_(invalidate), cursor_(String::Begin()), cursor_row_(0) {}
+    : invalidate_(invalidate),
+      shutdown_(false),
+      cursor_(String::Begin()),
+      cursor_row_(0) {}
+
+void TerminalCollaborator::Shutdown() {
+  absl::MutexLock lock(&mu_);
+  shutdown_ = true;
+}
 
 void TerminalCollaborator::Push(const EditNotification& notification) {
   {
@@ -17,7 +25,13 @@ void TerminalCollaborator::Push(const EditNotification& notification) {
 
 EditResponse TerminalCollaborator::Pull() {
   EditResponse r;
-  r.done = true;
+
+  auto ready = [this]() { return shutdown_ || !commands_.empty(); };
+
+  mu_.LockWhen(absl::Condition(&ready));
+  r.commands.swap(commands_);
+  mu_.Unlock();
+
   return r;
 }
 
@@ -76,7 +90,7 @@ void TerminalCollaborator::Render() {
     for (;;) {
       if (it.id() == cursor_) {
         cursor_row = row;
-        cursor_col = col;
+        cursor_col = col + 1;
       }
       if (it.is_end()) break;
       if (it.is_visible()) {
@@ -112,6 +126,11 @@ void TerminalCollaborator::ProcessKey(int key) {
       } while (!it.is_visible());
       cursor_ = it.id();
       invalidate_();
+    } break;
+    default: {
+      auto cmd = content_.MakeInsert(site(), key, cursor_);
+      cursor_ = cmd->id();
+      commands_.emplace_back(std::move(cmd));
     } break;
   }
 }

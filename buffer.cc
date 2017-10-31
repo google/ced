@@ -3,6 +3,10 @@
 Buffer::Buffer() : shutdown_(false), version_(0), updating_(false) {}
 
 Buffer::~Buffer() {
+  for (auto& c : collaborators_) {
+    c->Shutdown();
+  }
+
   mu_.Lock();
   shutdown_ = true;
   mu_.Unlock();

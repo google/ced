@@ -5,8 +5,9 @@
 class IOCollaborator final : public Collaborator {
  public:
   IOCollaborator(const std::string& filename);
-  virtual void Push(const EditNotification& notification) override;
-  virtual EditResponse Pull() override;
+  void Push(const EditNotification& notification) override;
+  EditResponse Pull() override;
+  void Shutdown() override;
 
  private:
   absl::Mutex mu_;

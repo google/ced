@@ -10,6 +10,8 @@ IOCollaborator::IOCollaborator(const std::string& filename)
                     [filename]() { return open(filename.c_str(), O_RDONLY); });
 }
 
+void IOCollaborator::Shutdown() {}
+
 void IOCollaborator::Push(const EditNotification& notification) {
   absl::MutexLock lock(&mu_);
   if (!finished_read_) return;
@@ -34,8 +36,8 @@ EditResponse IOCollaborator::Pull() {
   finished_read_ = r.done;
 
   for (int i = 0; i < n; i++) {
-    auto cmd = String::MakeRawInsert(site(), buf[i], last_char_id_,
-                                         String::End());
+    auto cmd =
+        String::MakeRawInsert(site(), buf[i], last_char_id_, String::End());
     last_char_id_ = cmd->id();
     r.commands.emplace_back(std::move(cmd));
   }

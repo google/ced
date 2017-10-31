@@ -6,8 +6,9 @@
 class TerminalCollaborator final : public Collaborator {
  public:
   TerminalCollaborator(std::function<void()> invalidate);
-  virtual void Push(const EditNotification& notification) override;
-  virtual EditResponse Pull() override;
+  void Push(const EditNotification& notification) override;
+  EditResponse Pull() override;
+  void Shutdown() override;
 
   void Render();
   void ProcessKey(int key);
@@ -15,6 +16,8 @@ class TerminalCollaborator final : public Collaborator {
  private:
   const std::function<void()> invalidate_;
   absl::Mutex mu_;
+  std::vector<String::CommandPtr> commands_ GUARDED_BY(mu_);
+  bool shutdown_ GUARDED_BY(mu_);
   String content_ GUARDED_BY(mu_);
   ID cursor_ GUARDED_BY(mu_);
   int cursor_row_ GUARDED_BY(mu_);

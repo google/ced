@@ -20,6 +20,7 @@ class Collaborator {
  public:
   virtual void Push(const EditNotification& notification) = 0;
   virtual EditResponse Pull() = 0;
+  virtual void Shutdown() = 0;
 
   Site* site() { return &site_; }
 
