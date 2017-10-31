@@ -1,19 +1,18 @@
 #include "terminal_collaborator.h"
+#include <curses.h>
 #include <deque>
 #include <vector>
 
-namespace ced {
-namespace buffer {
-
-TerminalCollaborator::TerminalCollaborator(tl::Fullscreen* terminal)
-    : terminal_(terminal), cursor_(ElemString::Begin()) {}
+TerminalCollaborator::TerminalCollaborator(
+    const std::function<void()> invalidate)
+    : invalidate_(invalidate), cursor_(ElemString::Begin()), cursor_row_(0) {}
 
 void TerminalCollaborator::Push(const EditNotification& notification) {
   {
     absl::MutexLock lock(&mu_);
-    last_seen_views_ = notification.views;
+    content_ = notification.content;
   }
-  terminal_->Invalidate();
+  invalidate_();
 }
 
 EditResponse TerminalCollaborator::Pull() {
@@ -28,14 +27,15 @@ static bool is_nl(const Elem* elem) {
   return *c == '\n';
 }
 
-void TerminalCollaborator::Render(tl::FrameBuffer* fb) {
+void TerminalCollaborator::Render() {
   absl::MutexLock lock(&mu_);
-  const ElemString* s = last_seen_views_.Lookup("main");
-  if (!s) return;
+
+  int fb_rows, fb_cols;
+  getmaxyx(stdscr, fb_rows, fb_cols);
 
   // generate a deque of lines by the ID of the starting element
-  std::deque<woot::ID> lines;
-  ElemString::Iterator it(*s, cursor_);
+  std::deque<ID> lines;
+  ElemString::Iterator it(content_, cursor_);
   while (!it.is_visible() && !it.is_begin()) {
     it.MovePrev();
   }
@@ -43,7 +43,7 @@ void TerminalCollaborator::Render(tl::FrameBuffer* fb) {
     it.MoveNext();
   }
   cursor_ = it.id();
-  while (!it.is_begin() && lines.size() < fb->rows()) {
+  while (!it.is_begin() && lines.size() < fb_rows) {
     if (it.is_visible() && is_nl(it.value())) {
       lines.push_front(it.id());
     }
@@ -53,9 +53,9 @@ void TerminalCollaborator::Render(tl::FrameBuffer* fb) {
     lines.push_front(it.id());
   }
   int cursor_line_idx = static_cast<int>(lines.size()) - 1;
-  it = ElemString::Iterator(*s, cursor_);
+  it = ElemString::Iterator(content_, cursor_);
   if (!it.is_end()) it.MoveNext();
-  int tgt_lines = lines.size() + fb->rows();
+  int tgt_lines = lines.size() + fb_rows;
   while (!it.is_end() && lines.size() < tgt_lines) {
     if (it.is_visible() && is_nl(it.value())) {
       lines.push_back(it.id());
@@ -68,64 +68,61 @@ void TerminalCollaborator::Render(tl::FrameBuffer* fb) {
     cursor_row_ = cursor_line_idx;
   }
 
-  for (int row = 0; row < fb->rows(); row++) {
+  int cursor_row = 0;
+  int cursor_col = 0;
+
+  for (int row = 0; row < fb_rows; row++) {
     int col = 0;
     int rend_row = row - cursor_row_ + cursor_line_idx;
     assert(rend_row >= 0);
     if (rend_row >= lines.size()) break;
-    it = ElemString::Iterator(*s, lines[rend_row]);
-      if (it.id() == cursor_) {
-        fb->set_cursor_pos(col, row);
-      }
+    it = ElemString::Iterator(content_, lines[rend_row]);
+    if (it.id() == cursor_) {
+      cursor_row = row;
+      cursor_col = col;
+    }
     it.MoveNext();
     for (;;) {
       if (it.id() == cursor_) {
-        fb->set_cursor_pos(col, row);
+        cursor_row = row;
+        cursor_col = col;
       }
       if (it.is_end()) break;
       if (it.is_visible()) {
         if (const char* c = absl::any_cast<char>(it.value())) {
           if (*c == '\n') break;
-          fb->cell(col, row)->set_glyph(*c);
+          mvaddch(row, col, *c);
           col++;
         }
       }
       it.MoveNext();
     }
   }
+
+  move(cursor_row, cursor_col);
 }
 
-void TerminalCollaborator::ProcessKey(tl::Key key) {
+void TerminalCollaborator::ProcessKey(int key) {
   absl::MutexLock lock(&mu_);
-  const ElemString* s = last_seen_views_.Lookup("main");
-  if (!s) return;
 
-  if (key.is_function()) {
-    switch (key.function()) {
-      default:
-        break;
-      case tl::Key::LEFT: {
-        ElemString::Iterator it(*s, cursor_);
-        do {
-          if (it.is_begin()) break;
-          it.MovePrev();
-        } while (!it.is_visible());
-cursor_ = it.id();
-        terminal_->Invalidate();
-      } break;
-      case tl::Key::RIGHT: {
-        ElemString::Iterator it(*s, cursor_);
-        do {
-          if (it.is_end()) break;
-          it.MoveNext();
-        } while (!it.is_visible());
-cursor_ = it.id();
-        terminal_->Invalidate();
-      } break;
-    }
-  } else if (key.mods() == 0) {
+  switch (key) {
+    case KEY_LEFT: {
+      ElemString::Iterator it(content_, cursor_);
+      do {
+        if (it.is_begin()) break;
+        it.MovePrev();
+      } while (!it.is_visible());
+      cursor_ = it.id();
+      invalidate_();
+    } break;
+    case KEY_RIGHT: {
+      ElemString::Iterator it(content_, cursor_);
+      do {
+        if (it.is_end()) break;
+        it.MoveNext();
+      } while (!it.is_visible());
+      cursor_ = it.id();
+      invalidate_();
+    } break;
   }
 }
-
-}  // namespace buffer
-}  // namespace ced

@@ -1,50 +1,97 @@
+#include <curses.h>
 #include "buffer.h"
-#include "fullscreen.h"
 #include "io_collaborator.h"
 #include "terminal_collaborator.h"
 
-int main(void) {
-  tl::Fullscreen terminal;
-  ced::buffer::Buffer buffer;
-  auto* terminal_collaborator =
-      buffer.MakeCollaborator<ced::buffer::TerminalCollaborator>(&terminal);
-  buffer.MakeCollaborator<ced::buffer::IOCollaborator>("avl.h");
+class Application {
+ public:
+  Application()
+      : done_(false),
+        invalidated_(true),
+        terminal_collaborator_(buffer_.MakeCollaborator<TerminalCollaborator>(
+            [this]() { Invalidate(); })) {
+    initscr();
+    keypad(stdscr, true);
+    renderer_ = std::thread([this]() { Renderer(); });
+    input_ = std::thread([this]() { InputLoop(); });
+    buffer_.MakeCollaborator<IOCollaborator>("avl.h");
+  }
 
-  absl::Mutex mu;
-  bool done = false;
+  ~Application() {
+    endwin();
+    input_.join();
+    renderer_.join();
+  }
 
-  auto set_done = [&]() {
-    mu.Lock();
-    done = true;
-    mu.Unlock();
-  };
+  void Quit() {
+    absl::MutexLock lock(&mu_);
+    done_ = true;
+    ungetch(0);
+  }
 
-  std::function<void(absl::optional<tl::Key>)> inp_cb =
-      [&](absl::optional<tl::Key> c) {
-        if (!c) {
-          set_done();
-          return;
-        }
-        if (c->is_character() && tolower(c->character()) == 'q' &&
-            c->mods() == tl::Key::CTRL) {
-          set_done();
-          return;
-        }
-        terminal_collaborator->ProcessKey(*c);
-        terminal.NextInput(inp_cb);
-      };
-  std::function<void(tl::FrameBuffer*)> rdr_cb = [&](tl::FrameBuffer* fb) {
-    if (!fb) {
-      set_done();
-      return;
+  void Invalidate() {
+    absl::MutexLock lock(&mu_);
+    invalidated_ = true;
+  }
+
+  void Wait() {
+    mu_.LockWhen(absl::Condition(&done_));
+    mu_.Unlock();
+  }
+
+ private:
+  void Renderer() {
+    auto ready = [this]() {
+      mu_.AssertHeld();
+      return invalidated_ || done_;
+    };
+
+    for (;;) {
+      mu_.LockWhen(absl::Condition(&ready));
+      if (done_) {
+        mu_.Unlock();
+        return;
+      }
+      invalidated_ = false;
+      mu_.Unlock();
+
+      erase();
+      Render();
+      refresh();
     }
-    terminal_collaborator->Render(fb);
-    terminal.NextRender(rdr_cb);
-  };
+  }
 
-  terminal.NextInput(inp_cb);
-  terminal.NextRender(rdr_cb);
+  void InputLoop() {
+    for (;;) {
+      int c = getch();
 
-  mu.LockWhen(absl::Condition(&done));
-  mu.Unlock();
-}
+      switch (c) {
+        case KEY_RESIZE:
+          Invalidate();
+          break;
+        case 'q':
+          Quit();
+          break;
+        default:
+          terminal_collaborator_->ProcessKey(c);
+      }
+
+      absl::MutexLock lock(&mu_);
+      if (done_) return;
+    }
+  }
+
+  void Render() {}
+
+  absl::Mutex mu_;
+  bool done_ GUARDED_BY(mu_);
+  bool invalidated_ GUARDED_BY(mu_);
+
+  std::thread renderer_;
+  std::thread input_;
+
+  Buffer buffer_;
+  TerminalCollaborator *const terminal_collaborator_;
+};
+
+int main(void) { Application().Wait(); }

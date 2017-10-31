@@ -2,15 +2,13 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <atomic>
 #include <map>
 #include <memory>
 #include <tuple>
 #include <vector>
-#include <atomic>
 
 #include "avl.h"
-
-namespace woot {
 
 class Site;
 
@@ -124,7 +122,7 @@ class String : public StringBase {
     ID before;
   };
 
-  String(functional_util::AVL<ID, CharInfo> avl) : avl_(avl) {}
+  String(AVL<ID, CharInfo> avl) : avl_(avl) {}
 
   String IntegrateDelete(ID id) {
     const CharInfo* cdel = avl_.Lookup(id);
@@ -200,7 +198,7 @@ class String : public StringBase {
     String Integrate(String s) { return s.IntegrateDelete(this->id()); }
   };
 
-  functional_util::AVL<ID, CharInfo> avl_;
+  AVL<ID, CharInfo> avl_;
 
  public:
   class Iterator {
@@ -234,5 +232,3 @@ class String : public StringBase {
     const CharInfo* cur_;
   };
 };
-
-}  // namespace woot

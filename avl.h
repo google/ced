@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <memory>
 
-namespace functional_util {
-
 template <class K, class V>
 class AVL {
  public:
@@ -171,5 +169,3 @@ class AVL {
     }
   }
 };
-
-}  // namespace functional_util

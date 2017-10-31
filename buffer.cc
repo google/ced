@@ -1,11 +1,6 @@
 #include "buffer.h"
 
-namespace ced {
-namespace buffer {
-
-Buffer::Buffer() : shutdown_(false), version_(0), updating_(false) {
-  views_ = views_.Add("main", ElemString());
-}
+Buffer::Buffer() : shutdown_(false), version_(0), updating_(false) {}
 
 Buffer::~Buffer() {
   mu_.Lock();
@@ -40,7 +35,7 @@ void Buffer::RunPush(Collaborator* collaborator) {
     }
     processed_version = version_;
     EditNotification notification{
-        views_,
+        content_,
     };
     mu_.Unlock();
 
@@ -50,13 +45,10 @@ void Buffer::RunPush(Collaborator* collaborator) {
 }
 
 static bool HasUpdates(const EditResponse& response) {
-  for (const auto& cmdp : response.commands) {
-    if (!cmdp.second.empty()) return true;
-  }
-  return false;
+  return !response.commands.empty();
 }
 
-void Buffer::RunPull(ced::buffer::Collaborator* collaborator) {
+void Buffer::RunPull(Collaborator* collaborator) {
   auto updatable = [this]() {
     mu_.AssertHeld();
     return shutdown_ || !updating_;
@@ -73,23 +65,19 @@ void Buffer::RunPull(ced::buffer::Collaborator* collaborator) {
         return;
       }
       updating_ = true;
-      auto views = views_;
+      auto content = content_;
       mu_.Unlock();
 
-      for (const auto& cmdp : response.commands) {
-        ElemString s = *views.Lookup(cmdp.first);
-        for (const auto& cmd : cmdp.second) {
-          s = s.Integrate(cmd);
-        }
-        views = views.Add(cmdp.first, s);
+      for (const auto& cmd : response.commands) {
+        content = content.Integrate(cmd);
       }
 
       // commit the update and advance time
       mu_.Lock();
       updating_ = false;
       version_++;
-      auto old_views = views_;  // destruct outside lock
-      views_ = views;
+      auto old_content = content_;  // destruct outside lock
+      content_ = content;
       mu_.Unlock();
     }
 
@@ -98,6 +86,3 @@ void Buffer::RunPull(ced::buffer::Collaborator* collaborator) {
     }
   }
 }
-
-}  // namespace buffer
-}  // namespace ced

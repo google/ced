@@ -1,8 +1,6 @@
 #include "avl.h"
 #include <gtest/gtest.h>
 
-using namespace functional_util;
-
 TEST(AvlTest, NoOp) { AVL<int, int> avl; }
 
 TEST(AvlTest, Lookup) {

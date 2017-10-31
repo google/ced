@@ -1,9 +1,6 @@
 #include "woot.h"
 #include "gtest/gtest.h"
 
-namespace woot {
-namespace testing {
-
 TEST(String, NoOp) { String<char> s; }
 
 TEST(String, MutateThenRender) {
@@ -19,6 +16,3 @@ TEST(String, MutateThenRender) {
   auto rr = s.Remove(r.command->id());
   EXPECT_EQ(rr.str.Render(), "a");
 }
-
-}  // namespace testing
-}  // namespace woot

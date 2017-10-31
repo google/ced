@@ -5,20 +5,17 @@
 #include "absl/types/any.h"
 #include "woot.h"
 
-namespace ced {
-namespace buffer {
-
 typedef absl::any Elem;
 
-typedef woot::String<Elem> ElemString;
+typedef String<Elem> ElemString;
 typedef std::vector<ElemString::CommandPtr> CommandBuf;
 
 struct EditNotification {
-  functional_util::AVL<std::string, ElemString> views;
+  ElemString content;
 };
 
 struct EditResponse {
-  std::map<std::string, CommandBuf> commands;
+  CommandBuf commands;
   bool done = false;
 };
 
@@ -27,10 +24,10 @@ class Collaborator {
   virtual void Push(const EditNotification& notification) = 0;
   virtual EditResponse Pull() = 0;
 
-  woot::Site* site() { return &site_; }
+  Site* site() { return &site_; }
 
  private:
-  woot::Site site_;
+  Site site_;
 };
 
 typedef std::unique_ptr<Collaborator> CollaboratorPtr;
@@ -60,10 +57,7 @@ class Buffer {
   bool shutdown_ GUARDED_BY(mu_);
   uint64_t version_ GUARDED_BY(mu_);
   bool updating_ GUARDED_BY(mu_);
-  functional_util::AVL<std::string, ElemString> views_ GUARDED_BY(mu_);
+  ElemString content_ GUARDED_BY(mu_);
   std::vector<CollaboratorPtr> collaborators_ GUARDED_BY(mu_);
   std::vector<std::thread> collaborator_threads_ GUARDED_BY(mu_);
 };
-
-}  // namespace buffer
-}  // namespace ced

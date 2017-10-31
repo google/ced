@@ -26,12 +26,11 @@ cc_binary(
   name = "ced",
   srcs = ["main.cc"],
   deps = [
-    "@tl//:fullscreen",
     ":buffer",
     ":io_collaborator",
     ":terminal_collaborator",
   ],
-  linkopts = ["-lpthread"]
+  linkopts = ["-lcurses", "-lpthread"]
 )
 
 cc_library(
@@ -54,12 +53,25 @@ cc_library(
   name = "io_collaborator",
   srcs = ["io_collaborator.cc"],
   hdrs = ["io_collaborator.h"],
-  deps = [":buffer", "@tl//:wrap_syscall"],
+  deps = [":buffer", ":wrap_syscall"],
 )
 
 cc_library(
   name = "terminal_collaborator",
   srcs = ["terminal_collaborator.cc"],
   hdrs = ["terminal_collaborator.h"],
-  deps = [":buffer", "@tl//:fullscreen"],
+  deps = [":buffer"],
+)
+
+cc_library(
+  name = 'wrap_syscall',
+  hdrs = ['wrap_syscall.h'],
+  srcs = ['wrap_syscall.cc'],
+  deps = ['@com_google_absl//absl/strings']
+)
+
+cc_test(
+  name = 'wrap_syscall_test',
+  srcs = ['wrap_syscall_test.cc'],
+  deps = [':wrap_syscall', '@com_google_googletest//:gtest_main']
 )

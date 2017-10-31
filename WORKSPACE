@@ -1,8 +1,3 @@
-local_repository(
-  name="tl",
-  path="tl"
-)
-
 git_repository(
   name="com_google_absl",
   commit="6cf9c731027f4d8aebe3c60df8e64317e6870870",
