@@ -45,15 +45,18 @@ void TerminalCollaborator::Render() {
   int fb_rows, fb_cols;
   getmaxyx(stdscr, fb_rows, fb_cols);
 
+  if (cursor_row_ >= fb_rows) {
+    cursor_row_ = fb_rows - 1;
+  } else if (cursor_row_ < 0) {
+    cursor_row_ = 0;
+  }
+
   // generate a deque of lines by the ID of the starting element
   std::deque<ID> lines;
   String::Iterator it(content_, cursor_);
-  while (!it.is_visible() && !it.is_begin()) {
-    it.MovePrev();
-  }
   cursor_ = it.id();
   while (!it.is_begin() && lines.size() < fb_rows) {
-    if (it.is_visible() && it.value() == '\n') {
+    if (it.value() == '\n') {
       lines.push_front(it.id());
     }
     it.MovePrev();
@@ -66,7 +69,7 @@ void TerminalCollaborator::Render() {
   if (!it.is_end()) it.MoveNext();
   int tgt_lines = lines.size() + fb_rows;
   while (!it.is_end() && lines.size() < tgt_lines) {
-    if (it.is_visible() && it.value() == '\n') {
+    if (it.value() == '\n') {
       lines.push_back(it.id());
     }
     it.MoveNext();
@@ -97,11 +100,9 @@ void TerminalCollaborator::Render() {
         cursor_col = col + 1;
       }
       if (it.is_end()) break;
-      if (it.is_visible()) {
-        if (it.value() == '\n') break;
-        mvaddch(row, col, it.value());
-        col++;
-      }
+      if (it.value() == '\n') break;
+      mvaddch(row, col, it.value());
+      col++;
       it.MoveNext();
     }
   }
@@ -117,20 +118,61 @@ void TerminalCollaborator::ProcessKey(int key) {
   switch (key) {
     case KEY_LEFT: {
       String::Iterator it(content_, cursor_);
-      do {
-        if (it.is_begin()) break;
-        it.MovePrev();
-      } while (!it.is_visible());
+      it.MovePrev();
       cursor_ = it.id();
       invalidate_();
     } break;
     case KEY_RIGHT: {
       String::Iterator it(content_, cursor_);
-      do {
-        if (it.is_end()) break;
-        it.MoveNext();
-      } while (!it.is_visible());
+      it.MoveNext();
       cursor_ = it.id();
+      invalidate_();
+    } break;
+    case KEY_UP: {
+      String::Iterator it(content_, cursor_);
+      int col = 0;
+      auto edge = [&it]() {
+        return it.is_begin() || it.is_end() || it.value() == '\n';
+      };
+      while (!edge()) {
+        it.MovePrev();
+        col++;
+      }
+      Log() << "col:" << col;
+      do {
+        it.MovePrev();
+      } while (!edge());
+      it.MoveNext();
+      for (; col > 0 && !edge(); col--) {
+        it.MoveNext();
+      }
+      it.MovePrev();
+      cursor_ = it.id();
+      cursor_row_--;
+      invalidate_();
+    } break;
+    case KEY_DOWN: {
+      String::Iterator it(content_, cursor_);
+      int col = 0;
+      auto edge = [&it]() {
+        return it.is_begin() || it.is_end() || it.value() == '\n';
+      };
+      while (!edge()) {
+        it.MovePrev();
+        col++;
+      }
+      Log() << "col:" << col;
+      it = String::Iterator(content_, cursor_);
+      do {
+        it.MoveNext();
+      } while (!edge());
+      it.MoveNext();
+      for (; col > 0 && !edge(); col--) {
+        it.MoveNext();
+      }
+      it.MovePrev();
+      cursor_ = it.id();
+      cursor_row_++;
       invalidate_();
     } break;
     case 127:
