@@ -83,6 +83,11 @@ void Buffer::RunPull(Collaborator* collaborator) {
       auto old_content = content_;  // destruct outside lock
       content_ = content;
       mu_.Unlock();
+    } else {
+      absl::MutexLock lock(&mu_);
+      if (shutdown_) {
+        return;
+      }
     }
 
     if (response.done) {
