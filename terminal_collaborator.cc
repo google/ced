@@ -2,6 +2,7 @@
 #include <curses.h>
 #include <deque>
 #include <vector>
+#include "log.h"
 
 TerminalCollaborator::TerminalCollaborator(
     const std::function<void()> invalidate)
@@ -26,7 +27,10 @@ void TerminalCollaborator::Push(const EditNotification& notification) {
 EditResponse TerminalCollaborator::Pull() {
   EditResponse r;
 
-  auto ready = [this]() { return shutdown_ || !commands_.empty(); };
+  auto ready = [this]() {
+    mu_.AssertHeld();
+    return shutdown_ || !commands_.empty();
+  };
 
   mu_.LockWhen(absl::Condition(&ready));
   r.commands.swap(commands_);
@@ -108,6 +112,8 @@ void TerminalCollaborator::Render() {
 void TerminalCollaborator::ProcessKey(int key) {
   absl::MutexLock lock(&mu_);
 
+  Log() << "TerminalCollaborator::ProcessKey: " << key;
+
   switch (key) {
     case KEY_LEFT: {
       String::Iterator it(content_, cursor_);
@@ -127,10 +133,19 @@ void TerminalCollaborator::ProcessKey(int key) {
       cursor_ = it.id();
       invalidate_();
     } break;
+    case 127:
+    case KEY_BACKSPACE: {
+      commands_.emplace_back(content_.MakeRemove(cursor_));
+      String::Iterator it(content_, cursor_);
+      it.MovePrev();
+      cursor_ = it.id();
+    } break;
     default: {
-      auto cmd = content_.MakeInsert(site(), key, cursor_);
-      cursor_ = cmd->id();
-      commands_.emplace_back(std::move(cmd));
+      if (key >= 32 && key < 127) {
+        auto cmd = content_.MakeInsert(site(), key, cursor_);
+        cursor_ = cmd->id();
+        commands_.emplace_back(std::move(cmd));
+      }
     } break;
   }
 }

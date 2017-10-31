@@ -60,7 +60,7 @@ cc_library(
   name = "terminal_collaborator",
   srcs = ["terminal_collaborator.cc"],
   hdrs = ["terminal_collaborator.h"],
-  deps = [":buffer"],
+  deps = [":buffer", ":log"],
 )
 
 cc_library(
@@ -74,4 +74,17 @@ cc_test(
   name = 'wrap_syscall_test',
   srcs = ['wrap_syscall_test.cc'],
   deps = [':wrap_syscall', '@com_google_googletest//:gtest_main']
+)
+
+cc_library(
+  name = "log",
+  srcs = ["log.cc"],
+  hdrs = ["log.h"],
+  deps = [":wrap_syscall"]
+)
+
+cc_test(
+  name = "log_test",
+  srcs = ["log_test.cc"],
+  deps = [":log"]
 )
