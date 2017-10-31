@@ -81,7 +81,7 @@ class Application {
     }
   }
 
-  void Render() {}
+  void Render() { terminal_collaborator_->Render(); }
 
   absl::Mutex mu_;
   bool done_ GUARDED_BY(mu_);
