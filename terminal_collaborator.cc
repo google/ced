@@ -33,9 +33,6 @@ void TerminalCollaborator::Render() {
   while (!it.is_visible() && !it.is_begin()) {
     it.MovePrev();
   }
-  while (!it.is_visible() && !it.is_end()) {
-    it.MoveNext();
-  }
   cursor_ = it.id();
   while (!it.is_begin() && lines.size() < fb_rows) {
     if (it.is_visible() && it.value() == '\n') {
