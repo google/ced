@@ -55,7 +55,7 @@ class Application {
       invalidated_ = false;
       mu_.Unlock();
 
-      erase();
+      clear();
       Render();
       refresh();
     }

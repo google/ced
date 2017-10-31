@@ -1,6 +1,6 @@
 #include "woot.h"
 
 std::atomic<uint64_t> Site::id_gen_;
-Site StringBase::root_site_;
-ID StringBase::begin_id_ = root_site_.GenerateID();
-ID StringBase::end_id_ = root_site_.GenerateID();
+Site String::root_site_;
+ID String::begin_id_ = root_site_.GenerateID();
+ID String::end_id_ = root_site_.GenerateID();

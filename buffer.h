@@ -5,13 +5,10 @@
 #include "absl/types/any.h"
 #include "woot.h"
 
-typedef absl::any Elem;
-
-typedef String<Elem> ElemString;
-typedef std::vector<ElemString::CommandPtr> CommandBuf;
+typedef std::vector<String::CommandPtr> CommandBuf;
 
 struct EditNotification {
-  ElemString content;
+  String content;
 };
 
 struct EditResponse {
@@ -57,7 +54,7 @@ class Buffer {
   bool shutdown_ GUARDED_BY(mu_);
   uint64_t version_ GUARDED_BY(mu_);
   bool updating_ GUARDED_BY(mu_);
-  ElemString content_ GUARDED_BY(mu_);
+  String content_ GUARDED_BY(mu_);
   std::vector<CollaboratorPtr> collaborators_ GUARDED_BY(mu_);
   std::vector<std::thread> collaborator_threads_ GUARDED_BY(mu_);
 };

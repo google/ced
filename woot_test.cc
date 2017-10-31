@@ -1,12 +1,12 @@
 #include "woot.h"
 #include "gtest/gtest.h"
 
-TEST(String, NoOp) { String<char> s; }
+TEST(String, NoOp) { String s; }
 
 TEST(String, MutateThenRender) {
-  String<char> s;
+  String s;
   Site site;
-  auto r = s.Insert(&site, 'a', String<char>::Begin());
+  auto r = s.Insert(&site, 'a', String::Begin());
   EXPECT_EQ(s.Render(), "");
   EXPECT_EQ(r.str.Render(), "a");
   s = r.str;

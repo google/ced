@@ -5,7 +5,7 @@
 #include "wrap_syscall.h"
 
 IOCollaborator::IOCollaborator(const std::string& filename)
-    : filename_(filename), last_char_id_(ElemString::Begin()) {
+    : filename_(filename), last_char_id_(String::Begin()) {
   fd_ = WrapSyscall("open",
                     [filename]() { return open(filename.c_str(), O_RDONLY); });
 }
@@ -34,8 +34,8 @@ EditResponse IOCollaborator::Pull() {
   finished_read_ = r.done;
 
   for (int i = 0; i < n; i++) {
-    auto cmd = ElemString::MakeRawInsert(site(), buf[i], last_char_id_,
-                                         ElemString::End());
+    auto cmd = String::MakeRawInsert(site(), buf[i], last_char_id_,
+                                         String::End());
     last_char_id_ = cmd->id();
     r.commands.emplace_back(std::move(cmd));
   }

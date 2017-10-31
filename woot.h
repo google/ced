@@ -5,6 +5,7 @@
 #include <atomic>
 #include <map>
 #include <memory>
+#include <string>
 #include <tuple>
 #include <vector>
 
@@ -34,26 +35,17 @@ class Site {
   static std::atomic<uint64_t> id_gen_;
 };
 
-class StringBase {
- public:
-  static ID Begin() { return begin_id_; }
-  static ID End() { return end_id_; }
-
- private:
-  static Site root_site_;
-  static ID begin_id_;
-  static ID end_id_;
-};
-
-template <class Char>
-class String : public StringBase {
+class String {
  public:
   String() {
     avl_ =
-        avl_.Add(Begin(), CharInfo{false, Char(), End(), End(), End(), End()})
+        avl_.Add(Begin(), charInfo{false, char(), End(), End(), End(), End()})
             .Add(End(),
-                 CharInfo{false, Char(), Begin(), Begin(), Begin(), Begin()});
+                 charInfo{false, char(), Begin(), Begin(), Begin(), Begin()});
   }
+
+  static ID Begin() { return begin_id_; }
+  static ID End() { return end_id_; }
 
   class Command {
    public:
@@ -69,43 +61,25 @@ class String : public StringBase {
   };
   typedef std::unique_ptr<Command> CommandPtr;
 
-  struct InsertResult {
-    String str;
-    CommandPtr command;
-  };
-  static CommandPtr MakeRawInsert(Site* site, Char c, ID after, ID before) {
+  static CommandPtr MakeRawInsert(Site* site, char c, ID after, ID before) {
     ID new_id = site->GenerateID();
     return CommandPtr(new InsertCommand(new_id, c, after, before));
   }
-  CommandPtr MakeInsert(Site* site, Char c, ID after) {
+  CommandPtr MakeInsert(Site* site, char c, ID after) {
     return MakeRawInsert(site, c, after, avl_.Lookup(after)->next);
   }
-  InsertResult Insert(Site* site, Char c, ID after) {
-    auto command = MakeInsert(site, c, after);
-    String str = Integrate(command);
-    return InsertResult{str, std::move(command)};
-  }
 
-  struct RemoveResult {
-    String str;
-    CommandPtr command;
-  };
-  RemoveResult Remove(ID chr) {
-    assert(avl_.Lookup(chr));
-    CommandPtr command(new DeleteCommand(chr));
-    String str = Integrate(command);
-    return RemoveResult{str, std::move(command)};
-  }
+  CommandPtr MakeRemove(ID chr) { return CommandPtr(new DeleteCommand(chr)); }
 
   String Integrate(const CommandPtr& command) {
     return command->Integrate(*this);
   }
 
-  std::basic_string<Char> Render() {
-    std::basic_string<Char> out;
+  std::basic_string<char> Render() {
+    std::basic_string<char> out;
     ID cur = avl_.Lookup(Begin())->next;
     while (cur != End()) {
-      const CharInfo* c = avl_.Lookup(cur);
+      const charInfo* c = avl_.Lookup(cur);
       if (c->visible) out += c->chr;
       cur = c->next;
     }
@@ -113,48 +87,48 @@ class String : public StringBase {
   }
 
  private:
-  struct CharInfo {
+  struct charInfo {
     bool visible;
-    Char chr;
+    char chr;
     ID next;
     ID prev;
     ID after;
     ID before;
   };
 
-  String(AVL<ID, CharInfo> avl) : avl_(avl) {}
+  String(AVL<ID, charInfo> avl) : avl_(avl) {}
 
   String IntegrateDelete(ID id) {
-    const CharInfo* cdel = avl_.Lookup(id);
+    const charInfo* cdel = avl_.Lookup(id);
     if (!cdel->visible) return *this;
     return String(
-        avl_.Add(id, CharInfo{false, cdel->chr, cdel->next, cdel->prev,
+        avl_.Add(id, charInfo{false, cdel->chr, cdel->next, cdel->prev,
                               cdel->after, cdel->before}));
   }
 
-  String IntegrateInsert(ID id, Char c, ID after, ID before) {
-    const CharInfo* caft = avl_.Lookup(after);
-    const CharInfo* cbef = avl_.Lookup(before);
+  String IntegrateInsert(ID id, char c, ID after, ID before) {
+    const charInfo* caft = avl_.Lookup(after);
+    const charInfo* cbef = avl_.Lookup(before);
     assert(caft != nullptr);
     assert(cbef != nullptr);
     if (caft->next == before) {
       return String(
-          avl_.Add(after, CharInfo{caft->visible, caft->chr, id, caft->prev,
+          avl_.Add(after, charInfo{caft->visible, caft->chr, id, caft->prev,
                                    caft->after, caft->before})
-              .Add(id, CharInfo{true, c, before, after, after, before})
-              .Add(before, CharInfo{cbef->visible, cbef->chr, cbef->next, id,
+              .Add(id, charInfo{true, c, before, after, after, before})
+              .Add(before, charInfo{cbef->visible, cbef->chr, cbef->next, id,
                                     cbef->after, cbef->before}));
     }
-    typedef std::map<ID, const CharInfo*> LMap;
+    typedef std::map<ID, const charInfo*> LMap;
     LMap inL;
     std::vector<typename LMap::iterator> L;
-    auto addToL = [&](ID id, const CharInfo* ci) {
+    auto addToL = [&](ID id, const charInfo* ci) {
       L.push_back(inL.emplace(id, ci).first);
     };
     addToL(after, caft);
     ID n = caft->next;
     do {
-      const CharInfo* cn = avl_.Lookup(n);
+      const charInfo* cn = avl_.Lookup(n);
       assert(cn != nullptr);
       addToL(n, cn);
       n = cn->next;
@@ -178,7 +152,7 @@ class String : public StringBase {
 
   class InsertCommand final : public Command {
    public:
-    InsertCommand(ID id, Char c, ID after, ID before)
+    InsertCommand(ID id, char c, ID after, ID before)
         : Command(id), c_(c), after_(after), before_(before) {}
 
     String Integrate(String s) {
@@ -186,7 +160,7 @@ class String : public StringBase {
     }
 
    private:
-    const Char c_;
+    const char c_;
     const ID after_;
     const ID before_;
   };
@@ -198,17 +172,20 @@ class String : public StringBase {
     String Integrate(String s) { return s.IntegrateDelete(this->id()); }
   };
 
-  AVL<ID, CharInfo> avl_;
+  AVL<ID, charInfo> avl_;
+  static Site root_site_;
+  static ID begin_id_;
+  static ID end_id_;
 
  public:
   class Iterator {
    public:
     Iterator(const String& str, ID where)
-        : str_(str), pos_(where), cur_(str_.avl_.Lookup(pos_)) {}
+        : str_(&str), pos_(where), cur_(str_->avl_.Lookup(pos_)) {}
     Iterator(const String& str)
-        : str_(str),
-          pos_(str_.avl_.Lookup(Begin())->next),
-          cur_(str_.avl_.Lookup(pos_)) {}
+        : str_(&str),
+          pos_(str_->avl_.Lookup(Begin())->next),
+          cur_(str_->avl_.Lookup(pos_)) {}
 
     bool is_end() const { return pos_ == End(); }
     bool is_begin() const { return pos_ == Begin(); }
@@ -216,19 +193,19 @@ class String : public StringBase {
 
     void MoveNext() {
       pos_ = cur_->next;
-      cur_ = str_.avl_.Lookup(pos_);
+      cur_ = str_->avl_.Lookup(pos_);
     }
     void MovePrev() {
       pos_ = cur_->prev;
-      cur_ = str_.avl_.Lookup(pos_);
+      cur_ = str_->avl_.Lookup(pos_);
     }
 
     ID id() const { return pos_; }
-    const Char* value() const { return &cur_->chr; }
+    const char value() const { return cur_->chr; }
 
    private:
-    String str_;
+    const String* str_;
     ID pos_;
-    const CharInfo* cur_;
+    const charInfo* cur_;
   };
 };

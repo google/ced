@@ -15,7 +15,7 @@ class TerminalCollaborator final : public Collaborator {
  private:
   const std::function<void()> invalidate_;
   absl::Mutex mu_;
-  ElemString content_ GUARDED_BY(mu_);
+  String content_ GUARDED_BY(mu_);
   ID cursor_ GUARDED_BY(mu_);
   int cursor_row_ GUARDED_BY(mu_);
 };
