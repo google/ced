@@ -1,5 +1,6 @@
 #include <curses.h>
 #include "buffer.h"
+#include "clang_format_collaborator.h"
 #include "io_collaborator.h"
 #include "terminal_collaborator.h"
 
@@ -14,7 +15,8 @@ class Application {
     keypad(stdscr, true);
     renderer_ = std::thread([this]() { Renderer(); });
     input_ = std::thread([this]() { InputLoop(); });
-    buffer_.MakeCollaborator<IOCollaborator>("avl.h");
+    buffer_.MakeCollaborator<IOCollaborator>("test.cc");
+    buffer_.MakeCollaborator<ClangFormatCollaborator>();
   }
 
   ~Application() {

@@ -17,3 +17,16 @@ http_archive(
     urls = ["https://github.com/google/cctz/archive/master.zip"],
     strip_prefix = "cctz-master",
 )
+
+new_git_repository(
+  name="subprocess",
+  commit="09ee99a282ea003bbacedc22f70e61653ff6ab92",
+  remote="https://github.com/arun11299/cpp-subprocess.git",
+  build_file_content="""
+cc_library(
+  name="subprocess",
+  hdrs=["subprocess.hpp"],
+  visibility=["//visibility:public"]
+)
+  """
+)

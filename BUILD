@@ -29,6 +29,7 @@ cc_binary(
     ":buffer",
     ":io_collaborator",
     ":terminal_collaborator",
+    ":clang_format_collaborator"
   ],
   linkopts = ["-lcurses", "-lpthread"]
 )
@@ -61,6 +62,13 @@ cc_library(
   srcs = ["terminal_collaborator.cc"],
   hdrs = ["terminal_collaborator.h"],
   deps = [":buffer", ":log"],
+)
+
+cc_library(
+  name = "clang_format_collaborator",
+  srcs = ["clang_format_collaborator.cc"],
+  hdrs = ["clang_format_collaborator.h"],
+  deps = [":buffer", ":log", "@subprocess//:subprocess"],
 )
 
 cc_library(

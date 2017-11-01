@@ -85,7 +85,7 @@ class String {
     return command->Integrate(*this);
   }
 
-  std::basic_string<char> Render() {
+  std::basic_string<char> Render() const {
     std::basic_string<char> out;
     ID cur = avl_.Lookup(Begin())->next;
     while (cur != End()) {
