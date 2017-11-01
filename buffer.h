@@ -14,6 +14,7 @@ struct EditNotification {
 struct EditResponse {
   CommandBuf commands;
   bool done = false;
+  bool become_used = false;
 };
 
 class Collaborator {
@@ -21,6 +22,7 @@ class Collaborator {
   virtual void Push(const EditNotification& notification) = 0;
   virtual EditResponse Pull() = 0;
   virtual void Shutdown() = 0;
+  virtual double PushDelay() = 0;
 
   Site* site() { return &site_; }
 

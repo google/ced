@@ -4,6 +4,7 @@
 #include <thread>
 #include "absl/synchronization/mutex.h"
 #include "log.h"
+#include "timestamp.h"
 
 template <class T>
 class BatchingFunction {
@@ -56,12 +57,6 @@ class BatchingFunction {
  private:
   const int delay_ms_;
   const std::function<void(T)> f_;
-
-  static double timestamp() {
-    timeval now;
-    gettimeofday(&now, NULL);
-    return now.tv_sec + 1e-6 * now.tv_usec;
-  }
 
   enum State { IDLE, SCHEDULED, RUNNING };
 

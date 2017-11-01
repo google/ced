@@ -6,7 +6,11 @@
 
 TerminalCollaborator::TerminalCollaborator(
     const std::function<void()> invalidate)
-    : invalidate_(invalidate),
+    : used_([this, invalidate]() {
+      mu_.AssertHeld();
+      recently_used_ = true;
+      invalidate();
+    }),
       shutdown_(false),
       cursor_(String::Begin()),
       cursor_row_(0) {}
@@ -21,7 +25,7 @@ void TerminalCollaborator::Push(const EditNotification& notification) {
     absl::MutexLock lock(&mu_);
     content_ = notification.content;
   }
-  invalidate_();
+  used_();
 }
 
 EditResponse TerminalCollaborator::Pull() {
@@ -29,11 +33,13 @@ EditResponse TerminalCollaborator::Pull() {
 
   auto ready = [this]() {
     mu_.AssertHeld();
-    return shutdown_ || !commands_.empty();
+    return shutdown_ || !commands_.empty() || recently_used_;
   };
 
   mu_.LockWhen(absl::Condition(&ready));
   r.commands.swap(commands_);
+  r.become_used = recently_used_;
+  recently_used_ = false;
   mu_.Unlock();
 
   return r;
@@ -120,13 +126,13 @@ void TerminalCollaborator::ProcessKey(int key) {
       String::Iterator it(content_, cursor_);
       it.MovePrev();
       cursor_ = it.id();
-      invalidate_();
+      used_();
     } break;
     case KEY_RIGHT: {
       String::Iterator it(content_, cursor_);
       it.MoveNext();
       cursor_ = it.id();
-      invalidate_();
+      used_();
     } break;
     case KEY_UP: {
       String::Iterator it(content_, cursor_);
@@ -149,7 +155,7 @@ void TerminalCollaborator::ProcessKey(int key) {
       it.MovePrev();
       cursor_ = it.id();
       cursor_row_--;
-      invalidate_();
+      used_();
     } break;
     case KEY_DOWN: {
       String::Iterator it(content_, cursor_);
@@ -173,7 +179,7 @@ void TerminalCollaborator::ProcessKey(int key) {
       it.MovePrev();
       cursor_ = it.id();
       cursor_row_++;
-      invalidate_();
+      used_();
     } break;
     case 127:
     case KEY_BACKSPACE: {

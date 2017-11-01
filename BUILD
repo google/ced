@@ -106,5 +106,11 @@ cc_test(
 cc_library(
   name = "batching_function",
   hdrs = ["batching_function.h"],
-  deps = ["@com_google_absl//absl/synchronization", ":log"]
+  deps = ["@com_google_absl//absl/synchronization", ":log", ":timestamp"]
 )
+
+cc_library(
+  name = "timestamp",
+  hdrs = ["timestamp.h"],
+)
+
