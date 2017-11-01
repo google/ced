@@ -25,8 +25,10 @@ class Log : public std::ostringstream {
    public:
     LogFile() {
       std::ostringstream name;
-      hdl_ = WrapSyscall("open", []() {
-        return open(".cedlog", O_WRONLY | O_CREAT | O_CLOEXEC, 0777);
+      name << ".cedlog." << getpid();
+      auto s = name.str();
+      hdl_ = WrapSyscall("open", [s]() {
+        return open(s.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, 0777);
       });
     }
 
