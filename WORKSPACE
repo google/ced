@@ -30,3 +30,17 @@ cc_library(
 )
   """
 )
+
+new_git_repository(
+  name="pugixml",
+  commit="ba9504325ed152ddc5b3fdc94e77df217e83f364",
+  remote="https://github.com/zeux/pugixml.git",
+  build_file_content="""
+cc_library(
+  name="pugixml",
+  hdrs=["src/pugixml.hpp"],
+  srcs=["src/pugiconfig.hpp", "src/pugixml.cpp"],
+  visibility=["//visibility:public"]
+)
+  """
+)

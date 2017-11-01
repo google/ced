@@ -68,7 +68,12 @@ cc_library(
   name = "clang_format_collaborator",
   srcs = ["clang_format_collaborator.cc"],
   hdrs = ["clang_format_collaborator.h"],
-  deps = [":buffer", ":log", "@subprocess//:subprocess"],
+  deps = [
+    ":buffer",
+    ":log",
+    "@subprocess//:subprocess",
+    "@pugixml//:pugixml"
+  ],
 )
 
 cc_library(

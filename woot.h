@@ -64,11 +64,13 @@ class String {
   static CommandPtr MakeRawInsert(Site* site, char c, ID after, ID before) {
     return CommandPtr(new InsertCommand(site->GenerateID(), c, after, before));
   }
-  CommandPtr MakeInsert(Site* site, char c, ID after) {
+  CommandPtr MakeInsert(Site* site, char c, ID after) const {
     return MakeRawInsert(site, c, after, avl_.Lookup(after)->next);
   }
 
-  CommandPtr MakeRemove(ID chr) { return CommandPtr(new DeleteCommand(chr)); }
+  CommandPtr MakeRemove(ID chr) const {
+    return CommandPtr(new DeleteCommand(chr));
+  }
 
 #if 0
   CommandPtr MakeAnnotate(Site* site, ID id, absl::any annotation) {

@@ -13,4 +13,5 @@ class ClangFormatCollaborator final : public Collaborator {
  private:
   absl::Mutex mu_;
   bool shutdown_ GUARDED_BY(mu_);
+  CommandBuf commands_ GUARDED_BY(mu_);
 };
