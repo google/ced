@@ -184,9 +184,10 @@ void TerminalCollaborator::ProcessKey(int key) {
     } break;
     default: {
       if (key >= 32 && key < 127) {
-        auto cmd = content_.MakeInsert(site(), key, cursor_);
-        cursor_ = cmd->id();
-        commands_.emplace_back(std::move(cmd));
+        case 10:;
+          auto cmd = content_.MakeInsert(site(), key, cursor_);
+          cursor_ = cmd->id();
+          commands_.emplace_back(std::move(cmd));
       }
     } break;
   }

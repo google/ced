@@ -12,6 +12,8 @@ void ClangFormatCollaborator::Push(const EditNotification& notification) {
   p.send(text.data(), text.length());
   auto res = p.communicate();
 
+  Log() << res.first.buf.data();
+
   pugi::xml_document doc;
   auto parse_result = doc.load_buffer_inplace(
       res.first.buf.data(), res.first.buf.size(),
