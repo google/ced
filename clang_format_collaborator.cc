@@ -6,7 +6,11 @@
 using namespace subprocess;
 
 void ClangFormatCollaborator::Push(const EditNotification& notification) {
-  auto text = notification.content.Render();
+  push_batcher_(notification.content);
+}
+
+void ClangFormatCollaborator::PushBatched(String str) {
+  auto text = str.Render();
   auto p = Popen({"clang-format", "-output-replacements-xml"}, input{PIPE},
                  output{PIPE});
   p.send(text.data(), text.length());
@@ -19,7 +23,12 @@ void ClangFormatCollaborator::Push(const EditNotification& notification) {
       res.first.buf.data(), res.first.buf.size(),
       (pugi::parse_default | pugi::parse_ws_pcdata_single));
 
-  if (!parse_result) return;
+  if (!parse_result) {
+    return;
+  }
+  if (doc.child("replacements").attribute("incomplete_format").as_bool()) {
+    return;
+  }
 
   struct Replacement {
     int offset;
@@ -35,7 +44,6 @@ void ClangFormatCollaborator::Push(const EditNotification& notification) {
   }
 
   absl::MutexLock lock(&mu_);
-  auto str = notification.content;
   int n = 0;
   String::Iterator it(str, String::Begin());
   it.MoveNext();

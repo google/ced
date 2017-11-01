@@ -72,7 +72,8 @@ cc_library(
     ":buffer",
     ":log",
     "@subprocess//:subprocess",
-    "@pugixml//:pugixml"
+    "@pugixml//:pugixml",
+    ":batching_function"
   ],
 )
 
@@ -100,4 +101,10 @@ cc_test(
   name = "log_test",
   srcs = ["log_test.cc"],
   deps = [":log"]
+)
+
+cc_library(
+  name = "batching_function",
+  hdrs = ["batching_function.h"],
+  deps = ["@com_google_absl//absl/synchronization", ":log"]
 )
