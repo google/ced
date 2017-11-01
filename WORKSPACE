@@ -31,10 +31,10 @@ cc_library(
   """
 )
 
-new_git_repository(
+new_http_archive(
   name="pugixml",
-  commit="ba9504325ed152ddc5b3fdc94e77df217e83f364",
-  remote="https://github.com/zeux/pugixml.git",
+  urls = ["https://github.com/zeux/pugixml/releases/download/v1.8.1/pugixml-1.8.1.tar.gz"],
+  strip_prefix = "pugixml-1.8",
   build_file_content="""
 cc_library(
   name="pugixml",
