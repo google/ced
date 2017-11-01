@@ -62,24 +62,31 @@ class String {
   typedef std::unique_ptr<Command> CommandPtr;
 
   static CommandPtr MakeRawInsert(Site* site, char c, ID after, ID before) {
-    return CommandPtr(new InsertCommand(site->GenerateID(), c, after, before));
+    return MakeCommand(site->GenerateID(), [c, after, before](String s, ID id) {
+      return s.IntegrateInsert(id, c, after, before);
+    });
   }
   CommandPtr MakeInsert(Site* site, char c, ID after) const {
     return MakeRawInsert(site, c, after, avl_.Lookup(after)->next);
   }
 
   CommandPtr MakeRemove(ID chr) const {
-    return CommandPtr(new DeleteCommand(chr));
+    return MakeCommand(chr, [](String s, ID id) {
+      return s.IntegrateRemove(id);
+    });
   }
 
 #if 0
-  CommandPtr MakeAnnotate(Site* site, ID id, absl::any annotation) {
-    return CommandPtr(
-        new AnnotateCommand(site->GenerateID(), id, std::move(annotation)));
+  CommandPtr MakeAnnotate(Site* site, ID chr, absl::any annotation) {
+    return MakeCommand(site->GenerateID(), [chr, annotation](String s, ID id) {
+      return s.IntegrateAnnotate(id, chr, annotation);
+    }
   }
 
   CommandPtr MakeMystify(ID annotation) {
-    return CommandPtr(new MystifyCommand(annnotation));
+    return MakeCommand(annotation, [](String s, ID id) {
+      return s.IntegrateMystify(id);
+    }
   }
 #endif
 
@@ -106,11 +113,12 @@ class String {
     ID prev;
     ID after;
     ID before;
+//    AVL<ID, absl::any> annotations;
   };
 
   String(AVL<ID, CharInfo> avl) : avl_(avl) {}
 
-  String IntegrateDelete(ID id) {
+  String IntegrateRemove(ID id) {
     const CharInfo* cdel = avl_.Lookup(id);
     if (!cdel->visible) return *this;
     return String(
@@ -162,29 +170,24 @@ class String {
     return IntegrateInsert(id, c, L[i - 1]->first, L[i]->first);
   }
 
-  class InsertCommand final : public Command {
-   public:
-    InsertCommand(ID id, char c, ID after, ID before)
-        : Command(id), c_(c), after_(after), before_(before) {}
+  template <class F>
+  static CommandPtr MakeCommand(ID id, F&& f) {
+    class Impl final : public Command {
+     public:
+      Impl(ID id, F&& f) : Command(id), f_(std::move(f)) {}
 
-    String Integrate(String s) {
-      return s.IntegrateInsert(this->id(), c_, after_, before_);
-    }
+     private:
+      String Integrate(String s) override {
+        return f_(s, id());
+      }
 
-   private:
-    const char c_;
-    const ID after_;
-    const ID before_;
-  };
-
-  class DeleteCommand final : public Command {
-   public:
-    DeleteCommand(ID id) : Command(id) {}
-
-    String Integrate(String s) { return s.IntegrateDelete(this->id()); }
-  };
-
+      F f_;
+    };
+    return CommandPtr(new Impl(id, std::move(f)));
+  }
+  
   AVL<ID, CharInfo> avl_;
+  AVL<ID, ID> annotation_chars_;
   static Site root_site_;
   static ID begin_id_;
   static ID end_id_;
