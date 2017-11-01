@@ -33,8 +33,9 @@ void ClangFormatCollaborator::Push(const EditNotification& notification) {
   }
 
   absl::MutexLock lock(&mu_);
+  auto str = notification.content;
   int n = 0;
-  String::Iterator it(notification.content, String::Begin());
+  String::Iterator it(str, String::Begin());
   it.MoveNext();
   for (auto r : replacements) {
     Log() << "REPLACE: " << r.offset << "+" << r.length << " with '" << r.text
@@ -42,16 +43,23 @@ void ClangFormatCollaborator::Push(const EditNotification& notification) {
     for (; n < r.offset; n++) {
       it.MoveNext();
     }
-    auto after = it.id();
     for (int i = 0; i < r.length; i++) {
       auto del = it.id();
       it.MoveNext();
       n++;
-      commands_.emplace_back(notification.content.MakeRemove(del));
+      auto cmd = str.MakeRemove(del);
+      ID curid = it.id();
+      str = str.Integrate(cmd);
+      it = String::Iterator(str, curid);
+      commands_.emplace_back(std::move(cmd));
     }
+    auto after = it.Prev().id();
     for (const char* p = r.text; *p; ++p) {
-      auto cmd = notification.content.MakeInsert(site(), *p, after);
+      auto cmd = str.MakeInsert(site(), *p, after);
       after = cmd->id();
+      ID curid = it.id();
+      str = str.Integrate(cmd);
+      it = String::Iterator(str, curid);
       commands_.emplace_back(std::move(cmd));
     }
   }

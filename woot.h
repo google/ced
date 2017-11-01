@@ -212,6 +212,12 @@ class String {
       while (!is_begin() && !is_visible()) MoveBack();
     }
 
+    Iterator Prev() {
+      Iterator i(*this);
+      i.MovePrev();
+      return i;
+    }
+
     ID id() const { return pos_; }
     const char value() const { return cur_->chr; }
 
