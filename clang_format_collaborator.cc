@@ -6,18 +6,29 @@
 using namespace subprocess;
 
 void ClangFormatCollaborator::Push(const EditNotification& notification) {
-  auto text = notification.content.Render();
+  push_batcher_(notification.content);
+}
+
+void ClangFormatCollaborator::PushBatched(String str) {
+  auto text = str.Render();
   auto p = Popen({"clang-format", "-output-replacements-xml"}, input{PIPE},
                  output{PIPE});
   p.send(text.data(), text.length());
   auto res = p.communicate();
+
+  Log() << res.first.buf.data();
 
   pugi::xml_document doc;
   auto parse_result = doc.load_buffer_inplace(
       res.first.buf.data(), res.first.buf.size(),
       (pugi::parse_default | pugi::parse_ws_pcdata_single));
 
-  if (!parse_result) return;
+  if (!parse_result) {
+    return;
+  }
+  if (doc.child("replacements").attribute("incomplete_format").as_bool()) {
+    return;
+  }
 
   struct Replacement {
     int offset;
@@ -34,7 +45,7 @@ void ClangFormatCollaborator::Push(const EditNotification& notification) {
 
   absl::MutexLock lock(&mu_);
   int n = 0;
-  String::Iterator it(notification.content, String::Begin());
+  String::Iterator it(str, String::Begin());
   it.MoveNext();
   for (auto r : replacements) {
     Log() << "REPLACE: " << r.offset << "+" << r.length << " with '" << r.text
@@ -42,16 +53,23 @@ void ClangFormatCollaborator::Push(const EditNotification& notification) {
     for (; n < r.offset; n++) {
       it.MoveNext();
     }
-    auto after = it.id();
     for (int i = 0; i < r.length; i++) {
       auto del = it.id();
       it.MoveNext();
       n++;
-      commands_.emplace_back(notification.content.MakeRemove(del));
+      auto cmd = str.MakeRemove(del);
+      ID curid = it.id();
+      str = str.Integrate(cmd);
+      it = String::Iterator(str, curid);
+      commands_.emplace_back(std::move(cmd));
     }
+    auto after = it.Prev().id();
     for (const char* p = r.text; *p; ++p) {
-      auto cmd = notification.content.MakeInsert(site(), *p, after);
+      auto cmd = str.MakeInsert(site(), *p, after);
       after = cmd->id();
+      ID curid = it.id();
+      str = str.Integrate(cmd);
+      it = String::Iterator(str, curid);
       commands_.emplace_back(std::move(cmd));
     }
   }
