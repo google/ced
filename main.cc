@@ -2,6 +2,7 @@
 #include "buffer.h"
 #include "clang_format_collaborator.h"
 #include "io_collaborator.h"
+#include "libclang_collaborator.h"
 #include "terminal_collaborator.h"
 
 class Application {
@@ -17,6 +18,7 @@ class Application {
     input_ = std::thread([this]() { InputLoop(); });
     buffer_.MakeCollaborator<IOCollaborator>("test.cc");
     buffer_.MakeCollaborator<ClangFormatCollaborator>();
+    buffer_.MakeCollaborator<LibClangCollaborator>();
   }
 
   ~Application() {

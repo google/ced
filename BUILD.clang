@@ -1,0 +1,7 @@
+cc_library(
+  name="libclang",
+  hdrs=glob(["include/clang-c/*.h"]),
+  srcs=["lib/libclang.dylib"],
+  visibility=["//visibility:public"],
+  includes=["include"]
+)

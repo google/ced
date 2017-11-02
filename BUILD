@@ -29,7 +29,8 @@ cc_binary(
     ":buffer",
     ":io_collaborator",
     ":terminal_collaborator",
-    ":clang_format_collaborator"
+    ":clang_format_collaborator",
+    ":libclang_collaborator"
   ],
   linkopts = ["-lcurses", "-lpthread"]
 )
@@ -82,6 +83,17 @@ cc_library(
     "@subprocess//:subprocess",
     "@pugixml//:pugixml"
   ],
+)
+
+cc_library(
+  name = "libclang_collaborator",
+  srcs = ["libclang_collaborator.cc"],
+  hdrs = ["libclang_collaborator.h"],
+  deps = [
+    ":buffer",
+    ":log",
+    "@clang_mac//:libclang"
+  ]
 )
 
 cc_library(
