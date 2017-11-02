@@ -46,8 +46,15 @@ cc_library(
 )
 
 new_http_archive(
+  name="clang_linux",
+  urls = ["http://releases.llvm.org/5.0.0/clang+llvm-5.0.0-linux-x86_64-ubuntu14.04.tar.xz"],
+  strip_prefix = "clang+llvm-5.0.0-linux-x86_64-ubuntu14.04",
+  build_file = "BUILD.clang.linux"
+)
+
+new_http_archive(
   name="clang_mac",
   urls = ["http://releases.llvm.org/5.0.0/clang+llvm-5.0.0-x86_64-apple-darwin.tar.xz"],
   strip_prefix = "clang+llvm-5.0.0-x86_64-apple-darwin",
-  build_file = "BUILD.clang"
+  build_file = "BUILD.clang.mac"
 )
