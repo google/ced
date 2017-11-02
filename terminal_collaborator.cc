@@ -39,8 +39,8 @@ EditResponse TerminalCollaborator::Pull() {
   };
 
   mu_.LockWhen(absl::Condition(&ready));
+  r.become_used = recently_used_ || !commands_.empty();
   r.commands.swap(commands_);
-  r.become_used = recently_used_;
   recently_used_ = false;
   mu_.Unlock();
 
