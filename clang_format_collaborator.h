@@ -5,7 +5,7 @@
 class ClangFormatCollaborator final : public Collaborator {
  public:
   ClangFormatCollaborator()
-      : Collaborator(absl::Seconds(1)), shutdown_(false) {}
+      : Collaborator(absl::Seconds(3)), shutdown_(false) {}
 
   void Push(const EditNotification& notification) override;
   EditResponse Pull() override;

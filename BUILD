@@ -40,6 +40,7 @@ cc_library(
   hdrs = ["buffer.h"],
   deps = [
     ":woot",
+    ":log",
     "@com_google_absl//absl/synchronization",
     "@com_google_absl//absl/types:any",
     "@com_google_absl//absl/time"

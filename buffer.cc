@@ -1,4 +1,5 @@
 #include "buffer.h"
+#include "log.h"
 
 Buffer::Buffer()
     : shutdown_(false),
@@ -39,8 +40,10 @@ void Buffer::RunPush(Collaborator* collaborator) {
     mu_.LockWhen(absl::Condition(&processable));
     absl::Time last_used_at_start;
     do {
+      Log() << "last_used: " << last_used_;
       last_used_at_start = last_used_;
       absl::Duration idle_time = absl::Now() - last_used_;
+      Log() << "idle_time: " << idle_time;
       if (mu_.AwaitWithTimeout(absl::Condition(&shutdown_),
                                collaborator->push_delay() - idle_time)) {
         mu_.Unlock();

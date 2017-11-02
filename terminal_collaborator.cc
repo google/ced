@@ -7,11 +7,12 @@
 TerminalCollaborator::TerminalCollaborator(
     const std::function<void()> invalidate)
     : Collaborator(absl::Seconds(0)),
-      used_([this, invalidate]() {
+      used_([this]() {
         mu_.AssertHeld();
         recently_used_ = true;
-        invalidate();
+        invalidate_();
       }),
+      invalidate_(invalidate),
       shutdown_(false),
       cursor_(String::Begin()),
       cursor_row_(0) {}
@@ -26,7 +27,7 @@ void TerminalCollaborator::Push(const EditNotification& notification) {
     absl::MutexLock lock(&mu_);
     content_ = notification.content;
   }
-  used_();
+  invalidate_();
 }
 
 EditResponse TerminalCollaborator::Pull() {

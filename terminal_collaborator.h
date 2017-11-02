@@ -15,6 +15,7 @@ class TerminalCollaborator final : public Collaborator {
 
  private:
   const std::function<void()> used_;
+  const std::function<void()> invalidate_;
   absl::Mutex mu_;
   std::vector<String::CommandPtr> commands_ GUARDED_BY(mu_);
   bool recently_used_ GUARDED_BY(mu_);
