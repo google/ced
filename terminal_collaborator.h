@@ -5,7 +5,7 @@
 
 class TerminalCollaborator final : public Collaborator {
  public:
-  TerminalCollaborator(std::function<void()> invalidate);
+  TerminalCollaborator(const Buffer* buffer, std::function<void()> invalidate);
   void Push(const EditNotification& notification) override;
   EditResponse Pull() override;
   void Shutdown() override;

@@ -4,7 +4,7 @@
 
 class IOCollaborator final : public Collaborator {
  public:
-  IOCollaborator(const std::string& filename);
+  IOCollaborator(const Buffer* buffer);
   void Push(const EditNotification& notification) override;
   EditResponse Pull() override;
   void Shutdown() override;

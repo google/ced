@@ -7,7 +7,7 @@ Buffer::Buffer(const std::string& filename)
       version_(0),
       updating_(false),
       last_used_(absl::Now() - absl::Seconds(1000000)), filename_(filename) {
-      MakeCollaborator<IOCollaborator>(filename_);
+      MakeCollaborator<IOCollaborator>();
       }
 
 Buffer::~Buffer() {

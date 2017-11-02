@@ -4,12 +4,12 @@
 #include <unistd.h>
 #include "wrap_syscall.h"
 
-IOCollaborator::IOCollaborator(const std::string& filename)
+IOCollaborator::IOCollaborator(const Buffer* buffer)
     : Collaborator("io", absl::Seconds(1)),
-      filename_(filename),
+      filename_(buffer->filename()),
       last_char_id_(String::Begin()) {
   fd_ = WrapSyscall("open",
-                    [filename]() { return open(filename.c_str(), O_RDONLY); });
+                    [this]() { return open(filename_.c_str(), O_RDONLY); });
 }
 
 void IOCollaborator::Shutdown() {}

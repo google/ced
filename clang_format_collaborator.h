@@ -4,7 +4,7 @@
 
 class ClangFormatCollaborator final : public Collaborator {
  public:
-  ClangFormatCollaborator()
+  ClangFormatCollaborator(const Buffer* buffer)
       : Collaborator("clang-format", absl::Seconds(5)), shutdown_(false) {}
 
   void Push(const EditNotification& notification) override;

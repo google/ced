@@ -4,6 +4,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/types/any.h"
+#include "absl/strings/string_view.h"
 #include "woot.h"
 
 typedef std::vector<String::CommandPtr> CommandBuf;
@@ -51,10 +52,12 @@ class Buffer {
 
   template <class T, typename... Args>
   T* MakeCollaborator(Args&&... args) {
-    T* p = new T(std::forward<Args>(args)...);
+    T* p = new T(const_cast<const Buffer*>(this), std::forward<Args>(args)...);
     AddCollaborator(CollaboratorPtr(p));
     return p;
   }
+
+  absl::string_view filename() const { return filename_; }
 
  private:
   void AddCollaborator(CollaboratorPtr&& collaborator);

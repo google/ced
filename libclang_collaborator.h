@@ -5,7 +5,7 @@
 
 class LibClangCollaborator final : public Collaborator {
  public:
-  LibClangCollaborator();
+  LibClangCollaborator(const Buffer* buffer);
   ~LibClangCollaborator();
 
   void Push(const EditNotification& notification) override;

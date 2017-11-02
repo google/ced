@@ -5,7 +5,7 @@
 #include "log.h"
 
 TerminalCollaborator::TerminalCollaborator(
-    const std::function<void()> invalidate)
+    const Buffer* buffer, const std::function<void()> invalidate)
     : Collaborator("terminal", absl::Seconds(0)),
       used_([this]() {
         mu_.AssertHeld();

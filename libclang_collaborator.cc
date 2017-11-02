@@ -29,7 +29,7 @@ struct LibClangCollaborator::Impl {
   Impl() : mu_(ClangEnv::Get()->mu()) {}
 };
 
-LibClangCollaborator::LibClangCollaborator()
+LibClangCollaborator::LibClangCollaborator(const Buffer* buffer)
     : Collaborator("libclang", absl::Seconds(0)),
       impl_(new Impl()) {}
 
