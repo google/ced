@@ -82,7 +82,6 @@ cc_binary(
   srcs = ["main.cc"],
   deps = [
     ":buffer",
-    ":io_collaborator",
     ":terminal_collaborator",
     ":clang_format_collaborator",
     ":libclang_collaborator"
@@ -97,11 +96,12 @@ cc_library(
 
 cc_library(
   name = "buffer",
-  srcs = ["buffer.cc"],
-  hdrs = ["buffer.h"],
+  srcs = ["buffer.cc", "io_collaborator.cc"],
+  hdrs = ["buffer.h", "io_collaborator.h"],
   deps = [
     ":woot",
     ":log",
+    ":wrap_syscall",
     "@com_google_absl//absl/synchronization",
     "@com_google_absl//absl/types:any",
     "@com_google_absl//absl/time"
@@ -112,13 +112,6 @@ cc_test(
   name = "buffer_test",
   srcs = ["buffer_test.cc"],
   deps = [":buffer", "@com_google_googletest//:gtest_main"]
-)
-
-cc_library(
-  name = "io_collaborator",
-  srcs = ["io_collaborator.cc"],
-  hdrs = ["io_collaborator.h"],
-  deps = [":buffer", ":wrap_syscall"],
 )
 
 cc_library(

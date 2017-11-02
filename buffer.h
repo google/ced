@@ -43,7 +43,7 @@ typedef std::unique_ptr<Collaborator> CollaboratorPtr;
 
 class Buffer {
  public:
-  Buffer();
+  Buffer(const std::string& filename);
   ~Buffer();
 
   Buffer(const Buffer&) = delete;
@@ -67,6 +67,7 @@ class Buffer {
   uint64_t version_ GUARDED_BY(mu_);
   bool updating_ GUARDED_BY(mu_);
   absl::Time last_used_ GUARDED_BY(mu_);
+  const std::string filename_ GUARDED_BY(mu_);
   String content_ GUARDED_BY(mu_);
   std::vector<CollaboratorPtr> collaborators_ GUARDED_BY(mu_);
   std::vector<std::thread> collaborator_threads_ GUARDED_BY(mu_);

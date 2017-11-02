@@ -12,7 +12,7 @@ class ClangEnv {
 
   ~ClangEnv() { clang_disposeIndex(index_); }
 
-  absl::Mutex* mu() { return &mu_; }
+  absl::Mutex* mu() LOCK_RETURNED(mu_) { return &mu_; }
 
  private:
   ClangEnv() { index_ = clang_createIndex(0, 0); }
@@ -23,10 +23,17 @@ class ClangEnv {
 
 }  // namespace
 
+struct LibClangCollaborator::Impl {
+  absl::Mutex* const mu_;
+
+  Impl() : mu_(ClangEnv::Get()->mu()) {}
+};
+
 LibClangCollaborator::LibClangCollaborator()
     : Collaborator("libclang", absl::Seconds(0)),
-      mu_(ClangEnv::Get()->mu()),
-      shutdown_(false) {}
+      impl_(new Impl()) {}
+
+LibClangCollaborator::~LibClangCollaborator() {}
 
 void LibClangCollaborator::Push(const EditNotification& notification) {}
 

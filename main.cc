@@ -1,7 +1,6 @@
 #include <curses.h>
 #include "buffer.h"
 #include "clang_format_collaborator.h"
-#include "io_collaborator.h"
 #include "libclang_collaborator.h"
 #include "terminal_collaborator.h"
 
@@ -10,13 +9,13 @@ class Application {
   Application()
       : done_(false),
         invalidated_(true),
+        buffer_("test.cc"),
         terminal_collaborator_(buffer_.MakeCollaborator<TerminalCollaborator>(
             [this]() { Invalidate(); })) {
     initscr();
     keypad(stdscr, true);
     renderer_ = std::thread([this]() { Renderer(); });
     input_ = std::thread([this]() { InputLoop(); });
-    buffer_.MakeCollaborator<IOCollaborator>("test.cc");
     buffer_.MakeCollaborator<ClangFormatCollaborator>();
     buffer_.MakeCollaborator<LibClangCollaborator>();
   }

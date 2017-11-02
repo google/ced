@@ -1,11 +1,14 @@
 #include "buffer.h"
 #include "log.h"
+#include "io_collaborator.h"
 
-Buffer::Buffer()
+Buffer::Buffer(const std::string& filename)
     : shutdown_(false),
       version_(0),
       updating_(false),
-      last_used_(absl::Now() - absl::Seconds(1000000)) {}
+      last_used_(absl::Now() - absl::Seconds(1000000)), filename_(filename) {
+      MakeCollaborator<IOCollaborator>(filename_);
+      }
 
 Buffer::~Buffer() {
   for (auto& c : collaborators_) {
