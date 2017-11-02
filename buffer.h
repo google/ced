@@ -20,6 +20,7 @@ struct EditResponse {
 
 class Collaborator {
  public:
+  const char* name() const { return name_; }
   absl::Duration push_delay() const { return push_delay_; }
 
   virtual void Push(const EditNotification& notification) = 0;
@@ -29,9 +30,11 @@ class Collaborator {
   Site* site() { return &site_; }
 
  protected:
-  Collaborator(absl::Duration push_delay) : push_delay_(push_delay) {}
+  Collaborator(const char* name, absl::Duration push_delay)
+      : name_(name), push_delay_(push_delay) {}
 
  private:
+  const char* const name_;
   const absl::Duration push_delay_;
   Site site_;
 };

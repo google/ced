@@ -5,7 +5,7 @@ Buffer::Buffer()
     : shutdown_(false),
       version_(0),
       updating_(false),
-      last_used_(absl::Now()) {}
+      last_used_(absl::Now() - absl::Seconds(1000000)) {}
 
 Buffer::~Buffer() {
   for (auto& c : collaborators_) {
@@ -35,16 +35,18 @@ void Buffer::RunPush(Collaborator* collaborator) {
     mu_.AssertHeld();
     return shutdown_ || version_ != processed_version;
   };
+  bool first = true;
   for (;;) {
     // wait until something interesting to work on
     mu_.LockWhen(absl::Condition(&processable));
     absl::Time last_used_at_start;
     do {
-      Log() << "last_used: " << last_used_;
+      Log() << collaborator->name() << " last_used: " << last_used_;
       last_used_at_start = last_used_;
       absl::Duration idle_time = absl::Now() - last_used_;
-      Log() << "idle_time: " << idle_time;
-      if (mu_.AwaitWithTimeout(absl::Condition(&shutdown_),
+      Log() << collaborator->name() << " idle_time: " << idle_time;
+      if (!first &&
+          mu_.AwaitWithTimeout(absl::Condition(&shutdown_),
                                collaborator->push_delay() - idle_time)) {
         mu_.Unlock();
         return;
@@ -57,7 +59,9 @@ void Buffer::RunPush(Collaborator* collaborator) {
     mu_.Unlock();
 
     // magick happens here
+    Log() << collaborator->name() << " push";
     collaborator->Push(notification);
+    first = false;
   }
 }
 
@@ -94,7 +98,9 @@ void Buffer::RunPull(Collaborator* collaborator) {
       updating_ = false;
       version_++;
       auto old_content = content_;  // destruct outside lock
-      last_used_ = absl::Now();
+      if (response.become_used) {
+        last_used_ = absl::Now();
+      }
       content_ = content;
       mu_.Unlock();
     } else {

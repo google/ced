@@ -6,7 +6,7 @@
 
 TerminalCollaborator::TerminalCollaborator(
     const std::function<void()> invalidate)
-    : Collaborator(absl::Seconds(0)),
+    : Collaborator("terminal", absl::Seconds(0)),
       used_([this]() {
         mu_.AssertHeld();
         recently_used_ = true;
