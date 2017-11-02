@@ -41,7 +41,9 @@ cc_library(
   deps = [
     ":woot",
     "@com_google_absl//absl/synchronization",
-    "@com_google_absl//absl/types:any"]
+    "@com_google_absl//absl/types:any",
+    "@com_google_absl//absl/time"
+  ]
 )
 
 cc_test(
@@ -72,8 +74,7 @@ cc_library(
     ":buffer",
     ":log",
     "@subprocess//:subprocess",
-    "@pugixml//:pugixml",
-    ":batching_function"
+    "@pugixml//:pugixml"
   ],
 )
 
@@ -102,15 +103,3 @@ cc_test(
   srcs = ["log_test.cc"],
   deps = [":log"]
 )
-
-cc_library(
-  name = "batching_function",
-  hdrs = ["batching_function.h"],
-  deps = ["@com_google_absl//absl/synchronization", ":log", ":timestamp"]
-)
-
-cc_library(
-  name = "timestamp",
-  hdrs = ["timestamp.h"],
-)
-

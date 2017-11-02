@@ -5,7 +5,9 @@
 #include "wrap_syscall.h"
 
 IOCollaborator::IOCollaborator(const std::string& filename)
-    : filename_(filename), last_char_id_(String::Begin()) {
+    : Collaborator(absl::Seconds(1)),
+      filename_(filename),
+      last_char_id_(String::Begin()) {
   fd_ = WrapSyscall("open",
                     [filename]() { return open(filename.c_str(), O_RDONLY); });
 }

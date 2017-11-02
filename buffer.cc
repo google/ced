@@ -1,6 +1,10 @@
 #include "buffer.h"
 
-Buffer::Buffer() : shutdown_(false), version_(0), updating_(false) {}
+Buffer::Buffer()
+    : shutdown_(false),
+      version_(0),
+      updating_(false),
+      last_used_(absl::Now()) {}
 
 Buffer::~Buffer() {
   for (auto& c : collaborators_) {
@@ -33,10 +37,16 @@ void Buffer::RunPush(Collaborator* collaborator) {
   for (;;) {
     // wait until something interesting to work on
     mu_.LockWhen(absl::Condition(&processable));
-    if (shutdown_) {
-      mu_.Unlock();
-      return;
-    }
+    absl::Time last_used_at_start;
+    do {
+      last_used_at_start = last_used_;
+      absl::Duration idle_time = absl::Now() - last_used_;
+      if (mu_.AwaitWithTimeout(absl::Condition(&shutdown_),
+                               collaborator->push_delay() - idle_time)) {
+        mu_.Unlock();
+        return;
+      }
+    } while (last_used_ != last_used_at_start);
     processed_version = version_;
     EditNotification notification{
         content_,
@@ -49,7 +59,7 @@ void Buffer::RunPush(Collaborator* collaborator) {
 }
 
 static bool HasUpdates(const EditResponse& response) {
-  return !response.commands.empty();
+  return response.become_used || !response.commands.empty();
 }
 
 void Buffer::RunPull(Collaborator* collaborator) {
@@ -81,6 +91,7 @@ void Buffer::RunPull(Collaborator* collaborator) {
       updating_ = false;
       version_++;
       auto old_content = content_;  // destruct outside lock
+      last_used_ = absl::Now();
       content_ = content;
       mu_.Unlock();
     } else {

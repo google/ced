@@ -6,10 +6,7 @@
 using namespace subprocess;
 
 void ClangFormatCollaborator::Push(const EditNotification& notification) {
-  push_batcher_(notification.content);
-}
-
-void ClangFormatCollaborator::PushBatched(String str) {
+  auto str = notification.content;
   auto text = str.Render();
   auto p = Popen({"clang-format", "-output-replacements-xml"}, input{PIPE},
                  output{PIPE});

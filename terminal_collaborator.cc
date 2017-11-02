@@ -6,11 +6,12 @@
 
 TerminalCollaborator::TerminalCollaborator(
     const std::function<void()> invalidate)
-    : used_([this, invalidate]() {
-      mu_.AssertHeld();
-      recently_used_ = true;
-      invalidate();
-    }),
+    : Collaborator(absl::Seconds(0)),
+      used_([this, invalidate]() {
+        mu_.AssertHeld();
+        recently_used_ = true;
+        invalidate();
+      }),
       shutdown_(false),
       cursor_(String::Begin()),
       cursor_row_(0) {}

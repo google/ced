@@ -2,6 +2,7 @@
 
 #include <thread>
 #include "absl/synchronization/mutex.h"
+#include "absl/time/clock.h"
 #include "absl/types/any.h"
 #include "woot.h"
 
@@ -19,14 +20,19 @@ struct EditResponse {
 
 class Collaborator {
  public:
+  absl::Duration push_delay() const { return push_delay_; }
+
   virtual void Push(const EditNotification& notification) = 0;
   virtual EditResponse Pull() = 0;
   virtual void Shutdown() = 0;
-  virtual double PushDelay() = 0;
 
   Site* site() { return &site_; }
 
+ protected:
+  Collaborator(absl::Duration push_delay) : push_delay_(push_delay) {}
+
  private:
+  const absl::Duration push_delay_;
   Site site_;
 };
 
@@ -57,6 +63,7 @@ class Buffer {
   bool shutdown_ GUARDED_BY(mu_);
   uint64_t version_ GUARDED_BY(mu_);
   bool updating_ GUARDED_BY(mu_);
+  absl::Time last_used_ GUARDED_BY(mu_);
   String content_ GUARDED_BY(mu_);
   std::vector<CollaboratorPtr> collaborators_ GUARDED_BY(mu_);
   std::vector<std::thread> collaborator_threads_ GUARDED_BY(mu_);
