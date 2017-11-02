@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "avl.h"
+#include "token_type.h"
 
 class Site;
 
@@ -38,10 +39,10 @@ class Site {
 class String {
  public:
   String() {
-    avl_ =
-        avl_.Add(Begin(), CharInfo{false, char(), End(), End(), End(), End()})
-            .Add(End(),
-                 CharInfo{false, char(), Begin(), Begin(), Begin(), Begin()});
+    avl_ = avl_.Add(Begin(), CharInfo{false, char(), Token::UNSET, End(), End(),
+                                      End(), End()})
+               .Add(End(), CharInfo{false, char(), Token::UNSET, Begin(),
+                                    Begin(), Begin(), Begin()});
   }
 
   static ID Begin() { return begin_id_; }
@@ -71,8 +72,13 @@ class String {
   }
 
   CommandPtr MakeRemove(ID chr) const {
-    return MakeCommand(chr, [](String s, ID id) {
-      return s.IntegrateRemove(id);
+    return MakeCommand(chr,
+                       [](String s, ID id) { return s.IntegrateRemove(id); });
+  }
+
+  CommandPtr MakeSetTokenType(ID chr, Token type) {
+    return MakeCommand(chr, [type](String s, ID id) {
+      return s.IntegrateSetTokenType(id, type);
     });
   }
 
@@ -107,13 +113,18 @@ class String {
 
  private:
   struct CharInfo {
+    // tombstone if false
     bool visible;
+    // glyph
     char chr;
+    // attributes: last writer wins
+    Token token_type;
+    // next/prev in document
     ID next;
     ID prev;
+    // before/after in insert order (according to creator)
     ID after;
     ID before;
-//    AVL<ID, absl::any> annotations;
   };
 
   String(AVL<ID, CharInfo> avl) : avl_(avl) {}
@@ -122,8 +133,15 @@ class String {
     const CharInfo* cdel = avl_.Lookup(id);
     if (!cdel->visible) return *this;
     return String(
-        avl_.Add(id, CharInfo{false, cdel->chr, cdel->next, cdel->prev,
-                              cdel->after, cdel->before}));
+        avl_.Add(id, CharInfo{false, cdel->chr, cdel->token_type, cdel->next,
+                              cdel->prev, cdel->after, cdel->before}));
+  }
+
+  String IntegrateSetTokenType(ID id, Token type) {
+    const CharInfo* ci = avl_.Lookup(id);
+    if (!ci->visible) return *this;
+    return String(avl_.Add(id, CharInfo{true, ci->chr, type, ci->next, ci->prev,
+                                        ci->after, ci->before}));
   }
 
   String IntegrateInsert(ID id, char c, ID after, ID before) {
@@ -133,11 +151,13 @@ class String {
     assert(cbef != nullptr);
     if (caft->next == before) {
       return String(
-          avl_.Add(after, CharInfo{caft->visible, caft->chr, id, caft->prev,
-                                   caft->after, caft->before})
-              .Add(id, CharInfo{true, c, before, after, after, before})
-              .Add(before, CharInfo{cbef->visible, cbef->chr, cbef->next, id,
-                                    cbef->after, cbef->before}));
+          avl_.Add(after, CharInfo{caft->visible, caft->chr, caft->token_type,
+                                   id, caft->prev, caft->after, caft->before})
+              .Add(id, CharInfo{true, c, Token::UNSET, before, after, after,
+                                before})
+              .Add(before,
+                   CharInfo{cbef->visible, cbef->chr, cbef->token_type,
+                            cbef->next, id, cbef->after, cbef->before}));
     }
     typedef std::map<ID, const CharInfo*> LMap;
     LMap inL;
@@ -177,17 +197,14 @@ class String {
       Impl(ID id, F&& f) : Command(id), f_(std::move(f)) {}
 
      private:
-      String Integrate(String s) override {
-        return f_(s, id());
-      }
+      String Integrate(String s) override { return f_(s, id()); }
 
       F f_;
     };
     return CommandPtr(new Impl(id, std::move(f)));
   }
-  
+
   AVL<ID, CharInfo> avl_;
-  AVL<ID, ID> annotation_chars_;
   static Site root_site_;
   static ID begin_id_;
   static ID end_id_;
@@ -222,7 +239,8 @@ class String {
     }
 
     ID id() const { return pos_; }
-    const char value() const { return cur_->chr; }
+    char value() const { return cur_->chr; }
+    Token token_type() const { return cur_->token_type; }
 
    private:
     void MoveForward() {

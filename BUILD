@@ -13,7 +13,7 @@ cc_library(
   name = "woot",
   hdrs = ["woot.h"],
   srcs = ["woot.cc"],
-  deps = [":avl"]
+  deps = [":avl", ":token_type"]
 )
 
 cc_test(
@@ -32,6 +32,11 @@ cc_binary(
     ":clang_format_collaborator"
   ],
   linkopts = ["-lcurses", "-lpthread"]
+)
+
+cc_library(
+  name = "token_type",
+  hdrs = ["token_type.h"]
 )
 
 cc_library(
