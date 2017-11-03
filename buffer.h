@@ -10,12 +10,14 @@ typedef std::vector<String::CommandPtr> CommandBuf;
 
 struct EditNotification {
   String content;
+  bool fully_loaded;
 };
 
 struct EditResponse {
   CommandBuf commands;
   bool done = false;
   bool become_used = false;
+  bool become_loaded = false;
 };
 
 class Collaborator {
@@ -66,6 +68,7 @@ class Buffer {
 
   absl::Mutex mu_;
   bool shutdown_ GUARDED_BY(mu_);
+  bool fully_loaded_ GUARDED_BY(mu_);
   uint64_t version_ GUARDED_BY(mu_);
   bool updating_ GUARDED_BY(mu_);
   absl::Time last_used_ GUARDED_BY(mu_);

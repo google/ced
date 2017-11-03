@@ -4,6 +4,7 @@
 
 Buffer::Buffer(const std::string& filename)
     : shutdown_(false),
+    fully_loaded_(false),
       version_(0),
       updating_(false),
       last_used_(absl::Now() - absl::Seconds(1000000)), filename_(filename) {
@@ -58,6 +59,7 @@ void Buffer::RunPush(Collaborator* collaborator) {
     processed_version = version_;
     EditNotification notification{
         content_,
+        fully_loaded_,
     };
     mu_.Unlock();
 
@@ -69,7 +71,7 @@ void Buffer::RunPush(Collaborator* collaborator) {
 }
 
 static bool HasUpdates(const EditResponse& response) {
-  return response.become_used || !response.commands.empty();
+  return response.become_used || response.become_loaded || !response.commands.empty();
 }
 
 void Buffer::RunPull(Collaborator* collaborator) {
@@ -103,6 +105,9 @@ void Buffer::RunPull(Collaborator* collaborator) {
       auto old_content = content_;  // destruct outside lock
       if (response.become_used) {
         last_used_ = absl::Now();
+      }
+      if (response.become_loaded) {
+        fully_loaded_ = true;
       }
       content_ = content;
       mu_.Unlock();
