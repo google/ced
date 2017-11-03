@@ -76,7 +76,7 @@ class String {
                        [](String s, ID id) { return s.IntegrateRemove(id); });
   }
 
-  CommandPtr MakeSetTokenType(ID chr, Token type) {
+  CommandPtr MakeSetTokenType(ID chr, Token type) const {
     return MakeCommand(chr, [type](String s, ID id) {
       return s.IntegrateSetTokenType(id, type);
     });

@@ -84,7 +84,8 @@ cc_binary(
     ":buffer",
     ":terminal_collaborator",
     ":clang_format_collaborator",
-    ":libclang_collaborator"
+    ":libclang_collaborator",
+    ":colors",
   ],
   linkopts = ["-lcurses", "-lpthread"]
 )
@@ -119,7 +120,7 @@ cc_library(
   name = "terminal_collaborator",
   srcs = ["terminal_collaborator.cc"],
   hdrs = ["terminal_collaborator.h"],
-  deps = [":buffer", ":log"],
+  deps = [":buffer", ":log", ":colors"],
 )
 
 cc_library(
@@ -172,3 +173,23 @@ cc_test(
   srcs = ["log_test.cc"],
   deps = [":log"]
 )
+
+py_binary(
+  name = 'gen_colors',
+  srcs = ['gen_colors.py'],
+)
+
+genrule(
+  name = 'mkcolors',
+  srcs = ['colors.yaml'],
+  outs = ['colors.h', 'colors.cc'],
+  tools = [':gen_colors'],
+  cmd = './$(location :gen_colors) $(location colors.yaml) $(OUTS)'
+)
+
+cc_library(
+  name = 'colors',
+  srcs = ['colors.cc'],
+  hdrs = ['colors.h']
+)
+

@@ -3,6 +3,7 @@
 #include "clang_format_collaborator.h"
 #include "libclang_collaborator.h"
 #include "terminal_collaborator.h"
+#include "colors.h"
 
 class Application {
  public:
@@ -13,6 +14,8 @@ class Application {
         terminal_collaborator_(buffer_.MakeCollaborator<TerminalCollaborator>(
             [this]() { Invalidate(); })) {
     initscr();
+    start_color();
+    InitColors();
     keypad(stdscr, true);
     renderer_ = std::thread([this]() { Renderer(); });
     input_ = std::thread([this]() { InputLoop(); });
@@ -58,6 +61,7 @@ class Application {
       invalidated_ = false;
       mu_.Unlock();
 
+      bkgd(COLOR_PAIR(ColorID::DEFAULT));
       clear();
       Render();
       refresh();

@@ -4,7 +4,6 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/types/any.h"
-#include "absl/strings/string_view.h"
 #include "woot.h"
 
 typedef std::vector<String::CommandPtr> CommandBuf;
@@ -57,7 +56,7 @@ class Buffer {
     return p;
   }
 
-  absl::string_view filename() const { return filename_; }
+  const std::string& filename() const { return filename_; }
 
  private:
   void AddCollaborator(CollaboratorPtr&& collaborator);

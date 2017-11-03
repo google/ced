@@ -3,6 +3,7 @@
 #include <deque>
 #include <vector>
 #include "log.h"
+#include "colors.h"
 
 TerminalCollaborator::TerminalCollaborator(
     const Buffer* buffer, const std::function<void()> invalidate)
@@ -109,7 +110,17 @@ void TerminalCollaborator::Render() {
       }
       if (it.is_end()) break;
       if (it.value() == '\n') break;
-      mvaddch(row, col, it.value());
+      chtype attr = 0;
+      Log()<<"REND:" << row << "," << col << " ty=" << (int)it.token_type() << " ch=" << it.value();
+      switch (it.token_type()) {
+        case Token::UNSET:   attr=COLOR_PAIR(ColorID::DEFAULT);break;
+        case Token::IDENT:   attr=COLOR_PAIR(ColorID::IDENT);break;
+        case Token::KEYWORD: attr=COLOR_PAIR(ColorID::KEYWORD);break;
+        case Token::SYMBOL:  attr=COLOR_PAIR(ColorID::SYMBOL);break;
+        case Token::LITERAL: attr=COLOR_PAIR(ColorID::LITERAL);break;
+        case Token::COMMENT: attr=COLOR_PAIR(ColorID::COMMENT);break;
+      }
+      mvaddch(row, col, it.value() | attr);
       col++;
       it.MoveNext();
     }
@@ -190,12 +201,17 @@ void TerminalCollaborator::ProcessKey(int key) {
       it.MovePrev();
       cursor_ = it.id();
     } break;
+    case 10: {
+      auto cmd = content_.MakeInsert(site(), key, cursor_);
+      cursor_ = cmd->id();
+      cursor_row_++;
+      commands_.emplace_back(std::move(cmd));
+    } break;
     default: {
       if (key >= 32 && key < 127) {
-        case 10:;
-          auto cmd = content_.MakeInsert(site(), key, cursor_);
-          cursor_ = cmd->id();
-          commands_.emplace_back(std::move(cmd));
+        auto cmd = content_.MakeInsert(site(), key, cursor_);
+        cursor_ = cmd->id();
+        commands_.emplace_back(std::move(cmd));
       }
     } break;
   }
