@@ -1,15 +1,16 @@
 #include "buffer.h"
-#include "log.h"
 #include "io_collaborator.h"
+#include "log.h"
 
 Buffer::Buffer(const std::string& filename)
     : shutdown_(false),
-    fully_loaded_(false),
+      fully_loaded_(false),
       version_(0),
       updating_(false),
-      last_used_(absl::Now() - absl::Seconds(1000000)), filename_(filename) {
-      MakeCollaborator<IOCollaborator>();
-      }
+      last_used_(absl::Now() - absl::Seconds(1000000)),
+      filename_(filename) {
+  MakeCollaborator<IOCollaborator>();
+}
 
 Buffer::~Buffer() {
   for (auto& c : collaborators_) {
@@ -71,7 +72,7 @@ void Buffer::RunPush(Collaborator* collaborator) {
 }
 
 static bool HasUpdates(const EditResponse& response) {
-  return response.become_used || response.become_loaded || !response.commands.empty();
+  return response.become_loaded || !response.commands.empty();
 }
 
 void Buffer::RunPull(Collaborator* collaborator) {
@@ -113,6 +114,9 @@ void Buffer::RunPull(Collaborator* collaborator) {
       mu_.Unlock();
     } else {
       absl::MutexLock lock(&mu_);
+      if (response.become_used) {
+        last_used_ = absl::Now();
+      }
       if (shutdown_) {
         return;
       }

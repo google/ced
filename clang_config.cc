@@ -1,9 +1,9 @@
 #include "clang_config.h"
-#include "config.h"
-#include "absl/strings/string_view.h"
+#include <stdexcept>
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
-#include <stdexcept>
+#include "absl/strings/string_view.h"
+#include "config.h"
 
 Config<std::string> clang_version("project/clang-version");
 
@@ -36,6 +36,6 @@ std::string ClangToolPath(const std::string& tool_name) {
     auto cmd = absl::StrCat(path, "/", tool_name);
     if (Exists(cmd)) return cmd;
   }
-  throw std::runtime_error(absl::StrCat("Clang tool '", tool_name, "' not found"));
+  throw std::runtime_error(
+      absl::StrCat("Clang tool '", tool_name, "' not found"));
 }
-

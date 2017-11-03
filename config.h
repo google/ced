@@ -1,7 +1,7 @@
 #pragma once
 
-#include "yaml-cpp/yaml.h"
 #include "absl/synchronization/mutex.h"
+#include "yaml-cpp/yaml.h"
 
 class ConfigWatcher {
  public:
@@ -18,7 +18,8 @@ class ConfigWatcher {
 template <class T>
 class Config final : public ConfigWatcher {
  public:
-  Config(const std::string& path, const T& def = T()) : default_(def), value_(def) {
+  Config(const std::string& path, const T& def = T())
+      : default_(def), value_(def) {
     RegisterWatcher(path);
   }
 
@@ -41,7 +42,8 @@ class Config final : public ConfigWatcher {
 template <>
 class Config<std::string> final : public ConfigWatcher {
  public:
-  Config(const std::string& path, const std::string& def = std::string()) : default_(def), value_(def) {
+  Config(const std::string& path, const std::string& def = std::string())
+      : default_(def), value_(def) {
     RegisterWatcher(path);
   }
 
@@ -60,4 +62,3 @@ class Config<std::string> final : public ConfigWatcher {
     value_ = node.Scalar();
   }
 };
-

@@ -1,23 +1,23 @@
 #include <curses.h>
 #include "buffer.h"
 #include "clang_format_collaborator.h"
+#include "colors.h"
 #include "libclang_collaborator.h"
 #include "terminal_collaborator.h"
-#include "colors.h"
 
 class Application {
  public:
   Application()
       : done_(false),
-        invalidated_(true),
         buffer_("test.cc"),
         terminal_collaborator_(buffer_.MakeCollaborator<TerminalCollaborator>(
             [this]() { Invalidate(); })) {
     initscr();
     start_color();
     InitColors();
+    bkgd(COLOR_PAIR(ColorID::DEFAULT));
+    halfdelay(1);
     keypad(stdscr, true);
-    renderer_ = std::thread([this]() { Renderer(); });
     input_ = std::thread([this]() { InputLoop(); });
     buffer_.MakeCollaborator<ClangFormatCollaborator>();
     buffer_.MakeCollaborator<LibClangCollaborator>();
@@ -26,13 +26,11 @@ class Application {
   ~Application() {
     endwin();
     input_.join();
-    renderer_.join();
   }
 
   void Quit() {
     absl::MutexLock lock(&mu_);
     done_ = true;
-    ungetch(0);
   }
 
   void Invalidate() {
@@ -46,35 +44,18 @@ class Application {
   }
 
  private:
-  void Renderer() {
-    auto ready = [this]() {
-      mu_.AssertHeld();
-      return invalidated_ || done_;
-    };
-
-    for (;;) {
-      mu_.LockWhen(absl::Condition(&ready));
-      if (done_) {
-        mu_.Unlock();
-        return;
-      }
-      invalidated_ = false;
-      mu_.Unlock();
-
-      bkgd(COLOR_PAIR(ColorID::DEFAULT));
-      clear();
-      Render();
-      refresh();
-    }
-  }
-
   void InputLoop() {
+    bool refresh = true;
     for (;;) {
+      if (refresh) {
+        erase();
+        Render();
+      }
       int c = getch();
 
+      refresh = (c != ERR);
       switch (c) {
         case KEY_RESIZE:
-          Invalidate();
           break;
         case 'q':
           Quit();
@@ -85,6 +66,10 @@ class Application {
 
       absl::MutexLock lock(&mu_);
       if (done_) return;
+      if (invalidated_) {
+        refresh = true;
+        invalidated_ = false;
+      }
     }
   }
 
@@ -94,7 +79,6 @@ class Application {
   bool done_ GUARDED_BY(mu_);
   bool invalidated_ GUARDED_BY(mu_);
 
-  std::thread renderer_;
   std::thread input_;
 
   Buffer buffer_;

@@ -1,9 +1,9 @@
 #include "config.h"
-#include "yaml-cpp/yaml.h"
-#include "absl/strings/str_split.h"
-#include "absl/strings/str_cat.h"
-#include "log.h"
 #include <unordered_map>
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
+#include "log.h"
+#include "yaml-cpp/yaml.h"
 
 class ConfigRegistry {
  public:
@@ -29,13 +29,17 @@ class ConfigRegistry {
     LoadConfig(absl::StrCat(home, "/.config/ced"));
     LoadConfig(".ced");
   }
-  
+
   void LoadConfig(const std::string& filename) {
-    Log() << filename;
-    configs_.push_back(YAML::LoadFile(filename));
+    try {
+      configs_.push_back(YAML::LoadFile(filename));
+    } catch (std::exception& e) {
+      Log() << "Failed opening '" << filename << "': " << e.what();
+    }
   }
 
-  void SetWatcher(ConfigWatcher* watcher, const std::string& path) EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+  void SetWatcher(ConfigWatcher* watcher, const std::string& path)
+      EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     auto p = absl::StrSplit(path, '/');
     for (auto it = configs_.rbegin(); it != configs_.rend(); ++it) {
       YAML::Node n = *it;
@@ -60,7 +64,4 @@ void ConfigWatcher::RegisterWatcher(const std::string& path) {
   ConfigRegistry::Get().RegisterWatcher(this, path);
 }
 
-ConfigWatcher::~ConfigWatcher() {
-  ConfigRegistry::Get().RemoveWatcher(this);
-}
-
+ConfigWatcher::~ConfigWatcher() { ConfigRegistry::Get().RemoveWatcher(this); }

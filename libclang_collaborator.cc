@@ -168,7 +168,7 @@ EditResponse LibClangCollaborator::Pull() {
     ClangEnv::Get()->mu()->AssertHeld();
     return !impl_->commands.empty() || impl_->shutdown;
   };
-  
+
   ClangEnv* env = ClangEnv::Get();
   env->mu()->LockWhen(absl::Condition(&ready));
   EditResponse r;

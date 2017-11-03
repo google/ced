@@ -14,8 +14,8 @@ class TerminalCollaborator final : public Collaborator {
   void ProcessKey(int key);
 
  private:
-  const std::function<void()> used_;
   const std::function<void()> invalidate_;
+  const std::function<void()> used_;
   absl::Mutex mu_;
   std::vector<String::CommandPtr> commands_ GUARDED_BY(mu_);
   bool recently_used_ GUARDED_BY(mu_);

@@ -2,18 +2,17 @@
 #include <curses.h>
 #include <deque>
 #include <vector>
-#include "log.h"
 #include "colors.h"
+#include "log.h"
 
-TerminalCollaborator::TerminalCollaborator(
-    const Buffer* buffer, const std::function<void()> invalidate)
+TerminalCollaborator::TerminalCollaborator(const Buffer* buffer,
+                                           std::function<void()> invalidate)
     : Collaborator("terminal", absl::Seconds(0)),
+      invalidate_(invalidate),
       used_([this]() {
         mu_.AssertHeld();
         recently_used_ = true;
-        invalidate_();
       }),
-      invalidate_(invalidate),
       shutdown_(false),
       cursor_(String::Begin()),
       cursor_row_(0) {}
@@ -111,14 +110,25 @@ void TerminalCollaborator::Render() {
       if (it.is_end()) break;
       if (it.value() == '\n') break;
       chtype attr = 0;
-      Log()<<"REND:" << row << "," << col << " ty=" << (int)it.token_type() << " ch=" << it.value();
       switch (it.token_type()) {
-        case Token::UNSET:   attr=COLOR_PAIR(ColorID::DEFAULT);break;
-        case Token::IDENT:   attr=COLOR_PAIR(ColorID::IDENT);break;
-        case Token::KEYWORD: attr=COLOR_PAIR(ColorID::KEYWORD);break;
-        case Token::SYMBOL:  attr=COLOR_PAIR(ColorID::SYMBOL);break;
-        case Token::LITERAL: attr=COLOR_PAIR(ColorID::LITERAL);break;
-        case Token::COMMENT: attr=COLOR_PAIR(ColorID::COMMENT);break;
+        case Token::UNSET:
+          attr = COLOR_PAIR(ColorID::DEFAULT);
+          break;
+        case Token::IDENT:
+          attr = COLOR_PAIR(ColorID::IDENT);
+          break;
+        case Token::KEYWORD:
+          attr = COLOR_PAIR(ColorID::KEYWORD);
+          break;
+        case Token::SYMBOL:
+          attr = COLOR_PAIR(ColorID::SYMBOL);
+          break;
+        case Token::LITERAL:
+          attr = COLOR_PAIR(ColorID::LITERAL);
+          break;
+        case Token::COMMENT:
+          attr = COLOR_PAIR(ColorID::COMMENT);
+          break;
       }
       mvaddch(row, col, it.value() | attr);
       col++;
@@ -133,6 +143,57 @@ void TerminalCollaborator::ProcessKey(int key) {
   absl::MutexLock lock(&mu_);
 
   Log() << "TerminalCollaborator::ProcessKey: " << key;
+
+  auto down1 = [&]() {
+    String::Iterator it(content_, cursor_);
+    int col = 0;
+    auto edge = [&it]() {
+      return it.is_begin() || it.is_end() || it.value() == '\n';
+    };
+    while (!edge()) {
+      it.MovePrev();
+      col++;
+    }
+    Log() << "col:" << col;
+    it = String::Iterator(content_, cursor_);
+    do {
+      it.MoveNext();
+    } while (!edge());
+    it.MoveNext();
+    for (; col > 0 && !edge(); col--) {
+      it.MoveNext();
+    }
+    it.MovePrev();
+    cursor_ = it.id();
+    cursor_row_++;
+  };
+
+  auto up1 = [&]() {
+    String::Iterator it(content_, cursor_);
+    int col = 0;
+    auto edge = [&it]() {
+      return it.is_begin() || it.is_end() || it.value() == '\n';
+    };
+    while (!edge()) {
+      it.MovePrev();
+      col++;
+    }
+    Log() << "col:" << col;
+    do {
+      it.MovePrev();
+    } while (!edge());
+    it.MoveNext();
+    for (; col > 0 && !edge(); col--) {
+      it.MoveNext();
+    }
+    it.MovePrev();
+    cursor_ = it.id();
+    cursor_row_--;
+    used_();
+  };
+
+  int fb_rows, fb_cols;
+  getmaxyx(stdscr, fb_rows, fb_cols);
 
   switch (key) {
     case KEY_LEFT: {
@@ -149,53 +210,36 @@ void TerminalCollaborator::ProcessKey(int key) {
       cursor_ = it.id();
       used_();
     } break;
-    case KEY_UP: {
+    case KEY_HOME: {
       String::Iterator it(content_, cursor_);
-      int col = 0;
-      auto edge = [&it]() {
-        return it.is_begin() || it.is_end() || it.value() == '\n';
-      };
-      while (!edge()) {
-        it.MovePrev();
-        col++;
-      }
-      Log() << "col:" << col;
-      do {
-        it.MovePrev();
-      } while (!edge());
-      it.MoveNext();
-      for (; col > 0 && !edge(); col--) {
-        it.MoveNext();
-      }
-      it.MovePrev();
+      while (!it.is_begin() && it.value() != '\n') it.MovePrev();
       cursor_ = it.id();
-      cursor_row_--;
       used_();
     } break;
-    case KEY_DOWN: {
+    case KEY_END: {
       String::Iterator it(content_, cursor_);
-      int col = 0;
-      auto edge = [&it]() {
-        return it.is_begin() || it.is_end() || it.value() == '\n';
-      };
-      while (!edge()) {
-        it.MovePrev();
-        col++;
-      }
-      Log() << "col:" << col;
-      it = String::Iterator(content_, cursor_);
-      do {
-        it.MoveNext();
-      } while (!edge());
       it.MoveNext();
-      for (; col > 0 && !edge(); col--) {
-        it.MoveNext();
-      }
+      while (!it.is_end() && it.value() != '\n') it.MoveNext();
       it.MovePrev();
       cursor_ = it.id();
-      cursor_row_++;
       used_();
     } break;
+    case KEY_PPAGE:
+      for (int i = 0; i < fb_rows; i++) up1();
+      used_();
+      break;
+    case KEY_UP:
+      up1();
+      used_();
+      break;
+    case KEY_NPAGE:
+      for (int i = 0; i < fb_rows; i++) down1();
+      used_();
+      break;
+    case KEY_DOWN:
+      down1();
+      used_();
+      break;
     case 127:
     case KEY_BACKSPACE: {
       commands_.emplace_back(content_.MakeRemove(cursor_));

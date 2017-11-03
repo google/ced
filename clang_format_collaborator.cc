@@ -1,8 +1,8 @@
 #include "clang_format_collaborator.h"
+#include "clang_config.h"
 #include "log.h"
 #include "src/pugixml.hpp"
 #include "subprocess.hpp"
-#include "clang_config.h"
 
 using namespace subprocess;
 
@@ -12,8 +12,8 @@ void ClangFormatCollaborator::Push(const EditNotification& notification) {
   auto text = str.Render();
   auto clang_format = ClangToolPath("clang-format");
   Log() << "clang-format command: " << clang_format;
-  auto p = Popen({clang_format.c_str(), "-output-replacements-xml"}, input{PIPE},
-                 output{PIPE});
+  auto p = Popen({clang_format.c_str(), "-output-replacements-xml"},
+                 input{PIPE}, output{PIPE});
   p.send(text.data(), text.length());
   auto res = p.communicate();
 
