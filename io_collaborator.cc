@@ -30,6 +30,7 @@ EditResponse IOCollaborator::Pull() {
 
   if (n != sizeof(buf)) {
     r.done = true;
+    r.become_loaded = true;
     close(fd_);
     fd_ = 0;
   }

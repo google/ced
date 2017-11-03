@@ -137,6 +137,7 @@ void TerminalCollaborator::ProcessKey(int key) {
   switch (key) {
     case KEY_LEFT: {
       String::Iterator it(content_, cursor_);
+      cursor_row_ -= it.value() == '\n';
       it.MovePrev();
       cursor_ = it.id();
       used_();
@@ -144,6 +145,7 @@ void TerminalCollaborator::ProcessKey(int key) {
     case KEY_RIGHT: {
       String::Iterator it(content_, cursor_);
       it.MoveNext();
+      cursor_row_ += it.value() == '\n';
       cursor_ = it.id();
       used_();
     } break;
