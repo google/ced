@@ -85,6 +85,7 @@ cc_binary(
     ":terminal_collaborator",
     ":clang_format_collaborator",
     ":libclang_collaborator",
+    ":godbolt_collaborator",
     ":colors",
   ],
   linkopts = ["-lcurses", "-lpthread"]
@@ -121,6 +122,17 @@ cc_library(
   srcs = ["terminal_collaborator.cc"],
   hdrs = ["terminal_collaborator.h"],
   deps = [":buffer", ":log", ":colors"],
+)
+
+cc_library(
+  name = "godbolt_collaborator",
+  srcs = ["godbolt_collaborator.cc"],
+  hdrs = ["godbolt_collaborator.h"],
+  deps = [
+    ":buffer",
+    ":log",
+    "@subprocess//:subprocess",
+  ],
 )
 
 cc_library(
