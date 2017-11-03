@@ -87,6 +87,7 @@ cc_binary(
     ":libclang_collaborator",
     ":godbolt_collaborator",
     ":colors",
+    ":config"
   ],
   linkopts = ["-lcurses", "-lpthread"]
 )
@@ -142,6 +143,8 @@ cc_library(
   deps = [
     ":buffer",
     ":log",
+    ":config",
+    ":clang_config",
     "@subprocess//:subprocess",
     "@pugixml//:pugixml"
   ],
@@ -203,5 +206,24 @@ cc_library(
   name = 'colors',
   srcs = ['colors.cc'],
   hdrs = ['colors.h']
+)
+
+cc_library(
+  name = 'config',
+  srcs = ['config.cc'],
+  hdrs = ['config.h'],
+  deps = [
+    '@yaml//:yaml', 
+    '@com_google_absl//absl/synchronization',
+    '@com_google_absl//absl/strings',
+    ":log",
+  ],
+)
+
+cc_library(
+  name = 'clang_config',
+  srcs = ['clang_config.cc'],
+  hdrs = ['clang_config.h'],
+  deps = ['@com_google_absl//absl/strings', ':config'],
 )
 

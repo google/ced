@@ -1,0 +1,6 @@
+project:
+  clang-version: 5.0
+  compiledb:
+    name: bazel-bin/compilation_database.js
+    refresh: bazel build :compiledb
+

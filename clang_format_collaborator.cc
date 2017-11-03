@@ -2,6 +2,7 @@
 #include "log.h"
 #include "src/pugixml.hpp"
 #include "subprocess.hpp"
+#include "clang_config.h"
 
 using namespace subprocess;
 
@@ -9,7 +10,9 @@ void ClangFormatCollaborator::Push(const EditNotification& notification) {
   if (!notification.fully_loaded) return;
   auto str = notification.content;
   auto text = str.Render();
-  auto p = Popen({"clang-format", "-output-replacements-xml"}, input{PIPE},
+  auto clang_format = ClangToolPath("clang-format");
+  Log() << "clang-format command: " << clang_format;
+  auto p = Popen({clang_format.c_str(), "-output-replacements-xml"}, input{PIPE},
                  output{PIPE});
   p.send(text.data(), text.length());
   auto res = p.communicate();

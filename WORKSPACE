@@ -31,6 +31,21 @@ cc_library(
   """
 )
 
+new_git_repository(
+  name="yaml",
+  commit="beb44b872c07c74556314e730c6f20a00b32e8e5",
+  remote="https://github.com/jbeder/yaml-cpp.git",
+  build_file_content="""
+cc_library(
+  name="yaml",
+  hdrs=glob(["include/**/*.h", "include/*.h"]),
+  srcs=glob(["src/**/*.h", "src/*.h", "src/**/*.cpp", "src/*.cpp"]),
+  includes=["include"],
+  visibility=["//visibility:public"]
+)
+  """
+)
+
 new_http_archive(
   name="pugixml",
   urls = ["https://github.com/zeux/pugixml/releases/download/v1.8.1/pugixml-1.8.1.tar.gz"],
