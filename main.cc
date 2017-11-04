@@ -53,8 +53,9 @@ class Application {
       }
       int c = getch();
 
-      refresh = (c != ERR);
+      refresh = true;
       switch (c) {
+        case ERR: refresh = false; break;
         case KEY_RESIZE:
           break;
         case 'q':

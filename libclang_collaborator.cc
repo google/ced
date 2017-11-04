@@ -137,8 +137,6 @@ void LibClangCollaborator::Push(const EditNotification& notification) {
     clang_getFileLocation(start, &file, &line, &col, &offset_start);
     clang_getFileLocation(end, &file, &line, &col, &offset_end);
 
-    Log() << "TOK:" << offset_start << ".." << offset_end << " -> " << kind;
-
     while (ofs < offset_start) {
       if (it.token_type() != Token::UNSET) {
         impl_->commands.emplace_back(

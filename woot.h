@@ -48,6 +48,8 @@ class String {
   static ID Begin() { return begin_id_; }
   static ID End() { return end_id_; }
 
+  bool Has(ID id) const { return avl_.Lookup(id) != nullptr; }
+
   class Command {
    public:
     Command(ID id) : id_(id) {}

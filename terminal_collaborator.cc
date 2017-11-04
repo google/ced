@@ -48,7 +48,17 @@ EditResponse TerminalCollaborator::Pull() {
 }
 
 void TerminalCollaborator::Render() {
-  absl::MutexLock lock(&mu_);
+  auto ready = [this]() {
+    mu_.AssertHeld();
+    return shutdown_ || content_.Has(cursor_);
+  };
+
+  mu_.LockWhen(absl::Condition(&ready));
+
+  if (shutdown_) {
+    mu_.Unlock();
+    return;
+  }
 
   int fb_rows, fb_cols;
   getmaxyx(stdscr, fb_rows, fb_cols);
@@ -135,6 +145,8 @@ void TerminalCollaborator::Render() {
       it.MoveNext();
     }
   }
+
+  mu_.Unlock();
 
   move(cursor_row, cursor_col);
 }
