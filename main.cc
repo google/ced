@@ -1,4 +1,5 @@
 #include <curses.h>
+#include <signal.h>
 #include "buffer.h"
 #include "clang_format_collaborator.h"
 #include "colors.h"
@@ -16,17 +17,12 @@ class Application {
     start_color();
     InitColors();
     bkgd(COLOR_PAIR(ColorID::DEFAULT));
-    halfdelay(1);
     keypad(stdscr, true);
-    input_ = std::thread([this]() { InputLoop(); });
     buffer_.MakeCollaborator<ClangFormatCollaborator>();
     buffer_.MakeCollaborator<LibClangCollaborator>();
   }
 
-  ~Application() {
-    endwin();
-    input_.join();
-  }
+  ~Application() { endwin(); }
 
   void Quit() {
     absl::MutexLock lock(&mu_);
@@ -34,17 +30,14 @@ class Application {
   }
 
   void Invalidate() {
-    absl::MutexLock lock(&mu_);
-    invalidated_ = true;
+    {
+      absl::MutexLock lock(&mu_);
+      invalidated_ = true;
+    }
+    kill(getpid(), SIGWINCH);
   }
 
-  void Wait() {
-    mu_.LockWhen(absl::Condition(&done_));
-    mu_.Unlock();
-  }
-
- private:
-  void InputLoop() {
+  void Run() {
     bool refresh = true;
     for (;;) {
       if (refresh) {
@@ -55,8 +48,10 @@ class Application {
 
       refresh = true;
       switch (c) {
-        case ERR: refresh = false; break;
+        case ERR:
+          break;
         case KEY_RESIZE:
+          refresh = false;
           break;
         case 'q':
           Quit();
@@ -74,16 +69,15 @@ class Application {
     }
   }
 
+ private:
   void Render() { terminal_collaborator_->Render(); }
 
   absl::Mutex mu_;
   bool done_ GUARDED_BY(mu_);
   bool invalidated_ GUARDED_BY(mu_);
 
-  std::thread input_;
-
   Buffer buffer_;
   TerminalCollaborator *const terminal_collaborator_;
 };
 
-int main(void) { Application().Wait(); }
+int main(void) { Application().Run(); }

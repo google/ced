@@ -28,6 +28,9 @@ class ConfigRegistry {
     const char* home = getenv("HOME");
     LoadConfig(absl::StrCat(home, "/.config/ced"));
     LoadConfig(".ced");
+    for (auto it = configs_.crbegin(); it != configs_.crend(); ++it) {
+      Log() << *it;
+    }
   }
 
   void LoadConfig(const std::string& filename) {
@@ -41,15 +44,16 @@ class ConfigRegistry {
   void SetWatcher(ConfigWatcher* watcher, const std::string& path)
       EXCLUSIVE_LOCKS_REQUIRED(mu_) {
     auto p = absl::StrSplit(path, '/');
-    for (auto it = configs_.rbegin(); it != configs_.rend(); ++it) {
-      YAML::Node n = *it;
+    for (auto it = configs_.crbegin(); it != configs_.crend(); ++it) {
+      std::vector<YAML::Node> nstk;
+      nstk.push_back(*it);
       for (absl::string_view child : p) {
         std::string child_str(child.data(), child.length());
-        n = n[child_str];
+        nstk.push_back(nstk.back()[child_str]);
       }
-      if (n.IsScalar()) {
-        Log() << "CONFIG: " << path << " --> " << n.Scalar();
-        watcher->Set(n);
+      if (nstk.back().IsScalar()) {
+        Log() << "CONFIG: " << path << " --> " << nstk.back().Scalar();
+        watcher->Set(nstk.back());
         return;
       }
     }
@@ -61,6 +65,7 @@ class ConfigRegistry {
 };
 
 void ConfigWatcher::RegisterWatcher(const std::string& path) {
+  Log() << "CONFIG.CREATE: " << path;
   ConfigRegistry::Get().RegisterWatcher(this, path);
 }
 

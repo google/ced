@@ -30,8 +30,20 @@ void Buffer::AddCollaborator(CollaboratorPtr&& collaborator) {
   absl::MutexLock lock(&mu_);
   Collaborator* raw = collaborator.get();
   collaborators_.emplace_back(std::move(collaborator));
-  collaborator_threads_.emplace_back([this, raw]() { RunPull(raw); });
-  collaborator_threads_.emplace_back([this, raw]() { RunPush(raw); });
+  collaborator_threads_.emplace_back([this, raw]() {
+    try {
+      RunPull(raw);
+    } catch (std::exception& e) {
+      Log() << "collaborator pull broke: " << e.what();
+    }
+  });
+  collaborator_threads_.emplace_back([this, raw]() {
+    try {
+      RunPush(raw);
+    } catch (std::exception& e) {
+      Log() << "collaborator push broke: " << e.what();
+    }
+  });
 }
 
 void Buffer::RunPush(Collaborator* collaborator) {
