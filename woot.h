@@ -17,6 +17,8 @@ class String : public CRDT<String> {
         avl_.Add(Begin(), CharInfo{false, char(), End(), End(), End(), End()})
             .Add(End(),
                  CharInfo{false, char(), Begin(), Begin(), Begin(), Begin()});
+    line_breaks_ = line_breaks_.Add(Begin(), LineBreak{End(), End()})
+                       .Add(End(), LineBreak{Begin(), Begin()});
   }
 
   static ID Begin() { return begin_id_; }
@@ -65,12 +67,19 @@ class String : public CRDT<String> {
     ID before;
   };
 
-  String(AVL<ID, CharInfo> avl) : avl_(avl) {}
+  struct LineBreak {
+    ID next;
+    ID prev;
+  };
+
+  String(AVL<ID, CharInfo> avl, AVL<ID, LineBreak> line_breaks)
+      : avl_(avl), line_breaks_(line_breaks) {}
 
   String IntegrateRemove(ID id) const;
   String IntegrateInsert(ID id, char c, ID after, ID before) const;
 
   AVL<ID, CharInfo> avl_;
+  AVL<ID, LineBreak> line_breaks_;
   static Site root_site_;
   static ID begin_id_;
   static ID end_id_;

@@ -8,8 +8,18 @@ ID String::end_id_ = root_site_.GenerateID();
 String String::IntegrateRemove(ID id) const {
   const CharInfo* cdel = avl_.Lookup(id);
   if (!cdel->visible) return *this;
-  return String(avl_.Add(id, CharInfo{false, cdel->chr, cdel->next, cdel->prev,
-                                      cdel->after, cdel->before}));
+  auto line_breaks2 = line_breaks_;
+  if (cdel->chr == '\n') {
+    auto* self = line_breaks2.Lookup(id);
+    auto* prev = line_breaks2.Lookup(self->prev);
+    auto* next = line_breaks2.Lookup(self->next);
+    line_breaks2 = line_breaks2.Remove(id)
+                       .Add(self->prev, LineBreak{prev->prev, self->next})
+                       .Add(self->next, LineBreak{self->prev, next->next});
+  }
+  auto avl2 = avl_.Add(id, CharInfo{false, cdel->chr, cdel->next, cdel->prev,
+                                    cdel->after, cdel->before});
+  return String(avl2, line_breaks2);
 }
 
 String String::IntegrateInsert(ID id, char c, ID after, ID before) const {
@@ -18,12 +28,28 @@ String String::IntegrateInsert(ID id, char c, ID after, ID before) const {
   assert(caft != nullptr);
   assert(cbef != nullptr);
   if (caft->next == before) {
-    return String(
-        avl_.Add(after, CharInfo{caft->visible, caft->chr, id, caft->prev,
-                                 caft->after, caft->before})
-            .Add(id, CharInfo{true, c, before, after, after, before})
-            .Add(before, CharInfo{cbef->visible, cbef->chr, cbef->next, id,
-                                  cbef->after, cbef->before}));
+    auto line_breaks2 = line_breaks_;
+    if (c == '\n') {
+      auto prev_line_id = after;
+      const CharInfo* plic = caft;
+      while (prev_line_id != Begin() &&
+             (!plic->visible || plic->chr != '\n')) {
+        prev_line_id = plic->prev;
+        plic = avl_.Lookup(prev_line_id);
+      }
+      auto prev_lb = line_breaks2.Lookup(prev_line_id);
+      auto next_lb = line_breaks2.Lookup(prev_lb->next);
+      line_breaks2 =
+          line_breaks2.Add(prev_line_id, LineBreak{prev_lb->prev, id})
+              .Add(id, LineBreak{prev_line_id, prev_lb->next})
+              .Add(prev_lb->next, LineBreak{id, next_lb->next});
+    }
+    auto avl2 = avl_.Add(after, CharInfo{caft->visible, caft->chr, id,
+                                         caft->prev, caft->after, caft->before})
+                    .Add(id, CharInfo{true, c, before, after, after, before})
+                    .Add(before, CharInfo{cbef->visible, cbef->chr, cbef->next,
+                                          id, cbef->after, cbef->before});
+    return String(avl2, line_breaks2);
   }
   typedef std::map<ID, const CharInfo*> LMap;
   LMap inL;
