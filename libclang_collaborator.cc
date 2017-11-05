@@ -2,6 +2,7 @@
 #include <unordered_map>
 #include "clang-c/Index.h"
 #include "log.h"
+#include "token_type.h"
 
 namespace {
 
@@ -49,19 +50,13 @@ class ClangEnv {
 
 }  // namespace
 
-struct LibClangCollaborator::Impl {
-  Impl(const Buffer* b) : buffer(b) {}
-
-  const Buffer* const buffer;
-};
-
 LibClangCollaborator::LibClangCollaborator(const Buffer* buffer)
-    : SyncCollaborator("libclang", absl::Seconds(0)), impl_(new Impl(buffer)) {}
+    : SyncCollaborator("libclang", absl::Seconds(0)), buffer_(buffer) {}
 
 LibClangCollaborator::~LibClangCollaborator() {
   ClangEnv* env = ClangEnv::Get();
   absl::MutexLock lock(env->mu());
-  env->ClearUnsavedFile(impl_->buffer->filename());
+  env->ClearUnsavedFile(buffer_->filename());
 }
 
 static Token KindToToken(CXTokenKind kind) {
@@ -85,19 +80,19 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   ClangEnv* env = ClangEnv::Get();
   absl::MutexLock lock(env->mu());
   auto str = notification.content.Render();
-  env->UpdateUnsavedFile(impl_->buffer->filename(), str);
+  env->UpdateUnsavedFile(buffer_->filename(), str);
   std::vector<const char*> cmd_args;
   std::vector<CXUnsavedFile> unsaved_files = env->GetUnsavedFiles();
   const int options = 0;
   CXTranslationUnit tu = clang_parseTranslationUnit(
-      env->index(), impl_->buffer->filename().c_str(), cmd_args.data(),
+      env->index(), buffer_->filename().c_str(), cmd_args.data(),
       cmd_args.size(), unsaved_files.data(), unsaved_files.size(), options);
   if (tu == NULL) {
     Log() << "Cannot parse translation unit";
   }
   Log() << "Parsed: " << tu;
 
-  CXFile file = clang_getFile(tu, impl_->buffer->filename().c_str());
+  CXFile file = clang_getFile(tu, buffer_->filename().c_str());
 
   // get top/last location of the file
   CXSourceLocation topLoc = clang_getLocationForOffset(tu, file, 0);

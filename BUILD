@@ -76,6 +76,18 @@ cc_library(
   deps = [":avl", ":crdt"]
 )
 
+cc_library(
+  name = "umap",
+  hdrs = ["umap.h"],
+  deps = [":avl", ":crdt"]
+)
+
+cc_library(
+  name = "uset",
+  hdrs = ["uset.h"],
+  deps = [":avl", ":crdt"]
+)
+
 cc_test(
   name = "woot_test",
   srcs = ["woot_test.cc"],
@@ -90,7 +102,6 @@ cc_binary(
     ":terminal_collaborator",
     ":clang_format_collaborator",
     ":libclang_collaborator",
-    ":godbolt_collaborator",
     ":colors",
     ":config"
   ],
@@ -108,8 +119,10 @@ cc_library(
   hdrs = ["buffer.h", "io_collaborator.h"],
   deps = [
     ":woot",
+    ":umap",
     ":log",
     ":wrap_syscall",
+    ":token_type",
     "@com_google_absl//absl/synchronization",
     "@com_google_absl//absl/strings",
     "@com_google_absl//absl/time",

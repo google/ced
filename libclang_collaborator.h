@@ -11,6 +11,5 @@ class LibClangCollaborator final : public SyncCollaborator {
   EditResponse Edit(const EditNotification& notification) override;
 
  private:
-  struct Impl;
-  std::unique_ptr<Impl> impl_;
+  const Buffer* const buffer_;
 };

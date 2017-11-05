@@ -4,7 +4,6 @@
 
 Buffer::Buffer(const std::string& filename)
     : shutdown_(false),
-      fully_loaded_(false),
       version_(0),
       updating_(false),
       last_used_(absl::Now() - absl::Seconds(1000000)),
@@ -82,17 +81,21 @@ EditNotification Buffer::NextNotification(const char* name,
     }
   } while (last_used_ != last_used_at_start);
   *last_processed = version_;
-  EditNotification notification{
-      content_,
-      fully_loaded_,
-  };
+  EditNotification notification = state_;
   mu_.Unlock();
   Log() << name << " notify";
   return notification;
 }
 
 static bool HasUpdates(const EditResponse& response) {
-  return response.become_loaded || !response.commands.empty();
+  return response.become_loaded || !static_cast<const String::CommandBuf&>(response).empty();
+}
+
+template <class T>
+static void IntegrateState(T* state, const typename T::CommandBuf& commands) {
+  for (const auto& cmd : commands) {
+    *state = state->Integrate(cmd);
+  }
 }
 
 void Buffer::SinkResponse(const EditResponse& response) {
@@ -108,25 +111,23 @@ void Buffer::SinkResponse(const EditResponse& response) {
       throw std::runtime_error("Done");
     }
     updating_ = true;
-    auto content = content_;
+    auto state = state_;
     mu_.Unlock();
 
-    for (const auto& cmd : response.commands) {
-      content = content.Integrate(cmd);
-    }
+    IntegrateState(&state_.content, response);
+    IntegrateState(&state_.token_types, response);
 
     // commit the update and advance time
     mu_.Lock();
     updating_ = false;
     version_++;
-    auto old_content = content_;  // destruct outside lock
+    state_ = state;
     if (response.become_used) {
       last_used_ = absl::Now();
     }
     if (response.become_loaded) {
-      fully_loaded_ = true;
+      state_.fully_loaded = true;
     }
-    content_ = content;
     mu_.Unlock();
   } else {
     absl::MutexLock lock(&mu_);

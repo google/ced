@@ -5,16 +5,25 @@
 #include "absl/time/clock.h"
 #include "absl/types/any.h"
 #include "woot.h"
+#include "umap.h"
+#include "token_type.h"
 
-typedef std::vector<String::CommandPtr> CommandBuf;
+template <class T>
+struct Annotation {
+  ID end;
+  T data;
+};
+
+template <class T>
+using AnnotationMap = UMap<ID, Annotation<T>>;
 
 struct EditNotification {
   String content;
-  bool fully_loaded;
+  AnnotationMap<Token> token_types;
+  bool fully_loaded = false;
 };
 
-struct EditResponse {
-  CommandBuf commands;
+struct EditResponse : String::CommandBuf, AnnotationMap<Token>::CommandBuf {
   bool done = false;
   bool become_used = false;
   bool become_loaded = false;
@@ -76,7 +85,7 @@ class Buffer {
   template <class T, typename... Args>
   T* MakeCollaborator(Args&&... args) {
     T* p = new T(const_cast<const Buffer*>(this), std::forward<Args>(args)...);
-    AddCollaborator(CollaboratorPtr(p));
+    AddCollaborator(std::unique_ptr<T>(p));
     return p;
   }
 
@@ -96,12 +105,11 @@ class Buffer {
 
   absl::Mutex mu_;
   bool shutdown_ GUARDED_BY(mu_);
-  bool fully_loaded_ GUARDED_BY(mu_);
   uint64_t version_ GUARDED_BY(mu_);
   bool updating_ GUARDED_BY(mu_);
   absl::Time last_used_ GUARDED_BY(mu_);
   const std::string filename_ GUARDED_BY(mu_);
-  String content_ GUARDED_BY(mu_);
+  EditNotification state_ GUARDED_BY(mu_);
   std::vector<CollaboratorPtr> collaborators_ GUARDED_BY(mu_);
   std::vector<SyncCollaboratorPtr> sync_collaborators_ GUARDED_BY(mu_);
   std::vector<std::thread> collaborator_threads_ GUARDED_BY(mu_);
