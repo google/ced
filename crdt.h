@@ -38,6 +38,8 @@ class CRDT {
 
     ID id() const { return id_; }
 
+    virtual std::unique_ptr<Command> Clone() = 0;
+
    private:
     friend class CRDT<Derived>;
     virtual Derived Integrate(Derived string) = 0;
@@ -56,6 +58,10 @@ class CRDT {
     class Impl final : public Command {
      public:
       Impl(ID id, F&& f) : Command(id), f_(std::move(f)) {}
+
+      CommandPtr Clone() {
+        return CommandPtr(new Impl(this->id(), F(f_)));
+      }
 
      private:
       Derived Integrate(Derived s) override { return f_(s, this->id()); }
