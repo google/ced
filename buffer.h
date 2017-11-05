@@ -10,8 +10,12 @@
 
 template <class T>
 struct Annotation {
+  Annotation(ID e, T&& d) : end(e), data(std::move(d)) {}
   ID end;
   T data;
+  bool operator<(const Annotation& rhs) const {
+    return end < rhs.end || (end == rhs.end && data < rhs.data);
+  }
 };
 
 template <class T>

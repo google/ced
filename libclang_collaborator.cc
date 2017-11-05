@@ -51,7 +51,7 @@ class ClangEnv {
 }  // namespace
 
 LibClangCollaborator::LibClangCollaborator(const Buffer* buffer)
-    : SyncCollaborator("libclang", absl::Seconds(0)), buffer_(buffer) {}
+    : SyncCollaborator("libclang", absl::Seconds(0)), buffer_(buffer), token_editor_(site()) {}
 
 LibClangCollaborator::~LibClangCollaborator() {
   ClangEnv* env = ClangEnv::Get();
@@ -132,23 +132,17 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
     clang_getFileLocation(end, &file, &line, &col, &offset_end);
 
     while (ofs < offset_start) {
-      if (it.token_type() != Token::UNSET) {
-        notification.content.MakeSetTokenType(&response.commands, it.id(),
-                                              Token::UNSET);
-      }
       it.MoveNext();
       ofs++;
     }
-
-    Token type = KindToToken(kind);
+    ID id_start = it.id();
     while (ofs < offset_end) {
-      if (it.token_type() != type) {
-        notification.content.MakeSetTokenType(&response.commands, it.id(),
-                                              type);
-      }
       it.MoveNext();
       ofs++;
     }
+    ID id_end = it.id();
+
+    token_editor_.Add(id_start, Annotation<Token>(id_end, KindToToken(kind)));
   }
 
   clang_disposeTokens(tu, tokens, numTokens);
@@ -164,5 +158,6 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
 
   clang_disposeTranslationUnit(tu);
 
+  token_editor_.Publish(&response);
   return response;
 }

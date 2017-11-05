@@ -12,4 +12,5 @@ class LibClangCollaborator final : public SyncCollaborator {
 
  private:
   const Buffer* const buffer_;
+  UMapEditor<ID, Annotation<Token>> token_editor_;
 };
