@@ -51,7 +51,9 @@ class ClangEnv {
 }  // namespace
 
 LibClangCollaborator::LibClangCollaborator(const Buffer* buffer)
-    : SyncCollaborator("libclang", absl::Seconds(0)), buffer_(buffer), token_editor_(site()) {}
+    : SyncCollaborator("libclang", absl::Seconds(0)),
+      buffer_(buffer),
+      token_editor_(site()) {}
 
 LibClangCollaborator::~LibClangCollaborator() {
   ClangEnv* env = ClangEnv::Get();

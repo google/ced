@@ -79,8 +79,7 @@ class String : public CRDT<String> {
   class AllIterator {
    public:
     AllIterator(const String& str, ID where)
-        : str_(&str), pos_(where), cur_(str_->avl_.Lookup(pos_)) {
-    }
+        : str_(&str), pos_(where), cur_(str_->avl_.Lookup(pos_)) {}
 
     bool is_end() const { return pos_ == End(); }
     bool is_begin() const { return pos_ == Begin(); }
@@ -106,8 +105,7 @@ class String : public CRDT<String> {
 
   class Iterator {
    public:
-    Iterator(const String& str, ID where)
-        : it_(str,where) {
+    Iterator(const String& str, ID where) : it_(str, where) {
       while (!is_begin() && !it_.is_visible()) {
         it_.MovePrev();
       }
@@ -118,7 +116,7 @@ class String : public CRDT<String> {
 
     ID id() const { return it_.id(); }
     char value() const { return it_.value(); }
-    
+
     void MoveNext() {
       if (!is_end()) it_.MoveNext();
       while (!is_end() && !it_.is_visible()) it_.MoveNext();
@@ -135,7 +133,7 @@ class String : public CRDT<String> {
       return i;
     }
 
-  private:
+   private:
     AllIterator it_;
   };
 };
