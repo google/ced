@@ -4,9 +4,9 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/types/any.h"
-#include "woot.h"
-#include "umap.h"
 #include "token_type.h"
+#include "umap.h"
+#include "woot.h"
 
 template <class T>
 struct Annotation {
