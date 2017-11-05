@@ -54,24 +54,22 @@ void ClangFormatCollaborator::Push(const EditNotification& notification) {
     for (; n < r.offset; n++) {
       it.MoveNext();
     }
+    auto refresh_it = [&]() {
+      ID curid = it.id();
+      str = str.Integrate(commands_.back());
+      it = String::Iterator(str, curid);
+    };
     for (int i = 0; i < r.length; i++) {
       auto del = it.id();
       it.MoveNext();
       n++;
-      auto cmd = str.MakeRemove(del);
-      ID curid = it.id();
-      str = str.Integrate(cmd);
-      it = String::Iterator(str, curid);
-      commands_.emplace_back(std::move(cmd));
+      str.MakeRemove(&commands_, del);
+      refresh_it();
     }
     auto after = it.Prev().id();
     for (const char* p = r.text; *p; ++p) {
-      auto cmd = str.MakeInsert(site(), *p, after);
-      after = cmd->id();
-      ID curid = it.id();
-      str = str.Integrate(cmd);
-      it = String::Iterator(str, curid);
-      commands_.emplace_back(std::move(cmd));
+      after = str.MakeInsert(&commands_, site(), *p, after);
+      refresh_it();
     }
   }
 }

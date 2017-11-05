@@ -17,6 +17,8 @@ class AVL {
     return n ? &n->value : nullptr;
   }
 
+  bool Empty() const { return root_ == nullptr; }
+
  private:
   struct Node;
   typedef std::shared_ptr<Node> NodePtr;
@@ -147,11 +149,11 @@ class AVL {
       return nullptr;
     }
     if (key < node->key) {
-      return Rebalance(node->key, node->value,
-                       RemoveKey(node->left, std::forward(key)), node->right);
+      return Rebalance(node->key, node->value, RemoveKey(node->left, key),
+                       node->right);
     } else if (node->key < key) {
       return Rebalance(node->key, node->value, node->left,
-                       RemoveKey(node->right, std::forward(key)));
+                       RemoveKey(node->right, key));
     } else {
       if (node->left == nullptr) {
         return node->right;
@@ -167,5 +169,6 @@ class AVL {
                          node->right);
       }
     }
+    abort();
   }
 };

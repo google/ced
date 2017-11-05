@@ -254,22 +254,18 @@ void TerminalCollaborator::ProcessKey(int key) {
       break;
     case 127:
     case KEY_BACKSPACE: {
-      commands_.emplace_back(content_.MakeRemove(cursor_));
+      content_.MakeRemove(&commands_, cursor_);
       String::Iterator it(content_, cursor_);
       it.MovePrev();
       cursor_ = it.id();
     } break;
     case 10: {
-      auto cmd = content_.MakeInsert(site(), key, cursor_);
-      cursor_ = cmd->id();
+      cursor_ = content_.MakeInsert(&commands_, site(), key, cursor_);
       cursor_row_++;
-      commands_.emplace_back(std::move(cmd));
     } break;
     default: {
       if (key >= 32 && key < 127) {
-        auto cmd = content_.MakeInsert(site(), key, cursor_);
-        cursor_ = cmd->id();
-        commands_.emplace_back(std::move(cmd));
+        cursor_ = content_.MakeInsert(&commands_, site(), key, cursor_);
       }
     } break;
   }

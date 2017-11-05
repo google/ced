@@ -2,41 +2,16 @@
 
 #include <assert.h>
 #include <stdint.h>
-#include <atomic>
 #include <map>
 #include <memory>
 #include <string>
-#include <tuple>
 #include <vector>
 
 #include "avl.h"
+#include "crdt.h"
 #include "token_type.h"
 
-class Site;
-
-typedef std::tuple<uint64_t, uint64_t> ID;
-
-class Site {
- public:
-  Site() : id_(id_gen_.fetch_add(1, std::memory_order_relaxed)) {}
-
-  Site(const Site&) = delete;
-  Site& operator=(const Site&) = delete;
-
-  ID GenerateID() {
-    return ID(id_, clock_.fetch_add(1, std::memory_order_relaxed));
-  }
-
-  uint64_t site_id() const { return id_; }
-
- private:
-  Site(uint64_t id) : id_(id) {}
-  const uint64_t id_;
-  std::atomic<uint64_t> clock_{0};
-  static std::atomic<uint64_t> id_gen_;
-};
-
-class String {
+class String : public CRDT<String> {
  public:
   String() {
     avl_ = avl_.Add(Begin(), CharInfo{false, char(), Token::UNSET, End(), End(),
@@ -50,56 +25,24 @@ class String {
 
   bool Has(ID id) const { return avl_.Lookup(id) != nullptr; }
 
-  class Command {
-   public:
-    Command(ID id) : id_(id) {}
-    virtual ~Command() {}
-
-    ID id() const { return id_; }
-
-   private:
-    friend class String;
-    virtual String Integrate(String string) = 0;
-    const ID id_;
-  };
-  typedef std::unique_ptr<Command> CommandPtr;
-
-  static CommandPtr MakeRawInsert(Site* site, char c, ID after, ID before) {
-    return MakeCommand(site->GenerateID(), [c, after, before](String s, ID id) {
+  static ID MakeRawInsert(CommandBuf* buf, Site* site, char c, ID after, ID before) {
+    return MakeCommand(buf, site->GenerateID(), [c, after, before](String s, ID id) {
       return s.IntegrateInsert(id, c, after, before);
     });
   }
-  CommandPtr MakeInsert(Site* site, char c, ID after) const {
-    return MakeRawInsert(site, c, after, avl_.Lookup(after)->next);
+  ID MakeInsert(CommandBuf* buf, Site* site, char c, ID after) const {
+    return MakeRawInsert(buf, site, c, after, avl_.Lookup(after)->next);
   }
 
-  CommandPtr MakeRemove(ID chr) const {
-    return MakeCommand(chr,
+  ID MakeRemove(CommandBuf* buf, ID chr) const {
+    return MakeCommand(buf, chr,
                        [](String s, ID id) { return s.IntegrateRemove(id); });
   }
 
-  CommandPtr MakeSetTokenType(ID chr, Token type) const {
-    return MakeCommand(chr, [type](String s, ID id) {
+  ID MakeSetTokenType(CommandBuf* buf, ID chr, Token type) const {
+    return MakeCommand(buf, chr, [type](String s, ID id) {
       return s.IntegrateSetTokenType(id, type);
     });
-  }
-
-#if 0
-  CommandPtr MakeAnnotate(Site* site, ID chr, absl::any annotation) {
-    return MakeCommand(site->GenerateID(), [chr, annotation](String s, ID id) {
-      return s.IntegrateAnnotate(id, chr, annotation);
-    }
-  }
-
-  CommandPtr MakeMystify(ID annotation) {
-    return MakeCommand(annotation, [](String s, ID id) {
-      return s.IntegrateMystify(id);
-    }
-  }
-#endif
-
-  String Integrate(const CommandPtr& command) {
-    return command->Integrate(*this);
   }
 
   std::basic_string<char> Render() const {
@@ -129,82 +72,12 @@ class String {
     ID before;
   };
 
-  String(AVL<ID, CharInfo> avl) : avl_(avl) {}
+  String(AVL<ID, CharInfo> avl)
+      : avl_(avl) {}
 
-  String IntegrateRemove(ID id) {
-    const CharInfo* cdel = avl_.Lookup(id);
-    if (!cdel->visible) return *this;
-    return String(
-        avl_.Add(id, CharInfo{false, cdel->chr, cdel->token_type, cdel->next,
-                              cdel->prev, cdel->after, cdel->before}));
-  }
-
-  String IntegrateSetTokenType(ID id, Token type) {
-    const CharInfo* ci = avl_.Lookup(id);
-    if (!ci->visible) return *this;
-    return String(avl_.Add(id, CharInfo{true, ci->chr, type, ci->next, ci->prev,
-                                        ci->after, ci->before}));
-  }
-
-  String IntegrateInsert(ID id, char c, ID after, ID before) {
-    const CharInfo* caft = avl_.Lookup(after);
-    const CharInfo* cbef = avl_.Lookup(before);
-    assert(caft != nullptr);
-    assert(cbef != nullptr);
-    if (caft->next == before) {
-      return String(
-          avl_.Add(after, CharInfo{caft->visible, caft->chr, caft->token_type,
-                                   id, caft->prev, caft->after, caft->before})
-              .Add(id, CharInfo{true, c, Token::UNSET, before, after, after,
-                                before})
-              .Add(before,
-                   CharInfo{cbef->visible, cbef->chr, cbef->token_type,
-                            cbef->next, id, cbef->after, cbef->before}));
-    }
-    typedef std::map<ID, const CharInfo*> LMap;
-    LMap inL;
-    std::vector<typename LMap::iterator> L;
-    auto addToL = [&](ID id, const CharInfo* ci) {
-      L.push_back(inL.emplace(id, ci).first);
-    };
-    addToL(after, caft);
-    ID n = caft->next;
-    do {
-      const CharInfo* cn = avl_.Lookup(n);
-      assert(cn != nullptr);
-      addToL(n, cn);
-      n = cn->next;
-    } while (n != before);
-    addToL(before, cbef);
-    size_t i, j;
-    for (i = 1, j = 1; i < L.size() - 1; i++) {
-      auto it = L[i];
-      auto ai = inL.find(it->second->after);
-      if (ai == inL.end()) continue;
-      auto bi = inL.find(it->second->before);
-      if (bi == inL.end()) continue;
-      L[j++] = L[i];
-    }
-    L[j++] = L[i];
-    L.resize(j);
-    for (i = 1; i < L.size() - 1 && L[i]->first < id; i++)
-      ;
-    return IntegrateInsert(id, c, L[i - 1]->first, L[i]->first);
-  }
-
-  template <class F>
-  static CommandPtr MakeCommand(ID id, F&& f) {
-    class Impl final : public Command {
-     public:
-      Impl(ID id, F&& f) : Command(id), f_(std::move(f)) {}
-
-     private:
-      String Integrate(String s) override { return f_(s, id()); }
-
-      F f_;
-    };
-    return CommandPtr(new Impl(id, std::move(f)));
-  }
+  String IntegrateRemove(ID id) const;
+  String IntegrateSetTokenType(ID id, Token type) const;
+  String IntegrateInsert(ID id, char c, ID after, ID before) const;
 
   AVL<ID, CharInfo> avl_;
   static Site root_site_;
@@ -261,3 +134,4 @@ class String {
     const CharInfo* cur_;
   };
 };
+

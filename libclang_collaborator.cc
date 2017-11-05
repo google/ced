@@ -139,8 +139,7 @@ void LibClangCollaborator::Push(const EditNotification& notification) {
 
     while (ofs < offset_start) {
       if (it.token_type() != Token::UNSET) {
-        impl_->commands.emplace_back(
-            notification.content.MakeSetTokenType(it.id(), Token::UNSET));
+        notification.content.MakeSetTokenType(&impl_->commands, it.id(), Token::UNSET);
       }
       it.MoveNext();
       ofs++;
@@ -149,8 +148,7 @@ void LibClangCollaborator::Push(const EditNotification& notification) {
     Token type = KindToToken(kind);
     while (ofs < offset_end) {
       if (it.token_type() != type) {
-        impl_->commands.emplace_back(
-            notification.content.MakeSetTokenType(it.id(), type));
+        notification.content.MakeSetTokenType(&impl_->commands, it.id(), type);
       }
       it.MoveNext();
       ofs++;
@@ -158,6 +156,16 @@ void LibClangCollaborator::Push(const EditNotification& notification) {
   }
 
   clang_disposeTokens(tu, tokens, numTokens);
+
+  // fetch diagnostics
+  unsigned num_diagnostics = clang_getNumDiagnostics(tu);
+  Log() << num_diagnostics << " diagnostics";
+  for (unsigned i = 0; i < num_diagnostics; i++) {
+    CXDiagnostic diag = clang_getDiagnostic(tu, i);
+    Log() << clang_getCString(clang_formatDiagnostic(diag, 0));
+    clang_disposeDiagnostic(diag);
+  }
+
   clang_disposeTranslationUnit(tu);
 }
 

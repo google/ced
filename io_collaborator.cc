@@ -39,10 +39,7 @@ EditResponse IOCollaborator::Pull() {
   finished_read_ = r.done;
 
   for (int i = 0; i < n; i++) {
-    auto cmd =
-        String::MakeRawInsert(site(), buf[i], last_char_id_, String::End());
-    last_char_id_ = cmd->id();
-    r.commands.emplace_back(std::move(cmd));
+    last_char_id_ = String::MakeRawInsert(&r.commands, site(), buf[i], last_char_id_, String::End());
   }
 
   return r;

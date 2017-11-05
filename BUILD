@@ -65,10 +65,15 @@ cc_test(
 )
 
 cc_library(
+  name = "crdt",
+  hdrs = ["crdt.h"],
+)
+
+cc_library(
   name = "woot",
   hdrs = ["woot.h"],
   srcs = ["woot.cc"],
-  deps = [":avl", ":token_type"]
+  deps = [":avl", ":token_type", ":crdt"]
 )
 
 cc_test(
