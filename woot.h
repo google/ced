@@ -76,26 +76,57 @@ class String : public CRDT<String> {
   static ID end_id_;
 
  public:
-  class Iterator {
+  class AllIterator {
    public:
-    Iterator(const String& str, ID where)
+    AllIterator(const String& str, ID where)
         : str_(&str), pos_(where), cur_(str_->avl_.Lookup(pos_)) {
-      while (!is_begin() && !is_visible()) {
-        MoveBack();
-      }
     }
 
     bool is_end() const { return pos_ == End(); }
     bool is_begin() const { return pos_ == Begin(); }
 
+    ID id() const { return pos_; }
+    char value() const { return cur_->chr; }
+    bool is_visible() const { return cur_->visible; }
+
     void MoveNext() {
-      if (!is_end()) MoveForward();
-      while (!is_end() && !is_visible()) MoveForward();
+      pos_ = cur_->next;
+      cur_ = str_->avl_.Lookup(pos_);
+    }
+    void MovePrev() {
+      pos_ = cur_->prev;
+      cur_ = str_->avl_.Lookup(pos_);
+    }
+
+   private:
+    const String* str_;
+    ID pos_;
+    const CharInfo* cur_;
+  };
+
+  class Iterator {
+   public:
+    Iterator(const String& str, ID where)
+        : it_(str,where) {
+      while (!is_begin() && !it_.is_visible()) {
+        it_.MovePrev();
+      }
+    }
+
+    bool is_end() const { return it_.is_end(); }
+    bool is_begin() const { return it_.is_begin(); }
+
+    ID id() const { return it_.id(); }
+    char value() const { return it_.value(); }
+    
+    void MoveNext() {
+      if (!is_end()) it_.MoveNext();
+      while (!is_end() && !it_.is_visible()) it_.MoveNext();
     }
 
     void MovePrev() {
-      if (!is_begin()) MoveBack();
-      while (!is_begin() && !is_visible()) MoveBack();
+      if (!is_begin()) it_.MovePrev();
+      while (!is_begin() && !it_.is_visible()) it_.MovePrev();
     }
 
     Iterator Prev() {
@@ -104,23 +135,7 @@ class String : public CRDT<String> {
       return i;
     }
 
-    ID id() const { return pos_; }
-    char value() const { return cur_->chr; }
-
-   private:
-    void MoveForward() {
-      pos_ = cur_->next;
-      cur_ = str_->avl_.Lookup(pos_);
-    }
-    void MoveBack() {
-      pos_ = cur_->prev;
-      cur_ = str_->avl_.Lookup(pos_);
-    }
-
-    bool is_visible() const { return cur_->visible; }
-
-    const String* str_;
-    ID pos_;
-    const CharInfo* cur_;
+  private:
+    AllIterator it_;
   };
 };
