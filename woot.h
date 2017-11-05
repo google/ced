@@ -155,6 +155,7 @@ class String : public CRDT<String> {
         it.MovePrev();
         lb = str.line_breaks_.Lookup(it.id());
       }
+      id_ = it.id();
     }
 
     void MovePrev() {

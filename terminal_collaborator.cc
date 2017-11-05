@@ -51,7 +51,6 @@ EditResponse TerminalCollaborator::Pull() {
 void TerminalCollaborator::Render() {
   auto ready = [this]() {
     mu_.AssertHeld();
-Log() << "cursor:" << std::get<0>(cursor_) << ":" << std::get<1>(cursor_);
     return shutdown_ || content_.Has(cursor_);
   };
 
@@ -70,6 +69,8 @@ Log() << "cursor:" << std::get<0>(cursor_) << ":" << std::get<1>(cursor_);
   } else if (cursor_row_ < 0) {
     cursor_row_ = 0;
   }
+
+Log() << "cursor_row_:" << cursor_row_;
 
   String::LineIterator line_it(content_, cursor_);
   for (int i=0; i<cursor_row_; i++) line_it.MovePrev();
