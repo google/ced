@@ -1,7 +1,7 @@
 #pragma once
 
-#include <tuple>
 #include <atomic>
+#include <tuple>
 #include <vector>
 
 class Site;
@@ -66,4 +66,3 @@ class CRDT {
     return id;
   }
 };
-

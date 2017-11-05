@@ -9,15 +9,14 @@
 
 #include "avl.h"
 #include "crdt.h"
-#include "token_type.h"
 
 class String : public CRDT<String> {
  public:
   String() {
-    avl_ = avl_.Add(Begin(), CharInfo{false, char(), Token::UNSET, End(), End(),
-                                      End(), End()})
-               .Add(End(), CharInfo{false, char(), Token::UNSET, Begin(),
-                                    Begin(), Begin(), Begin()});
+    avl_ =
+        avl_.Add(Begin(), CharInfo{false, char(), End(), End(), End(), End()})
+            .Add(End(),
+                 CharInfo{false, char(), Begin(), Begin(), Begin(), Begin()});
   }
 
   static ID Begin() { return begin_id_; }
@@ -25,10 +24,12 @@ class String : public CRDT<String> {
 
   bool Has(ID id) const { return avl_.Lookup(id) != nullptr; }
 
-  static ID MakeRawInsert(CommandBuf* buf, Site* site, char c, ID after, ID before) {
-    return MakeCommand(buf, site->GenerateID(), [c, after, before](String s, ID id) {
-      return s.IntegrateInsert(id, c, after, before);
-    });
+  static ID MakeRawInsert(CommandBuf* buf, Site* site, char c, ID after,
+                          ID before) {
+    return MakeCommand(buf, site->GenerateID(),
+                       [c, after, before](String s, ID id) {
+                         return s.IntegrateInsert(id, c, after, before);
+                       });
   }
   ID MakeInsert(CommandBuf* buf, Site* site, char c, ID after) const {
     return MakeRawInsert(buf, site, c, after, avl_.Lookup(after)->next);
@@ -37,12 +38,6 @@ class String : public CRDT<String> {
   ID MakeRemove(CommandBuf* buf, ID chr) const {
     return MakeCommand(buf, chr,
                        [](String s, ID id) { return s.IntegrateRemove(id); });
-  }
-
-  ID MakeSetTokenType(CommandBuf* buf, ID chr, Token type) const {
-    return MakeCommand(buf, chr, [type](String s, ID id) {
-      return s.IntegrateSetTokenType(id, type);
-    });
   }
 
   std::basic_string<char> Render() const {
@@ -62,8 +57,6 @@ class String : public CRDT<String> {
     bool visible;
     // glyph
     char chr;
-    // attributes: last writer wins
-    Token token_type;
     // next/prev in document
     ID next;
     ID prev;
@@ -72,11 +65,9 @@ class String : public CRDT<String> {
     ID before;
   };
 
-  String(AVL<ID, CharInfo> avl)
-      : avl_(avl) {}
+  String(AVL<ID, CharInfo> avl) : avl_(avl) {}
 
   String IntegrateRemove(ID id) const;
-  String IntegrateSetTokenType(ID id, Token type) const;
   String IntegrateInsert(ID id, char c, ID after, ID before) const;
 
   AVL<ID, CharInfo> avl_;
@@ -115,7 +106,6 @@ class String : public CRDT<String> {
 
     ID id() const { return pos_; }
     char value() const { return cur_->chr; }
-    Token token_type() const { return cur_->token_type; }
 
    private:
     void MoveForward() {
@@ -134,4 +124,3 @@ class String : public CRDT<String> {
     const CharInfo* cur_;
   };
 };
-

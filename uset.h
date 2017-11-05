@@ -14,9 +14,8 @@ class USet : public CRDT<USet<T>> {
   }
 
   static void MakeRemove(CommandBuf* buf, ID id) {
-    MakeCommand(buf, id, [](USet<T> uset, ID id) {
-      return USet<T>(avl_.Remove(id));
-    });
+    MakeCommand(buf, id,
+                [](USet<T> uset, ID id) { return USet<T>(avl_.Remove(id)); });
   }
 
  private:
@@ -24,4 +23,3 @@ class USet : public CRDT<USet<T>> {
 
   AVL<ID, T> avl_;
 };
-

@@ -6,8 +6,10 @@
 
 using namespace subprocess;
 
-void ClangFormatCollaborator::Push(const EditNotification& notification) {
-  if (!notification.fully_loaded) return;
+EditResponse ClangFormatCollaborator::Edit(
+    const EditNotification& notification) {
+  EditResponse response;
+  if (!notification.fully_loaded) return response;
   auto str = notification.content;
   auto text = str.Render();
   auto clang_format = ClangToolPath("clang-format");
@@ -25,10 +27,10 @@ void ClangFormatCollaborator::Push(const EditNotification& notification) {
       (pugi::parse_default | pugi::parse_ws_pcdata_single));
 
   if (!parse_result) {
-    return;
+    return response;
   }
   if (doc.child("replacements").attribute("incomplete_format").as_bool()) {
-    return;
+    return response;
   }
 
   struct Replacement {
@@ -44,7 +46,6 @@ void ClangFormatCollaborator::Push(const EditNotification& notification) {
                                        replacement.child_value()});
   }
 
-  absl::MutexLock lock(&mu_);
   int n = 0;
   String::Iterator it(str, String::Begin());
   it.MoveNext();
@@ -56,38 +57,22 @@ void ClangFormatCollaborator::Push(const EditNotification& notification) {
     }
     auto refresh_it = [&]() {
       ID curid = it.id();
-      str = str.Integrate(commands_.back());
+      str = str.Integrate(response.commands.back());
       it = String::Iterator(str, curid);
     };
     for (int i = 0; i < r.length; i++) {
       auto del = it.id();
       it.MoveNext();
       n++;
-      str.MakeRemove(&commands_, del);
+      str.MakeRemove(&response.commands, del);
       refresh_it();
     }
     auto after = it.Prev().id();
     for (const char* p = r.text; *p; ++p) {
-      after = str.MakeInsert(&commands_, site(), *p, after);
+      after = str.MakeInsert(&response.commands, site(), *p, after);
       refresh_it();
     }
   }
-}
 
-EditResponse ClangFormatCollaborator::Pull() {
-  auto ready = [this]() {
-    mu_.AssertHeld();
-    return shutdown_ || !commands_.empty();
-  };
-  EditResponse r;
-  mu_.LockWhen(absl::Condition(&ready));
-  r.commands.swap(commands_);
-  r.done = shutdown_;
-  mu_.Unlock();
-  return r;
-}
-
-void ClangFormatCollaborator::Shutdown() {
-  absl::MutexLock lock(&mu_);
-  shutdown_ = true;
+  return response;
 }

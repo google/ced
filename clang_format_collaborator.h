@@ -2,17 +2,10 @@
 
 #include "buffer.h"
 
-class ClangFormatCollaborator final : public Collaborator {
+class ClangFormatCollaborator final : public SyncCollaborator {
  public:
   ClangFormatCollaborator(const Buffer* buffer)
-      : Collaborator("clang-format", absl::Seconds(2)), shutdown_(false) {}
+      : SyncCollaborator("clang-format", absl::Seconds(2)) {}
 
-  void Push(const EditNotification& notification) override;
-  EditResponse Pull() override;
-  void Shutdown() override;
-
- private:
-  absl::Mutex mu_;
-  bool shutdown_ GUARDED_BY(mu_);
-  CommandBuf commands_ GUARDED_BY(mu_);
+  EditResponse Edit(const EditNotification& notification) override;
 };

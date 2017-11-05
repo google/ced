@@ -3,14 +3,12 @@
 #include <memory>
 #include "buffer.h"
 
-class LibClangCollaborator final : public Collaborator {
+class LibClangCollaborator final : public SyncCollaborator {
  public:
   LibClangCollaborator(const Buffer* buffer);
   ~LibClangCollaborator();
 
-  void Push(const EditNotification& notification) override;
-  EditResponse Pull() override;
-  void Shutdown() override;
+  EditResponse Edit(const EditNotification& notification) override;
 
  private:
   struct Impl;

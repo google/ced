@@ -8,16 +8,8 @@ ID String::end_id_ = root_site_.GenerateID();
 String String::IntegrateRemove(ID id) const {
   const CharInfo* cdel = avl_.Lookup(id);
   if (!cdel->visible) return *this;
-  return String(
-      avl_.Add(id, CharInfo{false, cdel->chr, cdel->token_type, cdel->next,
-                            cdel->prev, cdel->after, cdel->before}));
-}
-
-String String::IntegrateSetTokenType(ID id, Token type) const {
-  const CharInfo* ci = avl_.Lookup(id);
-  if (!ci->visible) return *this;
-  return String(avl_.Add(id, CharInfo{true, ci->chr, type, ci->next, ci->prev,
-                                      ci->after, ci->before}));
+  return String(avl_.Add(id, CharInfo{false, cdel->chr, cdel->next, cdel->prev,
+                                      cdel->after, cdel->before}));
 }
 
 String String::IntegrateInsert(ID id, char c, ID after, ID before) const {
@@ -27,12 +19,11 @@ String String::IntegrateInsert(ID id, char c, ID after, ID before) const {
   assert(cbef != nullptr);
   if (caft->next == before) {
     return String(
-        avl_.Add(after, CharInfo{caft->visible, caft->chr, caft->token_type, id,
-                                 caft->prev, caft->after, caft->before})
-            .Add(id,
-                 CharInfo{true, c, Token::UNSET, before, after, after, before})
-            .Add(before, CharInfo{cbef->visible, cbef->chr, cbef->token_type,
-                                  cbef->next, id, cbef->after, cbef->before}));
+        avl_.Add(after, CharInfo{caft->visible, caft->chr, id, caft->prev,
+                                 caft->after, caft->before})
+            .Add(id, CharInfo{true, c, before, after, after, before})
+            .Add(before, CharInfo{cbef->visible, cbef->chr, cbef->next, id,
+                                  cbef->after, cbef->before}));
   }
   typedef std::map<ID, const CharInfo*> LMap;
   LMap inL;
@@ -64,4 +55,3 @@ String String::IntegrateInsert(ID id, char c, ID after, ID before) const {
     ;
   return IntegrateInsert(id, c, L[i - 1]->first, L[i]->first);
 }
-

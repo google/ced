@@ -46,96 +46,121 @@ void Buffer::AddCollaborator(CollaboratorPtr&& collaborator) {
   });
 }
 
-void Buffer::RunPush(Collaborator* collaborator) {
-  uint64_t processed_version = 0;
-  auto processable = [this, &processed_version]() {
-    mu_.AssertHeld();
-    return shutdown_ || version_ != processed_version;
-  };
-  bool first = true;
-  for (;;) {
-    // wait until something interesting to work on
-    mu_.LockWhen(absl::Condition(&processable));
-    absl::Time last_used_at_start;
-    do {
-      Log() << collaborator->name() << " last_used: " << last_used_;
-      last_used_at_start = last_used_;
-      absl::Duration idle_time = absl::Now() - last_used_;
-      Log() << collaborator->name() << " idle_time: " << idle_time;
-      if (!first &&
-          mu_.AwaitWithTimeout(absl::Condition(&shutdown_),
-                               collaborator->push_delay() - idle_time)) {
-        mu_.Unlock();
-        return;
-      }
-    } while (last_used_ != last_used_at_start);
-    processed_version = version_;
-    EditNotification notification{
-        content_,
-        fully_loaded_,
-    };
-    mu_.Unlock();
+void Buffer::AddCollaborator(SyncCollaboratorPtr&& collaborator) {
+  absl::MutexLock lock(&mu_);
+  SyncCollaborator* raw = collaborator.get();
+  sync_collaborators_.emplace_back(std::move(collaborator));
+  collaborator_threads_.emplace_back([this, raw]() {
+    try {
+      RunSync(raw);
+    } catch (std::exception& e) {
+      Log() << "collaborator sync broke: " << e.what();
+    }
+  });
+}
 
-    // magick happens here
-    Log() << collaborator->name() << " push";
-    collaborator->Push(notification);
-    first = false;
-  }
+EditNotification Buffer::NextNotification(const char* name,
+                                          uint64_t* last_processed,
+                                          absl::Duration push_delay) {
+  auto processable = [this, last_processed]() {
+    mu_.AssertHeld();
+    return shutdown_ || version_ != *last_processed;
+  };
+  // wait until something interesting to work on
+  mu_.LockWhen(absl::Condition(&processable));
+  absl::Time last_used_at_start;
+  do {
+    Log() << name << " last_used: " << last_used_;
+    last_used_at_start = last_used_;
+    absl::Duration idle_time = absl::Now() - last_used_;
+    Log() << name << " idle_time: " << idle_time;
+    if (*last_processed != 0 &&
+        mu_.AwaitWithTimeout(absl::Condition(&shutdown_),
+                             push_delay - idle_time)) {
+      mu_.Unlock();
+      throw std::runtime_error("Shutdown");
+    }
+  } while (last_used_ != last_used_at_start);
+  *last_processed = version_;
+  EditNotification notification{
+      content_,
+      fully_loaded_,
+  };
+  mu_.Unlock();
+  Log() << name << " notify";
+  return notification;
 }
 
 static bool HasUpdates(const EditResponse& response) {
   return response.become_loaded || !response.commands.empty();
 }
 
-void Buffer::RunPull(Collaborator* collaborator) {
+void Buffer::SinkResponse(const EditResponse& response) {
   auto updatable = [this]() {
     mu_.AssertHeld();
     return shutdown_ || !updating_;
   };
+  if (HasUpdates(response)) {
+    // get the update lock
+    mu_.LockWhen(absl::Condition(&updatable));
+    if (shutdown_) {
+      mu_.Unlock();
+      throw std::runtime_error("Done");
+    }
+    updating_ = true;
+    auto content = content_;
+    mu_.Unlock();
 
+    for (const auto& cmd : response.commands) {
+      content = content.Integrate(cmd);
+    }
+
+    // commit the update and advance time
+    mu_.Lock();
+    updating_ = false;
+    version_++;
+    auto old_content = content_;  // destruct outside lock
+    if (response.become_used) {
+      last_used_ = absl::Now();
+    }
+    if (response.become_loaded) {
+      fully_loaded_ = true;
+    }
+    content_ = content;
+    mu_.Unlock();
+  } else {
+    absl::MutexLock lock(&mu_);
+    if (response.become_used) {
+      last_used_ = absl::Now();
+    }
+    if (shutdown_) {
+      throw std::runtime_error("Done");
+    }
+  }
+
+  if (response.done) {
+    throw std::runtime_error("Done");
+  }
+}
+
+void Buffer::RunPush(Collaborator* collaborator) {
+  uint64_t processed_version = 0;
   for (;;) {
-    EditResponse response = collaborator->Pull();
+    collaborator->Push(NextNotification(
+        collaborator->name(), &processed_version, collaborator->push_delay()));
+  }
+}
 
-    if (HasUpdates(response)) {
-      // get the update lock
-      mu_.LockWhen(absl::Condition(&updatable));
-      if (shutdown_) {
-        mu_.Unlock();
-        return;
-      }
-      updating_ = true;
-      auto content = content_;
-      mu_.Unlock();
+void Buffer::RunPull(Collaborator* collaborator) {
+  for (;;) {
+    SinkResponse(collaborator->Pull());
+  }
+}
 
-      for (const auto& cmd : response.commands) {
-        content = content.Integrate(cmd);
-      }
-
-      // commit the update and advance time
-      mu_.Lock();
-      updating_ = false;
-      version_++;
-      auto old_content = content_;  // destruct outside lock
-      if (response.become_used) {
-        last_used_ = absl::Now();
-      }
-      if (response.become_loaded) {
-        fully_loaded_ = true;
-      }
-      content_ = content;
-      mu_.Unlock();
-    } else {
-      absl::MutexLock lock(&mu_);
-      if (response.become_used) {
-        last_used_ = absl::Now();
-      }
-      if (shutdown_) {
-        return;
-      }
-    }
-
-    if (response.done) {
-      return;
-    }
+void Buffer::RunSync(SyncCollaborator* collaborator) {
+  uint64_t processed_version = 0;
+  for (;;) {
+    SinkResponse(collaborator->Edit(NextNotification(
+        collaborator->name(), &processed_version, collaborator->push_delay())));
   }
 }

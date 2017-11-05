@@ -50,15 +50,13 @@ class ClangEnv {
 }  // namespace
 
 struct LibClangCollaborator::Impl {
-  Impl(const Buffer* b) : buffer(b), shutdown(false) {}
+  Impl(const Buffer* b) : buffer(b) {}
 
   const Buffer* const buffer;
-  CommandBuf commands GUARDED_BY(ClangEnv::Get()->mu());
-  bool shutdown GUARDED_BY(ClangEnv::Get()->mu());
 };
 
 LibClangCollaborator::LibClangCollaborator(const Buffer* buffer)
-    : Collaborator("libclang", absl::Seconds(0)), impl_(new Impl(buffer)) {}
+    : SyncCollaborator("libclang", absl::Seconds(0)), impl_(new Impl(buffer)) {}
 
 LibClangCollaborator::~LibClangCollaborator() {
   ClangEnv* env = ClangEnv::Get();
@@ -82,7 +80,8 @@ static Token KindToToken(CXTokenKind kind) {
   return Token::UNSET;
 }
 
-void LibClangCollaborator::Push(const EditNotification& notification) {
+EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
+  EditResponse response;
   ClangEnv* env = ClangEnv::Get();
   absl::MutexLock lock(env->mu());
   auto str = notification.content.Render();
@@ -107,7 +106,7 @@ void LibClangCollaborator::Push(const EditNotification& notification) {
       clang_equalLocations(lastLoc, clang_getNullLocation())) {
     Log() << "cannot retrieve location";
     clang_disposeTranslationUnit(tu);
-    return;
+    return response;
   }
 
   // make a range from locations
@@ -115,7 +114,7 @@ void LibClangCollaborator::Push(const EditNotification& notification) {
   if (clang_Range_isNull(range)) {
     Log() << "cannot retrieve range";
     clang_disposeTranslationUnit(tu);
-    return;
+    return response;
   }
 
   CXToken* tokens;
@@ -139,7 +138,8 @@ void LibClangCollaborator::Push(const EditNotification& notification) {
 
     while (ofs < offset_start) {
       if (it.token_type() != Token::UNSET) {
-        notification.content.MakeSetTokenType(&impl_->commands, it.id(), Token::UNSET);
+        notification.content.MakeSetTokenType(&response.commands, it.id(),
+                                              Token::UNSET);
       }
       it.MoveNext();
       ofs++;
@@ -148,7 +148,8 @@ void LibClangCollaborator::Push(const EditNotification& notification) {
     Token type = KindToToken(kind);
     while (ofs < offset_end) {
       if (it.token_type() != type) {
-        notification.content.MakeSetTokenType(&impl_->commands, it.id(), type);
+        notification.content.MakeSetTokenType(&response.commands, it.id(),
+                                              type);
       }
       it.MoveNext();
       ofs++;
@@ -167,25 +168,6 @@ void LibClangCollaborator::Push(const EditNotification& notification) {
   }
 
   clang_disposeTranslationUnit(tu);
-}
 
-EditResponse LibClangCollaborator::Pull() {
-  auto ready = [this]() {
-    ClangEnv::Get()->mu()->AssertHeld();
-    return !impl_->commands.empty() || impl_->shutdown;
-  };
-
-  ClangEnv* env = ClangEnv::Get();
-  env->mu()->LockWhen(absl::Condition(&ready));
-  EditResponse r;
-  r.commands.swap(impl_->commands);
-  r.done = impl_->shutdown;
-  env->mu()->Unlock();
-  return r;
-}
-
-void LibClangCollaborator::Shutdown() {
-  ClangEnv* env = ClangEnv::Get();
-  absl::MutexLock lock(env->mu());
-  impl_->shutdown = true;
+  return response;
 }

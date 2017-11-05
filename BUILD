@@ -73,7 +73,7 @@ cc_library(
   name = "woot",
   hdrs = ["woot.h"],
   srcs = ["woot.cc"],
-  deps = [":avl", ":token_type", ":crdt"]
+  deps = [":avl", ":crdt"]
 )
 
 cc_test(

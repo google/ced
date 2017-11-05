@@ -19,6 +19,11 @@ class AVL {
 
   bool Empty() const { return root_ == nullptr; }
 
+  template <class F>
+  void ForEach(F &&f) {
+    ForEachImpl(root_.get(), std::forward<F>(f));
+  }
+
  private:
   struct Node;
   typedef std::shared_ptr<Node> NodePtr;
@@ -38,6 +43,14 @@ class AVL {
   NodePtr root_;
 
   AVL(NodePtr root) : root_(std::move(root)) {}
+
+  template <class F>
+  void ForEachImpl(Node *n, F &&f) {
+    if (n == nullptr) return;
+    ForEachImpl(n->left, std::forward(f));
+    f(const_cast<const K &>(n->key), const_cast<const V &>(n->value));
+    ForEachImpl(n->right, std::forward(f));
+  }
 
   static long Height(const NodePtr &n) { return n ? n->height : 0; }
 

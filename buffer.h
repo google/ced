@@ -43,6 +43,28 @@ class Collaborator {
 
 typedef std::unique_ptr<Collaborator> CollaboratorPtr;
 
+// a collaborator that only makes edits in response to edits
+class SyncCollaborator {
+ public:
+  const char* name() const { return name_; }
+  absl::Duration push_delay() const { return push_delay_; }
+
+  virtual EditResponse Edit(const EditNotification& notification) = 0;
+
+  Site* site() { return &site_; }
+
+ protected:
+  SyncCollaborator(const char* name, absl::Duration push_delay)
+      : name_(name), push_delay_(push_delay) {}
+
+ private:
+  const char* const name_;
+  const absl::Duration push_delay_;
+  Site site_;
+};
+
+typedef std::unique_ptr<SyncCollaborator> SyncCollaboratorPtr;
+
 class Buffer {
  public:
   Buffer(const std::string& filename);
@@ -62,9 +84,15 @@ class Buffer {
 
  private:
   void AddCollaborator(CollaboratorPtr&& collaborator);
+  void AddCollaborator(SyncCollaboratorPtr&& collaborator);
+
+  EditNotification NextNotification(const char* name, uint64_t* last_processed,
+                                    absl::Duration push_delay);
+  void SinkResponse(const EditResponse& response);
 
   void RunPush(Collaborator* collaborator);
   void RunPull(Collaborator* collaborator);
+  void RunSync(SyncCollaborator* collaborator);
 
   absl::Mutex mu_;
   bool shutdown_ GUARDED_BY(mu_);
@@ -75,5 +103,6 @@ class Buffer {
   const std::string filename_ GUARDED_BY(mu_);
   String content_ GUARDED_BY(mu_);
   std::vector<CollaboratorPtr> collaborators_ GUARDED_BY(mu_);
+  std::vector<SyncCollaboratorPtr> sync_collaborators_ GUARDED_BY(mu_);
   std::vector<std::thread> collaborator_threads_ GUARDED_BY(mu_);
 };
