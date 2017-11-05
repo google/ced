@@ -33,14 +33,14 @@ void Buffer::AddCollaborator(CollaboratorPtr&& collaborator) {
     try {
       RunPull(raw);
     } catch (std::exception& e) {
-      Log() << "collaborator pull broke: " << e.what();
+      Log() << raw->name() << " collaborator pull broke: " << e.what();
     }
   });
   collaborator_threads_.emplace_back([this, raw]() {
     try {
       RunPush(raw);
     } catch (std::exception& e) {
-      Log() << "collaborator push broke: " << e.what();
+      Log() << raw->name() << " collaborator push broke: " << e.what();
     }
   });
 }
@@ -53,7 +53,7 @@ void Buffer::AddCollaborator(SyncCollaboratorPtr&& collaborator) {
     try {
       RunSync(raw);
     } catch (std::exception& e) {
-      Log() << "collaborator sync broke: " << e.what();
+      Log() << raw->name() << " collaborator sync broke: " << e.what();
     }
   });
 }
@@ -99,7 +99,7 @@ static void IntegrateState(T* state, const typename T::CommandBuf& commands) {
   }
 }
 
-void Buffer::SinkResponse(const EditResponse& response) {
+void Buffer::SinkResponse(const char* name, const EditResponse& response) {
   auto updatable = [this]() {
     mu_.AssertHeld();
     return shutdown_ || !updating_;
@@ -109,19 +109,22 @@ void Buffer::SinkResponse(const EditResponse& response) {
     mu_.LockWhen(absl::Condition(&updatable));
     if (shutdown_) {
       mu_.Unlock();
-      throw std::runtime_error("Done");
+      throw std::runtime_error("Done [[shutdown]]");
     }
     updating_ = true;
     auto state = state_;
     mu_.Unlock();
 
-    IntegrateState(&state_.content, response);
-    IntegrateState(&state_.token_types, response);
+    Log() << name << " integrating";
+
+    IntegrateState(&state.content, response);
+    IntegrateState(&state.token_types, response);
 
     // commit the update and advance time
     mu_.Lock();
     updating_ = false;
     version_++;
+    Log() << name << " version bump to " << version_;
     state_ = state;
     if (response.become_used) {
       last_used_ = absl::Now();
@@ -131,17 +134,18 @@ void Buffer::SinkResponse(const EditResponse& response) {
     }
     mu_.Unlock();
   } else {
+    Log() << name << " gives an empty update";
     absl::MutexLock lock(&mu_);
     if (response.become_used) {
       last_used_ = absl::Now();
     }
     if (shutdown_) {
-      throw std::runtime_error("Done");
+      throw std::runtime_error("Done [[shutdown]]");
     }
   }
 
   if (response.done) {
-    throw std::runtime_error("Done");
+    throw std::runtime_error("Done [[response.done]]");
   }
 }
 
@@ -155,14 +159,15 @@ void Buffer::RunPush(Collaborator* collaborator) {
 
 void Buffer::RunPull(Collaborator* collaborator) {
   for (;;) {
-    SinkResponse(collaborator->Pull());
+    SinkResponse(collaborator->name(), collaborator->Pull());
   }
 }
 
 void Buffer::RunSync(SyncCollaborator* collaborator) {
   uint64_t processed_version = 0;
   for (;;) {
-    SinkResponse(collaborator->Edit(NextNotification(
+    SinkResponse(collaborator->name(), collaborator->Edit(NextNotification(
         collaborator->name(), &processed_version, collaborator->push_delay())));
   }
 }
+

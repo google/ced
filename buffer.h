@@ -101,7 +101,7 @@ class Buffer {
 
   EditNotification NextNotification(const char* name, uint64_t* last_processed,
                                     absl::Duration push_delay);
-  void SinkResponse(const EditResponse& response);
+  void SinkResponse(const char* name, const EditResponse& response);
 
   void RunPush(Collaborator* collaborator);
   void RunPull(Collaborator* collaborator);

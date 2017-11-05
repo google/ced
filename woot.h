@@ -68,8 +68,8 @@ class String : public CRDT<String> {
   };
 
   struct LineBreak {
-    ID next;
     ID prev;
+    ID next;
   };
 
   String(AVL<ID, CharInfo> avl, AVL<ID, LineBreak> line_breaks)
@@ -145,4 +145,33 @@ class String : public CRDT<String> {
    private:
     AllIterator it_;
   };
+
+  class LineIterator {
+   public:
+    LineIterator(const String& str, ID where) : str_(&str) {
+      Iterator it(str, where);
+      const LineBreak* lb = str.line_breaks_.Lookup(it.id());
+      while (lb == nullptr) {
+        it.MovePrev();
+        lb = str.line_breaks_.Lookup(it.id());
+      }
+    }
+
+    void MovePrev() {
+      if (id_ == Begin()) return;
+      id_ = str_->line_breaks_.Lookup(id_)->prev;
+    }
+
+    void MoveNext() {
+      if (id_ == End()) return;
+      id_ = str_->line_breaks_.Lookup(id_)->next;
+    }
+
+    ID id() const { return id_; }
+
+   private:
+    const String* str_;
+    ID id_;
+  };
 };
+

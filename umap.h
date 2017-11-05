@@ -63,7 +63,8 @@ class UMapEditor {
   void Add(const K& k, const V& v) { new_.insert(std::make_pair(k, v)); }
   void Publish(typename UMap<K, V>::CommandBuf* buf) {
     for (auto it = last_.begin(); it != last_.end();) {
-      auto next = it++;
+      auto next = it;
+      ++next;
       if (new_.find(it->first) == new_.end()) {
         UMap<K, V>::MakeRemove(buf, it->second);
         last_.erase(it);
