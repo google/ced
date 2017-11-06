@@ -62,32 +62,35 @@ class UMap : public CRDT<UMap<K, V>> {
 template <class K, class V>
 class UMapEditor {
  public:
-  explicit UMapEditor(Site* site) : site_(site) {}
-  void Add(const K& k, const V& v) { new_.insert(std::make_pair(k, v)); }
-  void Publish(typename UMap<K, V>::CommandBuf* buf) {
+  UMapEditor(Site* site) : site_(site) {}
+  void BeginEdit(typename UMap<K,V>::CommandBuf* buf) { buf_ = buf; }
+  ID Add(const K& k, const V& v) {
+    auto kv = std::make_pair(k, v);
+    auto it = last_.find(kv);
+    if (it == last_.end()) {
+      return new_[kv] = UMap<K,V>::MakeInsert(buf_, site_, k, v);
+    } else {
+      new_.insert(*it);
+      return it->second;
+    }
+  }
+  void Publish() {
     for (auto it = last_.begin(); it != last_.end();) {
       auto next = it;
       ++next;
       if (new_.find(it->first) == new_.end()) {
-        Log() << "Remove: " << std::get<0>(it->second) << ":"
-              << std::get<1>(it->second);
-        UMap<K, V>::MakeRemove(buf, it->second);
-        last_.erase(it);
+        UMap<K, V>::MakeRemove(buf_, it->second);
       }
       it = next;
     }
-    for (const auto& kv : new_) {
-      if (last_.find(kv) == last_.end()) {
-        ID id = last_[kv] =
-            UMap<K, V>::MakeInsert(buf, site_, kv.first, kv.second);
-        Log() << "Add: " << std::get<0>(id) << ":" << std::get<1>(id);
-      }
-    }
+    last_.swap(new_);
     new_.clear();
+    buf_ = nullptr;
   }
 
  private:
   Site* const site_;
+  typename UMap<K,V>::CommandBuf* buf_ = nullptr;
   std::map<std::pair<K, V>, ID> last_;
-  std::set<std::pair<K, V>> new_;
+  std::map<std::pair<K, V>, ID> new_;
 };

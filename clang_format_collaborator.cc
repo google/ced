@@ -57,19 +57,19 @@ EditResponse ClangFormatCollaborator::Edit(
     }
     auto refresh_it = [&]() {
       ID curid = it.id();
-      str = str.Integrate(static_cast<String::CommandBuf&>(response).back());
+      str = str.Integrate(response.content.back());
       it = String::Iterator(str, curid);
     };
     for (int i = 0; i < r.length; i++) {
       auto del = it.id();
       it.MoveNext();
       n++;
-      str.MakeRemove(&response, del);
+      str.MakeRemove(&response.content, del);
       refresh_it();
     }
     auto after = it.Prev().id();
     for (const char* p = r.text; *p; ++p) {
-      after = str.MakeInsert(&response, site(), *p, after);
+      after = str.MakeInsert(&response.content, site(), *p, after);
       refresh_it();
     }
   }

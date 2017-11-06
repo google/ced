@@ -2,10 +2,11 @@
 
 #include "crdt.h"
 #include "woot.h"
-#include "buffer.h"
 
 class Diagnostic;
 typedef std::shared_ptr<const Diagnostic> DiagnosticPtr;
+
+class EditResponse;
 
 enum class Severity {
   UNSET,
@@ -16,24 +17,38 @@ enum class Severity {
   FATAL,
 };
 
-class Diagnostic {
- public:
+// diagnostic annotations point to this
+// as do fixit annotations
+struct Diagnostic {
+  size_t index;
+  Severity severity;
+  std::string message;
+
+  bool operator<(const Diagnostic& other) const {
+    return (index < other.index) || (index == other.index && severity < other.severity) || (index == other.index && severity == other.severity && message < other.message);
+  }
+};
+
+struct Fixit {
+  size_t index;
+  ID diagnostic;
+  String::CommandBuf commands;
 };
 
 class DiagnosticEditor {
  public:
-  DiagnosticEditor();
+  DiagnosticEditor(Site* site);
   ~DiagnosticEditor();
 
   DiagnosticEditor& StartDiagnostic(Severity severity,
                                     const std::string& message);
-  DiagnosticEditor& AddRange(size_t ofs_begin, size_t ofs_end);
-  DiagnosticEditor& AddPoint(size_t ofs);
+  DiagnosticEditor& AddRange(ID ofs_begin, ID ofs_end);
+  DiagnosticEditor& AddPoint(ID ofs);
   DiagnosticEditor& StartFixit();
-  DiagnosticEditor& AddReplacement(size_t del_begin, size_t del_end,
+  DiagnosticEditor& AddReplacement(ID del_begin, ID del_end,
                                    const std::string& replacement);
 
-  void FinishAndPublishChanges(EditResponse* response);
+  void Publish(const String& content, EditResponse* response);
 
  private:
   struct Impl;

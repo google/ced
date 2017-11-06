@@ -120,6 +120,7 @@ cc_library(
   deps = [
     ":woot",
     ":umap",
+    ":uset",
     ":log",
     ":wrap_syscall",
     ":token_type",

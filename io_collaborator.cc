@@ -41,7 +41,7 @@ EditResponse IOCollaborator::Pull() {
 
   for (int i = 0; i < n; i++) {
     last_char_id_ =
-        String::MakeRawInsert(&r, site(), buf[i], last_char_id_, String::End());
+        String::MakeRawInsert(&r.content, site(), buf[i], last_char_id_, String::End());
   }
 
   return r;

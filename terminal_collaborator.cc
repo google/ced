@@ -41,7 +41,7 @@ EditResponse TerminalCollaborator::Pull() {
 
   mu_.LockWhen(absl::Condition(&ready));
   r.become_used = recently_used_ || !commands_.empty();
-  commands_.swap(r);
+  commands_.swap(r.content);
   assert(commands_.empty());
   recently_used_ = false;
   mu_.Unlock();
@@ -99,7 +99,7 @@ void TerminalCollaborator::Render() {
         cursor_row = row;
         cursor_col = col + 1;
       }
-      if (it.is_end()) break;
+      if (it.is_end()) { row = fb_rows; break; }
       if (it.is_visible()) {
         if (it.value() == '\n') break;
         chtype attr = 0;

@@ -6,11 +6,14 @@
 #include "absl/types/any.h"
 #include "token_type.h"
 #include "umap.h"
+#include "uset.h"
 #include "woot.h"
+#include "diagnostic.h"
 
 template <class T>
 struct Annotation {
   Annotation(ID e, T&& d) : end(e), data(std::move(d)) {}
+  Annotation(ID e, const T& d) : end(e), data(d) {}
   ID end;
   T data;
   bool operator<(const Annotation& rhs) const {
@@ -45,13 +48,25 @@ class AnnotationTracker {
   std::vector<Annotation<T>> active_;
 };
 
-struct EditNotification {
-  String content;
-  AnnotationMap<Token> token_types;
+template <template <class Type> class TypeTranslator>
+struct EditState {
+  TypeTranslator<String> content;
+  TypeTranslator<AnnotationMap<Token>> token_types;
+  TypeTranslator<USet<Diagnostic>> diagnostics;
+  TypeTranslator<AnnotationMap<ID>> diagnostic_ranges;
+};
+
+template <class T>
+using NotifTrans = T;
+
+struct EditNotification : public EditState<NotifTrans> {
   bool fully_loaded = false;
 };
 
-struct EditResponse : String::CommandBuf, AnnotationMap<Token>::CommandBuf {
+template <class T>
+using RspTrans = typename T::CommandBuf;
+
+struct EditResponse : public EditState<RspTrans> {
   bool done = false;
   bool become_used = false;
   bool become_loaded = false;

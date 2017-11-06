@@ -2,6 +2,7 @@
 
 #include <memory>
 #include "buffer.h"
+#include "diagnostic.h"
 
 class LibClangCollaborator final : public SyncCollaborator {
  public:
@@ -13,4 +14,5 @@ class LibClangCollaborator final : public SyncCollaborator {
  private:
   const Buffer* const buffer_;
   UMapEditor<ID, Annotation<Token>> token_editor_;
+  DiagnosticEditor diagnostic_editor_;
 };
