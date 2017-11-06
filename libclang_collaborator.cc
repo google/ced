@@ -188,7 +188,7 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
         unsigned line, col, offset_start, offset_end;
         clang_getFileLocation(start, &file, &line, &col, &offset_start);
         clang_getFileLocation(end, &file, &line, &col, &offset_end);
-        if (filename == clang_getCString(clang_getFileName(file))) {
+        if (file && filename == clang_getCString(clang_getFileName(file))) {
           diagnostic_editor_.AddRange(ids[offset_start], ids[offset_end]);
         }
       }
@@ -196,7 +196,7 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
       unsigned line, col, offset;
       CXSourceLocation loc = clang_getDiagnosticLocation(diag);
       clang_getFileLocation(loc, &file, &line, &col, &offset);
-      if (filename == clang_getCString(clang_getFileName(file))) {
+      if (file && filename == clang_getCString(clang_getFileName(file))) {
         diagnostic_editor_.AddPoint(ids[offset]);
       }
       unsigned num_fixits = clang_getDiagnosticNumFixIts(diag);
@@ -209,13 +209,12 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
         unsigned line, col, offset_start, offset_end;
         clang_getFileLocation(start, &file, &line, &col, &offset_start);
         clang_getFileLocation(end, &file, &line, &col, &offset_end);
-        if (filename == clang_getCString(clang_getFileName(file))) {
+        if (file && filename == clang_getCString(clang_getFileName(file))) {
           diagnostic_editor_.StartFixit().AddReplacement(
               ids[offset_start], ids[offset_end], clang_getCString(repl));
         }
       }
 
-      // Log() << clang_getCString(clang_formatDiagnostic(diag, 0));
       clang_disposeString(message);
       clang_disposeDiagnostic(diag);
     }
