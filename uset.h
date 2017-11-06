@@ -11,13 +11,18 @@ class USet : public CRDT<USet<T>> {
 
   static ID MakeInsert(CommandBuf* buf, Site* site, const T& value) {
     return MakeCommand(buf, site->GenerateID(), [value](USet<T> uset, ID id) {
+      Log() << __PRETTY_FUNCTION__ << " " << std::get<0>(id) << ":"
+            << std::get<1>(id);
       return USet<T>(uset.avl_.Add(id, value));
     });
   }
 
   static void MakeRemove(CommandBuf* buf, ID id) {
-    MakeCommand(buf, id,
-                [](USet<T> uset, ID id) { return USet<T>(uset.avl_.Remove(id)); });
+    MakeCommand(buf, id, [](USet<T> uset, ID id) {
+      Log() << __PRETTY_FUNCTION__ << " " << std::get<0>(id) << ":"
+            << std::get<1>(id);
+      return USet<T>(uset.avl_.Remove(id));
+    });
   }
 
  private:

@@ -81,9 +81,11 @@ void TerminalCollaborator::Render() {
 
   String::AllIterator it(state_.content, line_it.id());
   AnnotationTracker<Token> t_token(state_.token_types);
+  AnnotationTracker<ID> t_diagnostic(state_.diagnostic_ranges);
   auto move_next = [&]() {
     it.MoveNext();
     t_token.Enter(it.id());
+    t_diagnostic.Enter(it.id());
   };
   for (int row = 0; row < fb_rows; row++) {
     int col = 0;
@@ -99,7 +101,10 @@ void TerminalCollaborator::Render() {
         cursor_row = row;
         cursor_col = col + 1;
       }
-      if (it.is_end()) { row = fb_rows; break; }
+      if (it.is_end()) {
+        row = fb_rows;
+        break;
+      }
       if (it.is_visible()) {
         if (it.value() == '\n') break;
         chtype attr = 0;
@@ -122,6 +127,9 @@ void TerminalCollaborator::Render() {
           case Token::COMMENT:
             attr = COLOR_PAIR(ColorID::COMMENT);
             break;
+        }
+        if (t_diagnostic.cur() != ID()) {
+          attr = COLOR_PAIR(ColorID::ERROR);
         }
         mvaddch(row, col, it.value() | attr);
         col++;

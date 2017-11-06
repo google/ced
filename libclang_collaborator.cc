@@ -1,9 +1,9 @@
 #include "libclang_collaborator.h"
 #include <unordered_map>
 #include "clang-c/Index.h"
+#include "diagnostic.h"
 #include "log.h"
 #include "token_type.h"
-#include "diagnostic.h"
 
 namespace {
 
@@ -54,7 +54,8 @@ class ClangEnv {
 LibClangCollaborator::LibClangCollaborator(const Buffer* buffer)
     : SyncCollaborator("libclang", absl::Seconds(0)),
       buffer_(buffer),
-      token_editor_(site()), diagnostic_editor_(site()) {}
+      token_editor_(site()),
+      diagnostic_editor_(site()) {}
 
 LibClangCollaborator::~LibClangCollaborator() {
   ClangEnv* env = ClangEnv::Get();
@@ -80,11 +81,16 @@ static Token KindToToken(CXTokenKind kind) {
 
 static Severity DiagnosticSeverity(CXDiagnosticSeverity sev) {
   switch (sev) {
-    case CXDiagnostic_Ignored: return Severity::IGNORED;
-    case CXDiagnostic_Note: return Severity::NOTE;
-    case CXDiagnostic_Warning: return Severity::WARNING;
-    case CXDiagnostic_Error: return Severity::ERROR;
-    case CXDiagnostic_Fatal: return Severity::FATAL;
+    case CXDiagnostic_Ignored:
+      return Severity::IGNORED;
+    case CXDiagnostic_Note:
+      return Severity::NOTE;
+    case CXDiagnostic_Warning:
+      return Severity::WARNING;
+    case CXDiagnostic_Error:
+      return Severity::ERROR;
+    case CXDiagnostic_Fatal:
+      return Severity::FATAL;
   }
   return Severity::UNSET;
 }
@@ -94,7 +100,7 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   auto filename = buffer_->filename();
 
   ClangEnv* env = ClangEnv::Get();
-  
+
   std::string str;
   std::vector<ID> ids;
   String::Iterator it(notification.content, String::Begin());
@@ -111,8 +117,8 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   std::vector<CXUnsavedFile> unsaved_files = env->GetUnsavedFiles();
   const int options = 0;
   CXTranslationUnit tu = clang_parseTranslationUnit(
-      env->index(), filename.c_str(), cmd_args.data(),
-      cmd_args.size(), unsaved_files.data(), unsaved_files.size(), options);
+      env->index(), filename.c_str(), cmd_args.data(), cmd_args.size(),
+      unsaved_files.data(), unsaved_files.size(), options);
   if (tu == NULL) {
     Log() << "Cannot parse translation unit";
   }
@@ -157,7 +163,8 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
     clang_getFileLocation(start, &file, &line, &col, &offset_start);
     clang_getFileLocation(end, &file, &line, &col, &offset_end);
 
-    token_editor_.Add(ids[offset_start], Annotation<Token>(ids[offset_end], KindToToken(kind)));
+    token_editor_.Add(ids[offset_start],
+                      Annotation<Token>(ids[offset_end], KindToToken(kind)));
   }
 
   clang_disposeTokens(tu, tokens, numTokens);
@@ -169,9 +176,11 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
     for (unsigned i = 0; i < num_diagnostics; i++) {
       CXDiagnostic diag = clang_getDiagnostic(tu, i);
       CXString message = clang_formatDiagnostic(diag, 0);
-      diagnostic_editor_.StartDiagnostic(DiagnosticSeverity(clang_getDiagnosticSeverity(diag)), clang_getCString(message));
+      diagnostic_editor_.StartDiagnostic(
+          DiagnosticSeverity(clang_getDiagnosticSeverity(diag)),
+          clang_getCString(message));
       unsigned num_ranges = clang_getDiagnosticNumRanges(diag);
-      for (size_t j=0; j<num_ranges; j++) {
+      for (size_t j = 0; j < num_ranges; j++) {
         CXSourceRange extent = clang_getDiagnosticRange(diag, j);
         CXSourceLocation start = clang_getRangeStart(extent);
         CXSourceLocation end = clang_getRangeEnd(extent);
@@ -191,7 +200,7 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
         diagnostic_editor_.AddPoint(ids[offset]);
       }
       unsigned num_fixits = clang_getDiagnosticNumFixIts(diag);
-      for (unsigned j=0; j<num_fixits; j++) {
+      for (unsigned j = 0; j < num_fixits; j++) {
         CXSourceRange extent;
         CXString repl = clang_getDiagnosticFixIt(diag, j, &extent);
         CXSourceLocation start = clang_getRangeStart(extent);
@@ -201,11 +210,12 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
         clang_getFileLocation(start, &file, &line, &col, &offset_start);
         clang_getFileLocation(end, &file, &line, &col, &offset_end);
         if (filename == clang_getCString(clang_getFileName(file))) {
-          diagnostic_editor_.StartFixit().AddReplacement(ids[offset_start], ids[offset_end], clang_getCString(repl));
+          diagnostic_editor_.StartFixit().AddReplacement(
+              ids[offset_start], ids[offset_end], clang_getCString(repl));
         }
       }
 
-      //Log() << clang_getCString(clang_formatDiagnostic(diag, 0));
+      // Log() << clang_getCString(clang_formatDiagnostic(diag, 0));
       clang_disposeString(message);
       clang_disposeDiagnostic(diag);
     }

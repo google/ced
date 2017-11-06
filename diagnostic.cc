@@ -1,12 +1,12 @@
 #include "diagnostic.h"
-#include "uset.h"
-#include "umap.h"
 #include "buffer.h"
+#include "umap.h"
+#include "uset.h"
 
 namespace {
 
 struct ReplacementData {
-  std::pair<ID,ID>range;
+  std::pair<ID, ID> range;
   std::string new_text;
 };
 
@@ -18,13 +18,13 @@ struct DiagData {
   Severity severity;
   std::string message;
   ID diag_id;
-  
-  std::vector<std::pair<ID,ID>> ranges;
+
+  std::vector<std::pair<ID, ID>> ranges;
   std::vector<ID> points;
   std::vector<FixitData> fixits;
 };
 
-}
+}  // namespace
 
 struct DiagnosticEditor::Impl {
   Impl(Site* site) : diagnostic_editor(site), range_editor(site) {}
@@ -38,7 +38,8 @@ DiagnosticEditor::DiagnosticEditor(Site* site) : impl_(new Impl(site)) {}
 
 DiagnosticEditor::~DiagnosticEditor() {}
 
-DiagnosticEditor& DiagnosticEditor::StartDiagnostic(Severity severity, const std::string& message) {
+DiagnosticEditor& DiagnosticEditor::StartDiagnostic(
+    Severity severity, const std::string& message) {
   impl_->new_diags.emplace_back();
   impl_->new_diags.back().severity = severity;
   impl_->new_diags.back().message = message;
@@ -60,24 +61,30 @@ DiagnosticEditor& DiagnosticEditor::StartFixit() {
   return *this;
 }
 
-DiagnosticEditor& DiagnosticEditor::AddReplacement(ID del_begin, ID del_end, const std::string& replacement) {
-  impl_->new_diags.back().fixits.back().replacements.emplace_back(ReplacementData{{del_begin, del_end}, replacement});
+DiagnosticEditor& DiagnosticEditor::AddReplacement(
+    ID del_begin, ID del_end, const std::string& replacement) {
+  impl_->new_diags.back().fixits.back().replacements.emplace_back(
+      ReplacementData{{del_begin, del_end}, replacement});
   return *this;
 }
 
 void DiagnosticEditor::Publish(const String& content, EditResponse* response) {
   impl_->diagnostic_editor.BeginEdit(&response->diagnostics);
-  for (size_t i=0; i<impl_->new_diags.size(); i++) {
-    impl_->new_diags[i].diag_id = impl_->diagnostic_editor.Add({i, impl_->new_diags[i].severity, impl_->new_diags[i].message});
+  for (size_t i = 0; i < impl_->new_diags.size(); i++) {
+    Log() << "Diagnostic: " << i << " sev=" << static_cast<int>(impl_->new_diags[i].severity) << " message=" << impl_->new_diags[i].message;
+    impl_->new_diags[i].diag_id = impl_->diagnostic_editor.Add(
+        {i, impl_->new_diags[i].severity, impl_->new_diags[i].message});
   }
   impl_->diagnostic_editor.Publish();
 
   impl_->range_editor.BeginEdit(&response->diagnostic_ranges);
   for (const auto& diag : impl_->new_diags) {
     for (const auto& range : diag.ranges) {
-      impl_->range_editor.Add(range.first, Annotation<ID>(range.second, diag.diag_id));
+      impl_->range_editor.Add(range.first,
+                              Annotation<ID>(range.second, diag.diag_id));
     }
   }
   impl_->range_editor.Publish();
-}
 
+  impl_->new_diags.clear();
+}

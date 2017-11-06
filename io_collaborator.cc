@@ -40,8 +40,8 @@ EditResponse IOCollaborator::Pull() {
   finished_read_ = r.done;
 
   for (int i = 0; i < n; i++) {
-    last_char_id_ =
-        String::MakeRawInsert(&r.content, site(), buf[i], last_char_id_, String::End());
+    last_char_id_ = String::MakeRawInsert(&r.content, site(), buf[i],
+                                          last_char_id_, String::End());
   }
 
   return r;

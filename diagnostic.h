@@ -25,7 +25,10 @@ struct Diagnostic {
   std::string message;
 
   bool operator<(const Diagnostic& other) const {
-    return (index < other.index) || (index == other.index && severity < other.severity) || (index == other.index && severity == other.severity && message < other.message);
+    return (index < other.index) ||
+           (index == other.index && severity < other.severity) ||
+           (index == other.index && severity == other.severity &&
+            message < other.message);
   }
 };
 

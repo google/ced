@@ -88,8 +88,9 @@ EditNotification Buffer::NextNotification(const char* name,
 }
 
 static bool HasUpdates(const EditResponse& response) {
-  return response.become_loaded ||
-      !response.content.empty() || !response.token_types.empty() || !response.diagnostics.empty() || !response.diagnostic_ranges.empty();
+  return response.become_loaded || !response.content.empty() ||
+         !response.token_types.empty() || !response.diagnostics.empty() ||
+         !response.diagnostic_ranges.empty();
 }
 
 template <class T>

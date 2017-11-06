@@ -1,9 +1,9 @@
 #pragma once
 
 #include <atomic>
+#include <memory>
 #include <tuple>
 #include <vector>
-#include <memory>
 
 class Site;
 

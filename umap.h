@@ -15,7 +15,8 @@ class UMap : public CRDT<UMap<K, V>> {
 
   static ID MakeInsert(CommandBuf* buf, Site* site, const K& k, const V& v) {
     return MakeCommand(buf, site->GenerateID(), [k, v](UMap m, ID id) {
-      Log() << "+Add " << std::get<0>(id) << ":" << std::get<1>(id);
+      Log() << __PRETTY_FUNCTION__ << " " << std::get<0>(id) << ":"
+            << std::get<1>(id);
       auto* id2v = m.k2id2v_.Lookup(k);
       if (id2v == nullptr) {
         // first use of this key
@@ -30,7 +31,8 @@ class UMap : public CRDT<UMap<K, V>> {
 
   static void MakeRemove(CommandBuf* buf, ID id) {
     MakeCommand(buf, id, [](UMap m, ID id) {
-      Log() << "+Remove " << std::get<0>(id) << ":" << std::get<1>(id);
+      Log() << __PRETTY_FUNCTION__ << " " << std::get<0>(id) << ":"
+            << std::get<1>(id);
       auto* p = m.id2kv_.Lookup(id);
       auto* id2v = m.k2id2v_.Lookup(p->first);
       auto id2v_new = id2v->Remove(id);
@@ -63,12 +65,12 @@ template <class K, class V>
 class UMapEditor {
  public:
   UMapEditor(Site* site) : site_(site) {}
-  void BeginEdit(typename UMap<K,V>::CommandBuf* buf) { buf_ = buf; }
+  void BeginEdit(typename UMap<K, V>::CommandBuf* buf) { buf_ = buf; }
   ID Add(const K& k, const V& v) {
     auto kv = std::make_pair(k, v);
     auto it = last_.find(kv);
     if (it == last_.end()) {
-      return new_[kv] = UMap<K,V>::MakeInsert(buf_, site_, k, v);
+      return new_[kv] = UMap<K, V>::MakeInsert(buf_, site_, k, v);
     } else {
       new_.insert(*it);
       return it->second;
@@ -90,7 +92,7 @@ class UMapEditor {
 
  private:
   Site* const site_;
-  typename UMap<K,V>::CommandBuf* buf_ = nullptr;
+  typename UMap<K, V>::CommandBuf* buf_ = nullptr;
   std::map<std::pair<K, V>, ID> last_;
   std::map<std::pair<K, V>, ID> new_;
 };
