@@ -79,7 +79,7 @@ cc_library(
 cc_library(
   name = "umap",
   hdrs = ["umap.h"],
-  deps = [":avl", ":crdt"]
+  deps = [":avl", ":crdt", ":log"]
 )
 
 cc_library(

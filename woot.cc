@@ -32,8 +32,7 @@ String String::IntegrateInsert(ID id, char c, ID after, ID before) const {
     if (c == '\n') {
       auto prev_line_id = after;
       const CharInfo* plic = caft;
-      while (prev_line_id != Begin() &&
-             (!plic->visible || plic->chr != '\n')) {
+      while (prev_line_id != Begin() && (!plic->visible || plic->chr != '\n')) {
         prev_line_id = plic->prev;
         plic = avl_.Lookup(prev_line_id);
       }

@@ -20,7 +20,7 @@ class TerminalCollaborator final : public Collaborator {
   std::vector<String::CommandPtr> commands_ GUARDED_BY(mu_);
   bool recently_used_ GUARDED_BY(mu_);
   bool shutdown_ GUARDED_BY(mu_);
-  String content_ GUARDED_BY(mu_);
+  EditNotification state_ GUARDED_BY(mu_);
   ID cursor_ GUARDED_BY(mu_);
   int cursor_row_ GUARDED_BY(mu_);
 };

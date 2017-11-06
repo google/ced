@@ -13,6 +13,7 @@ TerminalCollaborator::TerminalCollaborator(const Buffer* buffer,
         mu_.AssertHeld();
         recently_used_ = true;
       }),
+      recently_used_(false),
       shutdown_(false),
       cursor_(String::Begin()),
       cursor_row_(0) {}
@@ -25,7 +26,7 @@ void TerminalCollaborator::Shutdown() {
 void TerminalCollaborator::Push(const EditNotification& notification) {
   {
     absl::MutexLock lock(&mu_);
-    content_ = notification.content;
+    state_ = notification;
   }
   invalidate_();
 }
@@ -51,7 +52,7 @@ EditResponse TerminalCollaborator::Pull() {
 void TerminalCollaborator::Render() {
   auto ready = [this]() {
     mu_.AssertHeld();
-    return shutdown_ || content_.Has(cursor_);
+    return shutdown_ || state_.content.Has(cursor_);
   };
 
   mu_.LockWhen(absl::Condition(&ready));
@@ -70,55 +71,62 @@ void TerminalCollaborator::Render() {
     cursor_row_ = 0;
   }
 
-Log() << "cursor_row_:" << cursor_row_;
+  Log() << "cursor_row_:" << cursor_row_;
 
-  String::LineIterator line_it(content_, cursor_);
-  for (int i=0; i<cursor_row_; i++) line_it.MovePrev();
+  String::LineIterator line_it(state_.content, cursor_);
+  for (int i = 0; i < cursor_row_; i++) line_it.MovePrev();
 
   int cursor_row = 0;
   int cursor_col = 0;
 
-  String::Iterator it = String::Iterator(content_, line_it.id());
+  String::AllIterator it(state_.content, line_it.id());
+  AnnotationTracker<Token> t_token(state_.token_types);
+  auto move_next = [&]() {
+    it.MoveNext();
+    t_token.Enter(it.id());
+  };
   for (int row = 0; row < fb_rows; row++) {
     int col = 0;
-    if (it.id() == cursor_) {
-      cursor_row = row;
-      cursor_col = col;
-    }
-    it.MoveNext();
+    do {
+      if (it.id() == cursor_) {
+        cursor_row = row;
+        cursor_col = col;
+      }
+      move_next();
+    } while (!it.is_end() && !it.is_visible());
     for (;;) {
       if (it.id() == cursor_) {
         cursor_row = row;
         cursor_col = col + 1;
       }
       if (it.is_end()) break;
-      if (it.value() == '\n') break;
-      chtype attr = 0;
-/*
-      switch (it.token_type()) {
-        case Token::UNSET:
-          attr = COLOR_PAIR(ColorID::DEFAULT);
-          break;
-        case Token::IDENT:
-          attr = COLOR_PAIR(ColorID::IDENT);
-          break;
-        case Token::KEYWORD:
-          attr = COLOR_PAIR(ColorID::KEYWORD);
-          break;
-        case Token::SYMBOL:
-          attr = COLOR_PAIR(ColorID::SYMBOL);
-          break;
-        case Token::LITERAL:
-          attr = COLOR_PAIR(ColorID::LITERAL);
-          break;
-        case Token::COMMENT:
-          attr = COLOR_PAIR(ColorID::COMMENT);
-          break;
+      if (it.is_visible()) {
+        if (it.value() == '\n') break;
+        chtype attr = 0;
+        switch (t_token.cur()) {
+          case Token::UNSET:
+            attr = COLOR_PAIR(ColorID::DEFAULT);
+            break;
+          case Token::IDENT:
+            attr = COLOR_PAIR(ColorID::IDENT);
+            break;
+          case Token::KEYWORD:
+            attr = COLOR_PAIR(ColorID::KEYWORD);
+            break;
+          case Token::SYMBOL:
+            attr = COLOR_PAIR(ColorID::SYMBOL);
+            break;
+          case Token::LITERAL:
+            attr = COLOR_PAIR(ColorID::LITERAL);
+            break;
+          case Token::COMMENT:
+            attr = COLOR_PAIR(ColorID::COMMENT);
+            break;
+        }
+        mvaddch(row, col, it.value() | attr);
+        col++;
       }
-*/
-      mvaddch(row, col, it.value() | attr);
-      col++;
-      it.MoveNext();
+      move_next();
     }
   }
 
@@ -133,7 +141,7 @@ void TerminalCollaborator::ProcessKey(int key) {
   Log() << "TerminalCollaborator::ProcessKey: " << key;
 
   auto down1 = [&]() {
-    String::Iterator it(content_, cursor_);
+    String::Iterator it(state_.content, cursor_);
     int col = 0;
     auto edge = [&it]() {
       return it.is_begin() || it.is_end() || it.value() == '\n';
@@ -143,7 +151,7 @@ void TerminalCollaborator::ProcessKey(int key) {
       col++;
     }
     Log() << "col:" << col;
-    it = String::Iterator(content_, cursor_);
+    it = String::Iterator(state_.content, cursor_);
     do {
       it.MoveNext();
     } while (!edge());
@@ -157,7 +165,7 @@ void TerminalCollaborator::ProcessKey(int key) {
   };
 
   auto up1 = [&]() {
-    String::Iterator it(content_, cursor_);
+    String::Iterator it(state_.content, cursor_);
     int col = 0;
     auto edge = [&it]() {
       return it.is_begin() || it.is_end() || it.value() == '\n';
@@ -185,27 +193,27 @@ void TerminalCollaborator::ProcessKey(int key) {
 
   switch (key) {
     case KEY_LEFT: {
-      String::Iterator it(content_, cursor_);
+      String::Iterator it(state_.content, cursor_);
       cursor_row_ -= it.value() == '\n';
       it.MovePrev();
       cursor_ = it.id();
       used_();
     } break;
     case KEY_RIGHT: {
-      String::Iterator it(content_, cursor_);
+      String::Iterator it(state_.content, cursor_);
       it.MoveNext();
       cursor_row_ += it.value() == '\n';
       cursor_ = it.id();
       used_();
     } break;
     case KEY_HOME: {
-      String::Iterator it(content_, cursor_);
+      String::Iterator it(state_.content, cursor_);
       while (!it.is_begin() && it.value() != '\n') it.MovePrev();
       cursor_ = it.id();
       used_();
     } break;
     case KEY_END: {
-      String::Iterator it(content_, cursor_);
+      String::Iterator it(state_.content, cursor_);
       it.MoveNext();
       while (!it.is_end() && it.value() != '\n') it.MoveNext();
       it.MovePrev();
@@ -230,18 +238,18 @@ void TerminalCollaborator::ProcessKey(int key) {
       break;
     case 127:
     case KEY_BACKSPACE: {
-      content_.MakeRemove(&commands_, cursor_);
-      String::Iterator it(content_, cursor_);
+      state_.content.MakeRemove(&commands_, cursor_);
+      String::Iterator it(state_.content, cursor_);
       it.MovePrev();
       cursor_ = it.id();
     } break;
     case 10: {
-      cursor_ = content_.MakeInsert(&commands_, site(), key, cursor_);
+      cursor_ = state_.content.MakeInsert(&commands_, site(), key, cursor_);
       cursor_row_++;
     } break;
     default: {
       if (key >= 32 && key < 127) {
-        cursor_ = content_.MakeInsert(&commands_, site(), key, cursor_);
+        cursor_ = state_.content.MakeInsert(&commands_, site(), key, cursor_);
       }
     } break;
   }

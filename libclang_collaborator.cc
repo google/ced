@@ -79,6 +79,7 @@ static Token KindToToken(CXTokenKind kind) {
 
 EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   EditResponse response;
+
   ClangEnv* env = ClangEnv::Get();
   absl::MutexLock lock(env->mu());
   auto str = notification.content.Render();
@@ -150,12 +151,14 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   clang_disposeTokens(tu, tokens, numTokens);
 
   // fetch diagnostics
+  if (notification.fully_loaded) {
   unsigned num_diagnostics = clang_getNumDiagnostics(tu);
   Log() << num_diagnostics << " diagnostics";
   for (unsigned i = 0; i < num_diagnostics; i++) {
     CXDiagnostic diag = clang_getDiagnostic(tu, i);
     Log() << clang_getCString(clang_formatDiagnostic(diag, 0));
     clang_disposeDiagnostic(diag);
+  }
   }
 
   clang_disposeTranslationUnit(tu);

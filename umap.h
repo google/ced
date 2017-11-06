@@ -4,6 +4,7 @@
 #include <set>
 #include "avl.h"
 #include "crdt.h"
+#include "log.h"
 
 template <class K, class V>
 class UMap : public CRDT<UMap<K, V>> {
@@ -14,6 +15,7 @@ class UMap : public CRDT<UMap<K, V>> {
 
   static ID MakeInsert(CommandBuf* buf, Site* site, const K& k, const V& v) {
     return MakeCommand(buf, site->GenerateID(), [k, v](UMap m, ID id) {
+      Log() << "+Add " << std::get<0>(id) << ":" << std::get<1>(id);
       auto* id2v = m.k2id2v_.Lookup(k);
       if (id2v == nullptr) {
         // first use of this key
@@ -28,6 +30,7 @@ class UMap : public CRDT<UMap<K, V>> {
 
   static void MakeRemove(CommandBuf* buf, ID id) {
     MakeCommand(buf, id, [](UMap m, ID id) {
+      Log() << "+Remove " << std::get<0>(id) << ":" << std::get<1>(id);
       auto* p = m.id2kv_.Lookup(id);
       auto* id2v = m.k2id2v_.Lookup(p->first);
       auto id2v_new = id2v->Remove(id);
@@ -40,7 +43,7 @@ class UMap : public CRDT<UMap<K, V>> {
   }
 
   template <class F>
-  void ForEachValue(const K& key, F&& f) {
+  void ForEachValue(const K& key, F&& f) const {
     auto* id2v = k2id2v_.Lookup(key);
     if (!id2v) return;
     id2v->ForEach([f](ID, const V& v) { f(v); });
@@ -48,7 +51,7 @@ class UMap : public CRDT<UMap<K, V>> {
 
  private:
   UMap(AVL<K, AVL<ID, V>>&& k2id2v, const AVL<ID, std::pair<K, V>>&& id2kv)
-      : k2id2v_(std::move(k2id2v)), id2kv_(std::move(id2kv_)) {}
+      : k2id2v_(std::move(k2id2v)), id2kv_(std::move(id2kv)) {}
 
   using CRDT<UMap<K, V>>::MakeCommand;
 
@@ -66,6 +69,7 @@ class UMapEditor {
       auto next = it;
       ++next;
       if (new_.find(it->first) == new_.end()) {
+        Log() << "Remove: " << std::get<0>(it->second) << ":" << std::get<1>(it->second);
         UMap<K, V>::MakeRemove(buf, it->second);
         last_.erase(it);
       }
@@ -73,7 +77,8 @@ class UMapEditor {
     }
     for (const auto& kv : new_) {
       if (last_.find(kv) == last_.end()) {
-        last_[kv] = UMap<K, V>::MakeInsert(buf, site_, kv.first, kv.second);
+        ID id = last_[kv] = UMap<K, V>::MakeInsert(buf, site_, kv.first, kv.second);
+        Log() << "Add: " << std::get<0>(id) << ":" << std::get<1>(id);
       }
     }
     new_.clear();

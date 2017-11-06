@@ -89,7 +89,8 @@ EditNotification Buffer::NextNotification(const char* name,
 
 static bool HasUpdates(const EditResponse& response) {
   return response.become_loaded ||
-         !static_cast<const String::CommandBuf&>(response).empty();
+         !static_cast<const String::CommandBuf&>(response).empty() ||
+         !static_cast<const AnnotationMap<Token>::CommandBuf&>(response).empty();
 }
 
 template <class T>
@@ -166,8 +167,9 @@ void Buffer::RunPull(Collaborator* collaborator) {
 void Buffer::RunSync(SyncCollaborator* collaborator) {
   uint64_t processed_version = 0;
   for (;;) {
-    SinkResponse(collaborator->name(), collaborator->Edit(NextNotification(
-        collaborator->name(), &processed_version, collaborator->push_delay())));
+    SinkResponse(collaborator->name(),
+                 collaborator->Edit(
+                     NextNotification(collaborator->name(), &processed_version,
+                                      collaborator->push_delay())));
   }
 }
-

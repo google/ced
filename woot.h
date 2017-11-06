@@ -175,4 +175,3 @@ class String : public CRDT<String> {
     ID id_;
   };
 };
-

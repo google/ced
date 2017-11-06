@@ -22,7 +22,8 @@ void IOCollaborator::Push(const EditNotification& notification) {
 }
 
 EditResponse IOCollaborator::Pull() {
-  char buf[1024];
+  static constexpr const int kChunkSize = 4096;
+  char buf[kChunkSize];
   const int n = WrapSyscall(
       "read", [this, &buf]() { return read(fd_, buf, sizeof(buf)); });
 

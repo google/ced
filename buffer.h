@@ -21,6 +21,30 @@ struct Annotation {
 template <class T>
 using AnnotationMap = UMap<ID, Annotation<T>>;
 
+template <class T>
+class AnnotationTracker {
+ public:
+  AnnotationTracker(const AnnotationMap<T>& map) : map_(map) {}
+
+  void Enter(ID id) {
+    active_.erase(
+        std::remove_if(active_.begin(), active_.end(),
+                       [id](const Annotation<T>& a) { return id == a.end; }),
+        active_.end());
+    map_.ForEachValue(
+        id, [&](const Annotation<T>& ann) { active_.push_back(ann); });
+  }
+
+  T cur() {
+    if (active_.empty()) return T();
+    return active_.back().data;
+  }
+
+ private:
+  AnnotationMap<T> map_;
+  std::vector<Annotation<T>> active_;
+};
+
 struct EditNotification {
   String content;
   AnnotationMap<Token> token_types;
