@@ -3,6 +3,7 @@
 #include "clang-c/Index.h"
 #include "log.h"
 #include "token_type.h"
+#include "diagnostic.h"
 
 namespace {
 
@@ -77,25 +78,37 @@ static Token KindToToken(CXTokenKind kind) {
   return Token::UNSET;
 }
 
+static Severity DiagnosticSeverity(CXDiagnosticSeverity sev) {
+  switch (sev) {
+    case CXDiagnostic_Ignored: return Severity::IGNORED;
+    case CXDiagnostic_Note: return Severity::NOTE;
+    case CXDiagnostic_Warning: return Severity::WARNING;
+    case CXDiagnostic_Error: return Severity::ERROR;
+    case CXDiagnostic_Fatal: return Severity::FATAL;
+  }
+  return Severity::UNSET;
+}
+
 EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   EditResponse response;
+  auto filename = buffer_->filename();
 
   ClangEnv* env = ClangEnv::Get();
   absl::MutexLock lock(env->mu());
   auto str = notification.content.Render();
-  env->UpdateUnsavedFile(buffer_->filename(), str);
+  env->UpdateUnsavedFile(filename, str);
   std::vector<const char*> cmd_args;
   std::vector<CXUnsavedFile> unsaved_files = env->GetUnsavedFiles();
   const int options = 0;
   CXTranslationUnit tu = clang_parseTranslationUnit(
-      env->index(), buffer_->filename().c_str(), cmd_args.data(),
+      env->index(), filename.c_str(), cmd_args.data(),
       cmd_args.size(), unsaved_files.data(), unsaved_files.size(), options);
   if (tu == NULL) {
     Log() << "Cannot parse translation unit";
   }
   Log() << "Parsed: " << tu;
 
-  CXFile file = clang_getFile(tu, buffer_->filename().c_str());
+  CXFile file = clang_getFile(tu, filename.c_str());
 
   // get top/last location of the file
   CXSourceLocation topLoc = clang_getLocationForOffset(tu, file, 0);
@@ -152,11 +165,50 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
 
   // fetch diagnostics
   if (notification.fully_loaded) {
+    DiagnosticEditor de;
+
     unsigned num_diagnostics = clang_getNumDiagnostics(tu);
     Log() << num_diagnostics << " diagnostics";
     for (unsigned i = 0; i < num_diagnostics; i++) {
       CXDiagnostic diag = clang_getDiagnostic(tu, i);
-      Log() << clang_getCString(clang_formatDiagnostic(diag, 0));
+      CXString message = clang_formatDiagnostic(diag, 0);
+      de.StartDiagnostic(DiagnosticSeverity(clang_getDiagnosticSeverity(diag)), clang_getCString(message));
+      unsigned num_ranges = clang_getDiagnosticNumRanges(diag);
+      for (size_t j=0; j<num_ranges; j++) {
+        CXSourceRange extent = clang_getDiagnosticRange(diag, j);
+        CXSourceLocation start = clang_getRangeStart(extent);
+        CXSourceLocation end = clang_getRangeEnd(extent);
+        CXFile file;
+        unsigned line, col, offset_start, offset_end;
+        clang_getFileLocation(start, &file, &line, &col, &offset_start);
+        clang_getFileLocation(end, &file, &line, &col, &offset_end);
+        if (filename == clang_getCString(clang_getFileName(file))) {
+          de.AddRange(offset_start, offset_end);
+        }
+      }
+      CXFile file;
+      unsigned line, col, offset;
+      CXSourceLocation loc = clang_getDiagnosticLocation(diag);
+      clang_getFileLocation(loc, &file, &line, &col, &offset);
+      if (filename == clang_getCString(clang_getFileName(file))) {
+        de.AddPoint(offset);
+      }
+      unsigned num_fixits = clang_getDiagnosticNumFixIts(diag);
+      for (unsigned j=0; j<num_fixits; j++) {
+        de.StartFixit();
+        CXSourceRange extent;
+        CXString repl = clang_getDiagnosticFixIt(diag, j, &extent);
+        CXSourceLocation start = clang_getRangeStart(extent);
+        CXSourceLocation end = clang_getRangeEnd(extent);
+        CXFile file;
+        unsigned line, col, offset_start, offset_end;
+        clang_getFileLocation(start, &file, &line, &col, &offset_start);
+        clang_getFileLocation(end, &file, &line, &col, &offset_end);
+        de.AddReplacement(offset_start, offset_end, clang_getCString(repl));
+      }
+
+      //Log() << clang_getCString(clang_formatDiagnostic(diag, 0));
+      clang_disposeString(message);
       clang_disposeDiagnostic(diag);
     }
   }
