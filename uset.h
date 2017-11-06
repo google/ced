@@ -25,6 +25,13 @@ class USet : public CRDT<USet<T>> {
     });
   }
 
+  template <class F>
+  void ForEachValue(F&& f) {
+    avl_.ForEach([f](ID, const T& value) {
+      f(value);
+    });
+  }
+
  private:
   using CRDT<USet<T>>::MakeCommand;
   USet(AVL<ID, T> avl) : avl_(avl) {}

@@ -4,6 +4,7 @@
 #include <vector>
 #include "colors.h"
 #include "log.h"
+#include "absl/strings/str_cat.h"
 
 TerminalCollaborator::TerminalCollaborator(const Buffer* buffer,
                                            std::function<void()> invalidate)
@@ -47,6 +48,18 @@ EditResponse TerminalCollaborator::Pull() {
   mu_.Unlock();
 
   return r;
+}
+
+static const char* SeverityString(Severity sev) {
+  switch (sev) {
+    case Severity::UNSET: return "???";
+    case Severity::IGNORED: return "IGNORED";
+    case Severity::NOTE: return "NOTE";
+    case Severity::WARNING: return "WARNING";
+    case Severity::ERROR: return "ERROR";
+    case Severity::FATAL: return "FATAL";
+  }
+  return "XXXXX";
 }
 
 void TerminalCollaborator::Render() {
@@ -131,11 +144,25 @@ void TerminalCollaborator::Render() {
         if (t_diagnostic.cur() != ID()) {
           attr = COLOR_PAIR(ColorID::ERROR);
         }
-        mvaddch(row, col, it.value() | attr);
+        if (col < 80) {
+          mvaddch(row, col, it.value() | attr);
+        }
         col++;
       }
       move_next();
     }
+  }
+
+  if (fb_cols >= 100) {
+    int max_length = fb_cols - 82;
+    int row = 0;
+  state_.diagnostics.ForEachValue([&](const Diagnostic& diagnostic) {
+    std::string msg = absl::StrCat(diagnostic.index, ": [", SeverityString(diagnostic.severity), "] ", diagnostic.message);
+    if (msg.length() > max_length) {
+      msg.resize(max_length);
+    }
+    mvaddstr(row++, 82, msg.c_str());
+  });
   }
 
   mu_.Unlock();
