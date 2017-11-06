@@ -28,7 +28,7 @@ class Diagnostic {
   const std::string message_;
   const std::vector<std::pair<ID, ID>> ranges_;
   const std::vector<ID> points_;
-  const std::vector<std::vector<String::CommandPtr>> fixits_;
+  const std::vector<String::CommandBuf> fixits_;
 };
 
 class DiagnosticSetBuilder {
