@@ -69,7 +69,8 @@ class UMapEditor {
       auto next = it;
       ++next;
       if (new_.find(it->first) == new_.end()) {
-        Log() << "Remove: " << std::get<0>(it->second) << ":" << std::get<1>(it->second);
+        Log() << "Remove: " << std::get<0>(it->second) << ":"
+              << std::get<1>(it->second);
         UMap<K, V>::MakeRemove(buf, it->second);
         last_.erase(it);
       }
@@ -77,7 +78,8 @@ class UMapEditor {
     }
     for (const auto& kv : new_) {
       if (last_.find(kv) == last_.end()) {
-        ID id = last_[kv] = UMap<K, V>::MakeInsert(buf, site_, kv.first, kv.second);
+        ID id = last_[kv] =
+            UMap<K, V>::MakeInsert(buf, site_, kv.first, kv.second);
         Log() << "Add: " << std::get<0>(id) << ":" << std::get<1>(id);
       }
     }

@@ -90,7 +90,8 @@ EditNotification Buffer::NextNotification(const char* name,
 static bool HasUpdates(const EditResponse& response) {
   return response.become_loaded ||
          !static_cast<const String::CommandBuf&>(response).empty() ||
-         !static_cast<const AnnotationMap<Token>::CommandBuf&>(response).empty();
+         !static_cast<const AnnotationMap<Token>::CommandBuf&>(response)
+              .empty();
 }
 
 template <class T>

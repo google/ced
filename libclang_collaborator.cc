@@ -152,13 +152,13 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
 
   // fetch diagnostics
   if (notification.fully_loaded) {
-  unsigned num_diagnostics = clang_getNumDiagnostics(tu);
-  Log() << num_diagnostics << " diagnostics";
-  for (unsigned i = 0; i < num_diagnostics; i++) {
-    CXDiagnostic diag = clang_getDiagnostic(tu, i);
-    Log() << clang_getCString(clang_formatDiagnostic(diag, 0));
-    clang_disposeDiagnostic(diag);
-  }
+    unsigned num_diagnostics = clang_getNumDiagnostics(tu);
+    Log() << num_diagnostics << " diagnostics";
+    for (unsigned i = 0; i < num_diagnostics; i++) {
+      CXDiagnostic diag = clang_getDiagnostic(tu, i);
+      Log() << clang_getCString(clang_formatDiagnostic(diag, 0));
+      clang_disposeDiagnostic(diag);
+    }
   }
 
   clang_disposeTranslationUnit(tu);
