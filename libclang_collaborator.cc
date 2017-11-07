@@ -200,6 +200,7 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
         diagnostic_editor_.AddPoint(ids[offset]);
       }
       unsigned num_fixits = clang_getDiagnosticNumFixIts(diag);
+      Log() << "num_fixits:" << num_fixits;
       for (unsigned j = 0; j < num_fixits; j++) {
         CXSourceRange extent;
         CXString repl = clang_getDiagnosticFixIt(diag, j, &extent);
