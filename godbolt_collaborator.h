@@ -2,17 +2,16 @@
 
 #include "buffer.h"
 
-class GodboltCollaborator final : public Collaborator {
+class GodboltCollaborator final : public SyncCollaborator {
  public:
   GodboltCollaborator(const Buffer* buffer)
-      : Collaborator("clang-format", absl::Seconds(5)), shutdown_(false) {}
+      : SyncCollaborator("godbolt", absl::Seconds(0)),
+        buffer_(buffer),
+        side_buffer_editor_(site()) {}
 
-  void Push(const EditNotification& notification) override;
-  EditResponse Pull() override;
-  void Shutdown() override;
+  EditResponse Edit(const EditNotification& notification) override;
 
  private:
-  absl::Mutex mu_;
-  bool shutdown_ GUARDED_BY(mu_);
-  CommandBuf commands_ GUARDED_BY(mu_);
+  const Buffer* const buffer_;
+  UMapEditor<std::string, SideBuffer> side_buffer_editor_;
 };

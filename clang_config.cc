@@ -39,3 +39,11 @@ std::string ClangToolPath(const std::string& tool_name) {
   throw std::runtime_error(
       absl::StrCat("Clang tool '", tool_name, "' not found"));
 }
+
+std::string ClangCompileCommand(const std::string& filename,
+                                const std::string& src_file,
+                                const std::string& dst_file) {
+  return absl::StrCat(ClangToolPath("clang++"),
+                      " -x c++ -std=c++11 -g -O2 -c -o ", dst_file, " ",
+                      src_file);
+}

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "absl/synchronization/mutex.h"
+#include "absl/time/time.h"
 #include "buffer.h"
 
 class TerminalCollaborator final : public Collaborator {
@@ -10,7 +11,7 @@ class TerminalCollaborator final : public Collaborator {
   EditResponse Pull() override;
   void Shutdown() override;
 
-  void Render();
+  void Render(absl::Time last_key_press);
   void ProcessKey(int key);
 
  private:

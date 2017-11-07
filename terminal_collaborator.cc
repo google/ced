@@ -2,9 +2,9 @@
 #include <curses.h>
 #include <deque>
 #include <vector>
+#include "absl/strings/str_cat.h"
 #include "colors.h"
 #include "log.h"
-#include "absl/strings/str_cat.h"
 
 TerminalCollaborator::TerminalCollaborator(const Buffer* buffer,
                                            std::function<void()> invalidate)
@@ -52,17 +52,23 @@ EditResponse TerminalCollaborator::Pull() {
 
 static const char* SeverityString(Severity sev) {
   switch (sev) {
-    case Severity::UNSET: return "???";
-    case Severity::IGNORED: return "IGNORED";
-    case Severity::NOTE: return "NOTE";
-    case Severity::WARNING: return "WARNING";
-    case Severity::ERROR: return "ERROR";
-    case Severity::FATAL: return "FATAL";
+    case Severity::UNSET:
+      return "???";
+    case Severity::IGNORED:
+      return "IGNORED";
+    case Severity::NOTE:
+      return "NOTE";
+    case Severity::WARNING:
+      return "WARNING";
+    case Severity::ERROR:
+      return "ERROR";
+    case Severity::FATAL:
+      return "FATAL";
   }
   return "XXXXX";
 }
 
-void TerminalCollaborator::Render() {
+void TerminalCollaborator::Render(absl::Time last_key_press) {
   auto ready = [this]() {
     mu_.AssertHeld();
     return shutdown_ || state_.content.Has(cursor_);
@@ -156,14 +162,37 @@ void TerminalCollaborator::Render() {
   if (fb_cols >= 100) {
     int max_length = fb_cols - 82;
     int row = 0;
-  state_.diagnostics.ForEachValue([&](const Diagnostic& diagnostic) {
-    std::string msg = absl::StrCat(diagnostic.index, ": [", SeverityString(diagnostic.severity), "] ", diagnostic.message);
-    if (msg.length() > max_length) {
-      msg.resize(max_length);
-    }
-    mvaddstr(row++, 82, msg.c_str());
-  });
+    state_.diagnostics.ForEachValue([&](const Diagnostic& diagnostic) {
+      if (row >= fb_rows) return;
+      std::string msg = absl::StrCat(diagnostic.index, ": [",
+                                     SeverityString(diagnostic.severity), "] ",
+                                     diagnostic.message);
+      if (msg.length() > max_length) {
+        msg.resize(max_length);
+      }
+      mvaddstr(row++, 82, msg.c_str());
+    });
+
+    state_.side_buffers.ForEachValue("disasm", [&](const SideBuffer& buffer) {
+      if (row >= fb_rows) return;
+      int col = 0;
+      for (auto c : buffer.content) {
+        if (c == '\n') {
+          row++;
+          col=0;
+          if (row >= fb_rows) break;
+        } else if (col < fb_cols) {
+          mvaddch(row, 82 + (col++), c);
+        }
+      }
+    });
   }
+
+  auto frame_time = absl::Now() - last_key_press;
+  std::ostringstream out;
+  out << frame_time;
+  std::string ftstr = out.str();
+  mvaddstr(fb_rows - 1, fb_cols - ftstr.length(), ftstr.c_str());
 
   mu_.Unlock();
 

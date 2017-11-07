@@ -71,7 +71,9 @@ DiagnosticEditor& DiagnosticEditor::AddReplacement(
 void DiagnosticEditor::Publish(const String& content, EditResponse* response) {
   impl_->diagnostic_editor.BeginEdit(&response->diagnostics);
   for (size_t i = 0; i < impl_->new_diags.size(); i++) {
-    Log() << "Diagnostic: " << i << " sev=" << static_cast<int>(impl_->new_diags[i].severity) << " message=" << impl_->new_diags[i].message;
+    Log() << "Diagnostic: " << i
+          << " sev=" << static_cast<int>(impl_->new_diags[i].severity)
+          << " message=" << impl_->new_diags[i].message;
     impl_->new_diags[i].diag_id = impl_->diagnostic_editor.Add(
         {i, impl_->new_diags[i].severity, impl_->new_diags[i].message});
   }

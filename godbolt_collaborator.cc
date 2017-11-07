@@ -1,35 +1,37 @@
 #include "godbolt_collaborator.h"
+#include "clang_config.h"
 #include "log.h"
 #include "subprocess.hpp"
+#include "temp_file.h"
 
 using namespace subprocess;
 
-void GodboltCollaborator::Push(const EditNotification& notification) {
-  if (!notification.fully_loaded) return;
+EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
+  EditResponse response;
+  if (!notification.fully_loaded) return response;
   auto str = notification.content;
   auto text = str.Render();
-  auto p = Popen({"clang-format", "-output-replacements-xml"}, input{PIPE},
-                 output{PIPE});
+  NamedTempFile tmpf("o");
+  auto cmd = ClangCompileCommand(buffer_->filename(), "-", tmpf.filename());
+  Log() << cmd;
+  auto p = Popen(cmd, input{PIPE}, output{PIPE}, error{PIPE});
   p.send(text.data(), text.length());
   auto res = p.communicate();
-
   Log() << res.first.buf.data();
-}
 
-EditResponse GodboltCollaborator::Pull() {
-  auto ready = [this]() {
-    mu_.AssertHeld();
-    return shutdown_ || !commands_.empty();
-  };
-  EditResponse r;
-  mu_.LockWhen(absl::Condition(&ready));
-  r.commands.swap(commands_);
-  r.done = shutdown_;
-  mu_.Unlock();
-  return r;
-}
+  Log() << "objdump: " << tmpf.filename();
+  auto r = check_output(
+      {"objdump", "-d", "-l", "-M", "intel", tmpf.filename().c_str()});
+  Log() << r.buf.data();
 
-void GodboltCollaborator::Shutdown() {
-  absl::MutexLock lock(&mu_);
-  shutdown_ = true;
+  side_buffer_editor_.BeginEdit(&response.side_buffers);
+  SideBuffer buf;
+  buf.content.swap(r.buf);
+  buf.content.resize(r.length);
+  buf.tokens.resize(buf.content.size());
+  buf.CalcLines();
+  side_buffer_editor_.Add("disasm", std::move(buf));
+  side_buffer_editor_.Publish();
+
+  return response;
 }

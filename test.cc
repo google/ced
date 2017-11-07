@@ -1,3 +1,5 @@
 namespace {
-class Foo {}
+class Foo {};
 }  // namespace
+
+void test() { Foo foo; }

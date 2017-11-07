@@ -90,7 +90,7 @@ EditNotification Buffer::NextNotification(const char* name,
 static bool HasUpdates(const EditResponse& response) {
   return response.become_loaded || !response.content.empty() ||
          !response.token_types.empty() || !response.diagnostics.empty() ||
-         !response.diagnostic_ranges.empty();
+         !response.diagnostic_ranges.empty() || !response.side_buffers.empty();
 }
 
 template <class T>
@@ -122,6 +122,7 @@ void Buffer::SinkResponse(const char* name, const EditResponse& response) {
     IntegrateState(&state.token_types, response.token_types);
     IntegrateState(&state.diagnostics, response.diagnostics);
     IntegrateState(&state.diagnostic_ranges, response.diagnostic_ranges);
+    IntegrateState(&state.side_buffers, response.side_buffers);
 
     // commit the update and advance time
     mu_.Lock();

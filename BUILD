@@ -102,6 +102,7 @@ cc_binary(
     ":terminal_collaborator",
     ":clang_format_collaborator",
     ":libclang_collaborator",
+    ":godbolt_collaborator",
     ":colors",
     ":config"
   ],
@@ -111,6 +112,13 @@ cc_binary(
 cc_library(
   name = "token_type",
   hdrs = ["token_type.h"]
+)
+
+cc_library(
+  name = "side_buffer",
+  hdrs = ["side_buffer.h"],
+  srcs = ["side_buffer.cc"],
+  deps = [":token_type"],
 )
 
 cc_library(
@@ -124,6 +132,7 @@ cc_library(
     ":log",
     ":wrap_syscall",
     ":token_type",
+    ":side_buffer",
     "@com_google_absl//absl/synchronization",
     "@com_google_absl//absl/strings",
     "@com_google_absl//absl/time",
@@ -141,7 +150,7 @@ cc_library(
   name = "terminal_collaborator",
   srcs = ["terminal_collaborator.cc"],
   hdrs = ["terminal_collaborator.h"],
-  deps = [":buffer", ":log", ":colors"],
+  deps = [":buffer", ":log", ":colors", "@com_google_absl//absl/time"],
 )
 
 cc_library(
@@ -151,6 +160,8 @@ cc_library(
   deps = [
     ":buffer",
     ":log",
+    ":clang_config",
+    ":temp_file",
     "@subprocess//:subprocess",
   ],
 )
@@ -245,4 +256,10 @@ cc_library(
   hdrs = ['clang_config.h'],
   deps = ['@com_google_absl//absl/strings', ':config'],
 )
+
+cc_library(
+    name = "temp_file",
+    hdrs = ['temp_file.h'],
+    deps = ['wrap_syscall']
+    )
 

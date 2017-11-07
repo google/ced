@@ -3,6 +3,7 @@
 #include "buffer.h"
 #include "clang_format_collaborator.h"
 #include "colors.h"
+#include "godbolt_collaborator.h"
 #include "libclang_collaborator.h"
 #include "terminal_collaborator.h"
 
@@ -20,6 +21,7 @@ class Application {
     keypad(stdscr, true);
     buffer_.MakeCollaborator<ClangFormatCollaborator>();
     buffer_.MakeCollaborator<LibClangCollaborator>();
+    buffer_.MakeCollaborator<GodboltCollaborator>();
   }
 
   ~Application() { endwin(); }
@@ -39,12 +41,14 @@ class Application {
 
   void Run() {
     bool refresh = true;
+    absl::Time last_key_press = absl::Now();
     for (;;) {
       if (refresh) {
         erase();
-        Render();
+        Render(last_key_press);
       }
       int c = getch();
+      last_key_press = absl::Now();
 
       refresh = true;
       switch (c) {
@@ -70,7 +74,9 @@ class Application {
   }
 
  private:
-  void Render() { terminal_collaborator_->Render(); }
+  void Render(absl::Time last_key_press) {
+    terminal_collaborator_->Render(last_key_press);
+  }
 
   absl::Mutex mu_;
   bool done_ GUARDED_BY(mu_);

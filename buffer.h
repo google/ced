@@ -5,6 +5,7 @@
 #include "absl/time/clock.h"
 #include "absl/types/any.h"
 #include "diagnostic.h"
+#include "side_buffer.h"
 #include "token_type.h"
 #include "umap.h"
 #include "uset.h"
@@ -54,6 +55,7 @@ struct EditState {
   TypeTranslator<AnnotationMap<Token>> token_types;
   TypeTranslator<USet<Diagnostic>> diagnostics;
   TypeTranslator<AnnotationMap<ID>> diagnostic_ranges;
+  TypeTranslator<UMap<std::string, SideBuffer>> side_buffers;
 };
 
 template <class T>
