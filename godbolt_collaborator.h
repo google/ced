@@ -14,4 +14,5 @@ class GodboltCollaborator final : public SyncCollaborator {
  private:
   const Buffer* const buffer_;
   UMapEditor<std::string, SideBuffer> side_buffer_editor_;
+  std::string last_compiled_;
 };
