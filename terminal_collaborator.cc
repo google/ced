@@ -101,25 +101,28 @@ void TerminalCollaborator::Render(absl::Time last_key_press) {
   String::AllIterator it(state_.content, line_it.id());
   AnnotationTracker<Token> t_token(state_.token_types);
   AnnotationTracker<ID> t_diagnostic(state_.diagnostic_ranges);
-  auto move_next = [&]() {
-    it.MoveNext();
-    t_token.Enter(it.id());
-    t_diagnostic.Enter(it.id());
-  };
+  AnnotationTracker<SideBufferRef> t_side_buffer_ref(state_.side_buffer_refs);
   for (int row = 0; row < fb_rows; row++) {
     int col = 0;
-    do {
+    auto move_next = [&]() {
       if (it.id() == cursor_) {
         cursor_row = row;
         cursor_col = col;
+        if (!t_side_buffer_ref.cur().name.empty()) {
+          active_side_buffer_ = t_side_buffer_ref.cur();
+        } else {
+          active_side_buffer_.lines.clear();
+        }
       }
+      it.MoveNext();
+      t_token.Enter(it.id());
+      t_diagnostic.Enter(it.id());
+      t_side_buffer_ref.Enter(it.id());
+    };
+    do {
       move_next();
     } while (!it.is_end() && !it.is_visible());
     for (;;) {
-      if (it.id() == cursor_) {
-        cursor_row = row;
-        cursor_col = col + 1;
-      }
       if (it.is_end()) {
         row = fb_rows;
         break;
@@ -173,19 +176,28 @@ void TerminalCollaborator::Render(absl::Time last_key_press) {
       mvaddstr(row++, 82, msg.c_str());
     });
 
-    state_.side_buffers.ForEachValue("disasm", [&](const SideBuffer& buffer) {
-      if (row >= fb_rows) return;
-      int col = 0;
-      for (auto c : buffer.content) {
-        if (c == '\n') {
-          row++;
-          col = 0;
-          if (row >= fb_rows) break;
-        } else if (col < fb_cols) {
-          mvaddch(row, 82 + (col++), c);
-        }
-      }
-    });
+    state_.side_buffers.ForEachValue(
+        active_side_buffer_.name, [&](const SideBuffer& buffer) {
+          if (row >= fb_rows) return;
+          int col = 0;
+          int sbrow = 0;
+          for (auto c : buffer.content) {
+            if (c == '\n') {
+              row++;
+              sbrow++;
+              col = 0;
+              if (row >= fb_rows) break;
+            } else if (col < fb_cols) {
+              chtype attr = COLOR_PAIR(ColorID::DEFAULT);
+              if (std::find(active_side_buffer_.lines.begin(),
+                            active_side_buffer_.lines.end(),
+                            sbrow) != active_side_buffer_.lines.end()) {
+                attr = COLOR_PAIR(ColorID::KEYWORD);
+              }
+              mvaddch(row, 82 + (col++), c | attr);
+            }
+          }
+        });
   }
 
   auto frame_time = absl::Now() - last_key_press;

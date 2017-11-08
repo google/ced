@@ -49,6 +49,15 @@ class AnnotationTracker {
   std::vector<Annotation<T>> active_;
 };
 
+struct SideBufferRef {
+  std::string name;
+  std::vector<int> lines;
+
+  bool operator<(const SideBufferRef& other) const {
+    return name < other.name || (name == other.name && lines < other.lines);
+  }
+};
+
 template <template <class Type> class TypeTranslator>
 struct EditState {
   TypeTranslator<String> content;
@@ -56,6 +65,7 @@ struct EditState {
   TypeTranslator<USet<Diagnostic>> diagnostics;
   TypeTranslator<AnnotationMap<ID>> diagnostic_ranges;
   TypeTranslator<UMap<std::string, SideBuffer>> side_buffers;
+  TypeTranslator<AnnotationMap<SideBufferRef>> side_buffer_refs;
 };
 
 template <class T>

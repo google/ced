@@ -50,6 +50,7 @@ AsmParseResult AsmParse(const std::string& src) {
   int src_line;
 
   State state = INIT;
+  int cur_line = -1;
   for (auto line : absl::StrSplit(src, '\n')) {
     line = StripRight(line);
     if (line.empty()) continue;
@@ -72,11 +73,16 @@ AsmParseResult AsmParse(const std::string& src) {
         }
         if (RE2::FullMatch(spline, r_lineno, &label, &src_line)) {
           if (RE2::FullMatch(label, r_has_stdin)) {
-            r.src_to_asm_line[src_line].push_back(num_lines);
+            cur_line = src_line;
+          } else {
+            cur_line = -1;
           }
           break;
         }
         if (RE2::FullMatch(spline, r_instr, &label)) {
+          if (cur_line >= 0) {
+            r.src_to_asm_line[cur_line - 1].push_back(num_lines);
+          }
           emit(absl::StrCat("  ", label));
           break;
         }

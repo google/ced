@@ -168,6 +168,12 @@ class String : public CRDT<String> {
       id_ = str_->line_breaks_.Lookup(id_)->next;
     }
 
+    LineIterator Next() {
+      LineIterator tmp(*this);
+      tmp.MoveNext();
+      return tmp;
+    }
+
     ID id() const { return id_; }
 
    private:

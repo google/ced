@@ -27,6 +27,22 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
 
   AsmParseResult parsed_asm = AsmParse(dump);
 
+  side_buffer_ref_editor_.BeginEdit(&response.side_buffer_refs);
+  String::LineIterator line_it(notification.content, String::Begin());
+  int line_idx = 0;
+  for (const auto& m : parsed_asm.src_to_asm_line) {
+    Log() << "line_idx=" << line_idx << " m.first=" << m.first;
+    while (line_idx < m.first) {
+      line_it.MoveNext();
+      line_idx++;
+    }
+    side_buffer_ref_editor_.Add(
+        line_it.id(),
+        Annotation<SideBufferRef>(line_it.Next().id(),
+                                  SideBufferRef{"disasm", m.second}));
+  }
+  side_buffer_ref_editor_.Publish();
+
   side_buffer_editor_.BeginEdit(&response.side_buffers);
   SideBuffer buf;
   buf.content.insert(buf.content.end(), parsed_asm.body.begin(),

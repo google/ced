@@ -24,4 +24,5 @@ class TerminalCollaborator final : public Collaborator {
   EditNotification state_ GUARDED_BY(mu_);
   ID cursor_ GUARDED_BY(mu_);
   int cursor_row_ GUARDED_BY(mu_);
+  SideBufferRef active_side_buffer_ GUARDED_BY(mu_);
 };
