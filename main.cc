@@ -61,6 +61,7 @@ class Application {
         Render(last_key_press);
       }
       int c = getch();
+      Log() << "GOTKEY: " << c;
       last_key_press = absl::Now();
 
       refresh = true;
@@ -70,7 +71,7 @@ class Application {
         case KEY_RESIZE:
           refresh = false;
           break;
-        case 'q':
+        case 27:
           Quit();
           break;
         default:
