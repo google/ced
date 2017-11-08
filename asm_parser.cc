@@ -1,14 +1,19 @@
 #include "asm_parser.h"
-#include "absl/strings/str_split.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
+#include "cppfilt.h"
 #include "log.h"
 #include "re2/re2.h"
-#include "cppfilt.h"
 
 static bool isws(char c) {
   switch (c) {
-    case ' ': case '\r': case '\n': case '\t': return true;
-    default: return false;
+    case ' ':
+    case '\r':
+    case '\n':
+    case '\t':
+      return true;
+    default:
+      return false;
   }
 }
 
@@ -52,34 +57,33 @@ AsmParseResult AsmParse(const std::string& src) {
     re2::StringPiece spline(line.data(), line.length());
 
     switch (state) {
-    case INIT:
-      if (RE2::FullMatch(spline, r_start)) {
-        state = BODY;
-      }
-      break;
-    case BODY:
-      if (RE2::FullMatch(spline, r_section_start, &label)) {
-        break;
-      }
-      if (RE2::FullMatch(spline, r_label, &label)) {
-        emit(absl::StrCat(cppfilt(label), ":"));
-        break;
-      }
-      if (RE2::FullMatch(spline, r_lineno, &label, &src_line)) {
-        if (RE2::FullMatch(label, r_has_stdin)) {
-          r.src_to_asm_line[src_line].push_back(num_lines);
+      case INIT:
+        if (RE2::FullMatch(spline, r_start)) {
+          state = BODY;
         }
         break;
-      }
-      if (RE2::FullMatch(spline, r_instr, &label)) {
-        emit(absl::StrCat("  ", label));
+      case BODY:
+        if (RE2::FullMatch(spline, r_section_start, &label)) {
+          break;
+        }
+        if (RE2::FullMatch(spline, r_label, &label)) {
+          emit(absl::StrCat(cppfilt(label), ":"));
+          break;
+        }
+        if (RE2::FullMatch(spline, r_lineno, &label, &src_line)) {
+          if (RE2::FullMatch(label, r_has_stdin)) {
+            r.src_to_asm_line[src_line].push_back(num_lines);
+          }
+          break;
+        }
+        if (RE2::FullMatch(spline, r_instr, &label)) {
+          emit(absl::StrCat("  ", label));
+          break;
+        }
+        emit(line);
         break;
-      }
-      emit(line);
-      break;
     }
   }
 
   return r;
 }
-

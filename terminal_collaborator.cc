@@ -179,7 +179,7 @@ void TerminalCollaborator::Render(absl::Time last_key_press) {
       for (auto c : buffer.content) {
         if (c == '\n') {
           row++;
-          col=0;
+          col = 0;
           if (row >= fb_rows) break;
         } else if (col < fb_cols) {
           mvaddch(row, 82 + (col++), c);

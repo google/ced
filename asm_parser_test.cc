@@ -1,8 +1,9 @@
-#include <gtest/gtest.h>
 #include "asm_parser.h"
+#include <gtest/gtest.h>
 
 TEST(AsmParser, Simple) {
-  static const char* kInput = R"(/usr/local/google/tmp/ced.5wNoII.o:     file format elf64-x86-64
+  static const char* kInput =
+      R"(/usr/local/google/tmp/ced.5wNoII.o:     file format elf64-x86-64
 
 
 Disassembly of section .text:
@@ -22,4 +23,3 @@ _Z4testv():
   EXPECT_EQ(1, parsed.src_to_asm_line[5].size());
   EXPECT_EQ(1, parsed.src_to_asm_line[5][0]);
 }
-

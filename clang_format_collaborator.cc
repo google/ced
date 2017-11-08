@@ -1,8 +1,8 @@
 #include "clang_format_collaborator.h"
 #include "clang_config.h"
 #include "log.h"
-#include "src/pugixml.hpp"
 #include "run.h"
+#include "src/pugixml.hpp"
 
 EditResponse ClangFormatCollaborator::Edit(
     const EditNotification& notification) {
@@ -16,9 +16,9 @@ EditResponse ClangFormatCollaborator::Edit(
   Log() << res;
 
   pugi::xml_document doc;
-  auto parse_result = doc.load_buffer(
-      res.data(), res.length(),
-      (pugi::parse_default | pugi::parse_ws_pcdata_single));
+  auto parse_result =
+      doc.load_buffer(res.data(), res.length(),
+                      (pugi::parse_default | pugi::parse_ws_pcdata_single));
 
   if (!parse_result) {
     return response;

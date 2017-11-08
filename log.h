@@ -41,5 +41,8 @@ class Log : public std::ostringstream {
   };
 };
 
-#define Log() if (false); else Log()
-
+#define Log() \
+  if (false)  \
+    ;         \
+  else        \
+    Log()

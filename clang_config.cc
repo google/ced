@@ -42,7 +42,8 @@ std::string ClangToolPath(const std::string& tool_name) {
 
 std::string ClangCompileCommand(const std::string& filename,
                                 const std::string& src_file,
-                                const std::string& dst_file, std::vector<std::string>* args) {
+                                const std::string& dst_file,
+                                std::vector<std::string>* args) {
   args->push_back("-x");
   args->push_back("c++");
   args->push_back("-std=c++11");
