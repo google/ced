@@ -1,11 +1,11 @@
 // Copyright 2017 Google LLC
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     https://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -68,8 +68,12 @@ class Dict final : public Node {
   const Array* AsArray() const override { return nullptr; }
   const Dict* AsDict() const override { return this; }
 
-  std::unordered_map<std::string, NodePtr>::const_iterator begin() const { return nodes_.begin(); }
-  std::unordered_map<std::string, NodePtr>::const_iterator end() const { return nodes_.end(); }
+  std::unordered_map<std::string, NodePtr>::const_iterator begin() const {
+    return nodes_.begin();
+  }
+  std::unordered_map<std::string, NodePtr>::const_iterator end() const {
+    return nodes_.end();
+  }
 
   template <class T, class... Args>
   T* Add(const std::string& key, Args&&... args) {
@@ -85,5 +89,4 @@ class Dict final : public Node {
 NodePtr Parse(const std::string& buffer);
 NodePtr Load(const std::string& filename);
 
-}
-
+}  // namespace plist
