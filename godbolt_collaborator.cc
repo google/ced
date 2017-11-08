@@ -3,6 +3,7 @@
 #include "log.h"
 #include "subprocess.hpp"
 #include "temp_file.h"
+#include "asm_parser.h"
 
 using namespace subprocess;
 
@@ -13,7 +14,7 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   auto text = str.Render();
   if (text == last_compiled_) return response;
   last_compiled_ = text;
-  NamedTempFile tmpf("o");
+  NamedTempFile tmpf;
   auto cmd = ClangCompileCommand(buffer_->filename(), "-", tmpf.filename());
   Log() << cmd;
   auto p = Popen(cmd, input{PIPE}, output{PIPE}, error{PIPE});
@@ -28,7 +29,6 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   Log() << "objdump: " << tmpf.filename();
   auto p2 = Popen(
       {"objdump", "-d", "-l", "-M", "intel", "-C", "--no-show-raw-insn", tmpf.filename().c_str()}, input{PIPE}, output{PIPE}, error{PIPE});
-  p2.send("", 0);
   auto r = p2.communicate();
   if (p2.poll() != 0) {
     Log() << "objdump failed (returned " << p2.retcode() << ")";
@@ -36,10 +36,11 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   }
   Log() << r.first.buf.data();
 
+  AsmParseResult parsed_asm = AsmParse(r.first.buf.data());
+
   side_buffer_editor_.BeginEdit(&response.side_buffers);
   SideBuffer buf;
-  buf.content.swap(r.first.buf);
-  buf.content.resize(r.first.length);
+  buf.content.insert(buf.content.end(), parsed_asm.body.begin(), parsed_asm.body.end());
   buf.tokens.resize(buf.content.size());
   buf.CalcLines();
   side_buffer_editor_.Add("disasm", std::move(buf));

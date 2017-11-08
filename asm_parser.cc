@@ -3,6 +3,7 @@
 #include "absl/strings/str_cat.h"
 #include "log.h"
 #include "re2/re2.h"
+#include "cppfilt.h"
 
 static bool isws(char c) {
   switch (c) {
@@ -21,6 +22,10 @@ static absl::string_view StripRight(absl::string_view in) {
 AsmParseResult AsmParse(const std::string& src) {
   RE2 r_start{R"(Disassembly of section \.text:.*)"};
   RE2 r_section_start{R"([0-9a-f]+\s+<([^>]+)>:.*)"};
+  RE2 r_label{R"(([^ ()]+)([()]*):[^0-9]*)"};
+  RE2 r_lineno{R"(([^ ]+):([0-9]+))"};
+  RE2 r_has_stdin{R"(.*<stdin>.*)"};
+  RE2 r_instr{R"(\s+[0-9a-f]+:\s*(.*))"};
 
   AsmParseResult r;
 
@@ -29,12 +34,15 @@ AsmParseResult AsmParse(const std::string& src) {
     BODY,
   };
 
-  auto emit = [&r](absl::string_view out) {
+  int num_lines = 0;
+  auto emit = [&r, &num_lines](absl::string_view out) {
     r.body.append(out.begin(), out.end());
     r.body += '\n';
+    num_lines++;
   };
 
   std::string label;
+  int src_line;
 
   State state = INIT;
   for (auto line : absl::StrSplit(src, '\n')) {
@@ -51,7 +59,20 @@ AsmParseResult AsmParse(const std::string& src) {
       break;
     case BODY:
       if (RE2::FullMatch(spline, r_section_start, &label)) {
-        emit(absl::StrCat(label, ":"));
+        break;
+      }
+      if (RE2::FullMatch(spline, r_label, &label)) {
+        emit(absl::StrCat(cppfilt(label), ":"));
+        break;
+      }
+      if (RE2::FullMatch(spline, r_lineno, &label, &src_line)) {
+        if (RE2::FullMatch(label, r_has_stdin)) {
+          r.src_to_asm_line[src_line].push_back(num_lines);
+        }
+        break;
+      }
+      if (RE2::FullMatch(spline, r_instr, &label)) {
+        emit(absl::StrCat("  ", label));
         break;
       }
       emit(line);

@@ -4,15 +4,13 @@
 
 class NamedTempFile {
  public:
-  NamedTempFile(const char* ext) {
+  NamedTempFile() {
     const char* temp = getenv("TEMP");
     char tpl[1024];
     if (!temp) temp = "/tmp";
     sprintf(tpl, "%s/ced.XXXXXX", temp);
     WrapSyscall("mkstemp", [&]() { return mkstemp(tpl); });
     filename_ = tpl;
-    filename_ += '.';
-    filename_ += ext;
   }
 
   ~NamedTempFile() { unlink(filename_.c_str()); }

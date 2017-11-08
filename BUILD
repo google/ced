@@ -162,6 +162,7 @@ cc_library(
     ":log",
     ":clang_config",
     ":temp_file",
+    ":asm_parser",
     "@subprocess//:subprocess",
   ],
 )
@@ -276,7 +277,24 @@ cc_library(
     deps = [
         "@com_google_absl//absl/strings",
         '@com_googlesource_code_re2//:re2',
-        ":log"
+        ":log",
+        ":cppfilt",
+    ]
+)
+
+cc_test(
+    name = "cppfilt_test",
+    srcs = ["cppfilt_test.cc"],
+    deps = [":cppfilt", "@com_google_googletest//:gtest_main"]
+)
+
+cc_library(
+    name = "cppfilt",
+    srcs = ["cppfilt.cc"],
+    hdrs = ["cppfilt.h"],
+    deps = [
+        "@com_google_absl//absl/strings",
+    "@subprocess//:subprocess",
     ]
 )
 

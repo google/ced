@@ -14,9 +14,12 @@ _Z4testv():
 )";
 
   static const char* kOutput = R"(test():
-   ret
+  ret
 )";
 
-  EXPECT_EQ(kOutput, AsmParse(kInput).body);
+  auto parsed = AsmParse(kInput);
+  EXPECT_EQ(kOutput, parsed.body);
+  EXPECT_EQ(1, parsed.src_to_asm_line[5].size());
+  EXPECT_EQ(1, parsed.src_to_asm_line[5][0]);
 }
 
