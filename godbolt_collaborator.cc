@@ -1,11 +1,9 @@
 #include "godbolt_collaborator.h"
 #include "clang_config.h"
 #include "log.h"
-#include "subprocess.hpp"
 #include "temp_file.h"
 #include "asm_parser.h"
-
-using namespace subprocess;
+#include "run.h"
 
 EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   EditResponse response;
@@ -15,28 +13,15 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   if (text == last_compiled_) return response;
   last_compiled_ = text;
   NamedTempFile tmpf;
-  auto cmd = ClangCompileCommand(buffer_->filename(), "-", tmpf.filename());
+  std::vector<std::string> args;
+  auto cmd = ClangCompileCommand(buffer_->filename(), "-", tmpf.filename(), &args);
   Log() << cmd;
-  auto p = Popen(cmd, input{PIPE}, output{PIPE}, error{PIPE});
-  p.send(text.data(), text.length());
-  auto res = p.communicate();
-  if (p.poll() != 0) {
-    Log() << "compilation failed (returned " << p.retcode() << ")";
-    return response;
-  }
-  Log() << res.first.buf.data();
+  auto res = run(cmd, args, text);
 
   Log() << "objdump: " << tmpf.filename();
-  auto p2 = Popen(
-      {"objdump", "-d", "-l", "-M", "intel", "-C", "--no-show-raw-insn", tmpf.filename().c_str()}, input{PIPE}, output{PIPE}, error{PIPE});
-  auto r = p2.communicate();
-  if (p2.poll() != 0) {
-    Log() << "objdump failed (returned " << p2.retcode() << ")";
-    return response;
-  }
-  Log() << r.first.buf.data();
+  auto dump = run("objdump", {"-d", "-l", "-M", "intel", "-C", "--no-show-raw-insn", tmpf.filename()}, "");
 
-  AsmParseResult parsed_asm = AsmParse(r.first.buf.data());
+  AsmParseResult parsed_asm = AsmParse(dump);
 
   side_buffer_editor_.BeginEdit(&response.side_buffers);
   SideBuffer buf;

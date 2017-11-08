@@ -20,12 +20,12 @@ http_archive(
 
 new_git_repository(
   name="subprocess",
-  commit="09ee99a282ea003bbacedc22f70e61653ff6ab92",
-  remote="https://github.com/arun11299/cpp-subprocess.git",
+  commit="70e9e6cc01ab6de692b8bd151d0c4bb168078644",
+  remote="https://github.com/tsaarni/cpp-subprocess.git",
   build_file_content="""
 cc_library(
   name="subprocess",
-  hdrs=["subprocess.hpp"],
+  hdrs=["include/subprocess.hpp"],
   visibility=["//visibility:public"]
 )
   """

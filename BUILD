@@ -163,7 +163,7 @@ cc_library(
     ":clang_config",
     ":temp_file",
     ":asm_parser",
-    "@subprocess//:subprocess",
+    ":run",
   ],
 )
 
@@ -176,7 +176,7 @@ cc_library(
     ":log",
     ":config",
     ":clang_config",
-    "@subprocess//:subprocess",
+    ":run",
     "@pugixml//:pugixml"
   ],
 )
@@ -294,7 +294,13 @@ cc_library(
     hdrs = ["cppfilt.h"],
     deps = [
         "@com_google_absl//absl/strings",
-    "@subprocess//:subprocess",
+        ":run"
     ]
 )
 
+cc_library(
+    name = "run",
+    srcs = ["run.cc"],
+    hdrs = ["run.h"],
+    deps = ["@subprocess//:subprocess"],
+)

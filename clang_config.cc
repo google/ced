@@ -42,8 +42,15 @@ std::string ClangToolPath(const std::string& tool_name) {
 
 std::string ClangCompileCommand(const std::string& filename,
                                 const std::string& src_file,
-                                const std::string& dst_file) {
-  return absl::StrCat(ClangToolPath("clang++"),
-                      " -x c++ -std=c++11 -g -O2 -c -o ", dst_file, " ",
-                      src_file);
+                                const std::string& dst_file, std::vector<std::string>* args) {
+  args->push_back("-x");
+  args->push_back("c++");
+  args->push_back("-std=c++11");
+  args->push_back("-g");
+  args->push_back("-O2");
+  args->push_back("-c");
+  args->push_back("-o");
+  args->push_back(dst_file);
+  args->push_back(src_file);
+  return ClangToolPath("clang++");
 }

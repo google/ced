@@ -2,9 +2,7 @@
 #include "clang_config.h"
 #include "log.h"
 #include "src/pugixml.hpp"
-#include "subprocess.hpp"
-
-using namespace subprocess;
+#include "run.h"
 
 EditResponse ClangFormatCollaborator::Edit(
     const EditNotification& notification) {
@@ -14,16 +12,12 @@ EditResponse ClangFormatCollaborator::Edit(
   auto text = str.Render();
   auto clang_format = ClangToolPath("clang-format");
   Log() << "clang-format command: " << clang_format;
-  auto p = Popen({clang_format.c_str(), "-output-replacements-xml"},
-                 input{PIPE}, output{PIPE});
-  p.send(text.data(), text.length());
-  auto res = p.communicate();
-
-  Log() << res.first.buf.data();
+  auto res = run(clang_format, {"-output-replacements-xml"}, text);
+  Log() << res;
 
   pugi::xml_document doc;
-  auto parse_result = doc.load_buffer_inplace(
-      res.first.buf.data(), res.first.buf.size(),
+  auto parse_result = doc.load_buffer(
+      res.data(), res.length(),
       (pugi::parse_default | pugi::parse_ws_pcdata_single));
 
   if (!parse_result) {
