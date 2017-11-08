@@ -22,9 +22,9 @@
 
 class Application {
  public:
-  Application()
+  Application(const char* filename)
       : done_(false),
-        buffer_("test.cc"),
+        buffer_(filename),
         terminal_collaborator_(buffer_.MakeCollaborator<TerminalCollaborator>(
             [this]() { Invalidate(); })) {
     initscr();
@@ -100,4 +100,11 @@ class Application {
   TerminalCollaborator *const terminal_collaborator_;
 };
 
-int main(void) { Application().Run(); }
+int main(int argc, char** argv) {
+  if (argc != 2) {
+    fprintf(stderr, "USAGE: ced <filename.{h,cc}>\n");
+    return 1;
+  }
+  Application(argv[1]).Run();
+}
+
