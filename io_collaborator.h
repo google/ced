@@ -24,7 +24,8 @@ class IOCollaborator final : public Collaborator {
  private:
   absl::Mutex mu_;
   const std::string filename_;
+  int attributes_;
   int fd_;
-  bool finished_read_ GUARDED_BY(mu_);
   ID last_char_id_ GUARDED_BY(mu_);
+  String last_saved_ GUARDED_BY(mu_);
 };

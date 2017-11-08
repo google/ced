@@ -13,23 +13,41 @@
 // limitations under the License.
 #include "io_collaborator.h"
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "temp_file.h"
 #include "wrap_syscall.h"
 
 IOCollaborator::IOCollaborator(const Buffer* buffer)
-    : Collaborator("io", absl::Seconds(1)),
+    : Collaborator("io", absl::Milliseconds(100)),
       filename_(buffer->filename()),
       last_char_id_(String::Begin()) {
   fd_ = WrapSyscall("open",
                     [this]() { return open(filename_.c_str(), O_RDONLY); });
+  struct stat st;
+  WrapSyscall("fstat", [&]() { return fstat(fd_, &st); });
+  attributes_ = st.st_mode;
 }
 
 void IOCollaborator::Push(const EditNotification& notification) {
+  if (!notification.fully_loaded) return;
   absl::MutexLock lock(&mu_);
-  if (!finished_read_) return;
-  //  if (notification.views["main"].Contains(*last_char_id_)) {
-  //  }
+  if (last_saved_.SameIdentity(notification.content)) return;
+  NamedTempFile tmp;
+  int fd = WrapSyscall("open", [&]() {
+    return open(tmp.filename().c_str(), O_WRONLY | O_CREAT, attributes_);
+  });
+  try {
+    auto str = notification.content.Render();
+    WrapSyscall("write", [&]() { return write(fd, str.data(), str.length()); });
+  } catch (...) {
+    close(fd);
+    throw;
+  }
+  WrapSyscall("rename", [&]() {
+    return rename(tmp.filename().c_str(), filename_.c_str());
+  });
 }
 
 EditResponse IOCollaborator::Pull() {
@@ -48,7 +66,6 @@ EditResponse IOCollaborator::Pull() {
   }
 
   absl::MutexLock lock(&mu_);
-  finished_read_ = r.done;
 
   for (int i = 0; i < n; i++) {
     last_char_id_ = String::MakeRawInsert(&r.content, site(), buf[i],

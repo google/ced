@@ -66,6 +66,8 @@ class String : public CRDT<String> {
     return out;
   }
 
+  bool SameIdentity(String s) const { return avl_.SameIdentity(s.avl_); }
+
  private:
   struct CharInfo {
     // tombstone if false

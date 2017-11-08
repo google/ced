@@ -37,6 +37,8 @@ class AVL {
     ForEachImpl(root_.get(), std::forward<F>(f));
   }
 
+  bool SameIdentity(AVL avl) const { return root_ == avl.root_; }
+
  private:
   struct Node;
   typedef std::shared_ptr<Node> NodePtr;

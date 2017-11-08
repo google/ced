@@ -146,6 +146,7 @@ cc_library(
     ":wrap_syscall",
     ":token_type",
     ":side_buffer",
+    ":temp_file",
     "@com_google_absl//absl/synchronization",
     "@com_google_absl//absl/strings",
     "@com_google_absl//absl/time",
