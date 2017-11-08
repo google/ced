@@ -163,7 +163,6 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
 
   token_editor_.BeginEdit(&response.token_types);
 
-  unsigned ofs = 0;
   for (unsigned i = 0; i < numTokens; i++) {
     CXToken token = tokens[i];
     CXSourceRange extent = clang_getTokenExtent(tu, token);

@@ -16,8 +16,7 @@
 #include "log.h"
 
 Buffer::Buffer(const std::string& filename)
-    : shutdown_(false),
-      version_(0),
+    : version_(0),
       updating_(false),
       last_used_(absl::Now() - absl::Seconds(1000000)),
       filename_(filename) {
@@ -25,13 +24,7 @@ Buffer::Buffer(const std::string& filename)
 }
 
 Buffer::~Buffer() {
-  for (auto& c : collaborators_) {
-    c->Shutdown();
-  }
-
-  mu_.Lock();
-  shutdown_ = true;
-  mu_.Unlock();
+  UpdateState(false, [](EditNotification& state) { state.shutdown = true; });
 
   for (auto& t : collaborator_threads_) {
     t.join();
@@ -71,33 +64,49 @@ void Buffer::AddCollaborator(SyncCollaboratorPtr&& collaborator) {
   });
 }
 
-EditNotification Buffer::NextNotification(const char* name,
+namespace {
+struct Shutdown {};
+}  // namespace
+
+EditNotification Buffer::NextNotification(void* id, const char* name,
                                           uint64_t* last_processed,
                                           absl::Duration push_delay) {
-  auto processable = [this, last_processed]() {
+  auto all_edits_complete = [this]() {
     mu_.AssertHeld();
-    return shutdown_ || version_ != *last_processed;
+    return state_.shutdown &&
+           declared_no_edit_collaborators_.size() ==
+               collaborators_.size() + sync_collaborators_.size();
+  };
+  auto processable = [&]() {
+    mu_.AssertHeld();
+    return version_ != *last_processed || all_edits_complete();
   };
   // wait until something interesting to work on
   mu_.LockWhen(absl::Condition(&processable));
-  absl::Time last_used_at_start;
-  do {
-    Log() << name << " last_used: " << last_used_;
-    last_used_at_start = last_used_;
-    absl::Duration idle_time = absl::Now() - last_used_;
-    Log() << name << " idle_time: " << idle_time;
-    if (*last_processed != 0 &&
-        mu_.AwaitWithTimeout(absl::Condition(&shutdown_),
-                             push_delay - idle_time)) {
-      mu_.Unlock();
-      throw std::runtime_error("Shutdown");
-    }
-  } while (last_used_ != last_used_at_start);
-  *last_processed = version_;
-  EditNotification notification = state_;
-  mu_.Unlock();
-  Log() << name << " notify";
-  return notification;
+  if (version_ != *last_processed) {
+    absl::Time last_used_at_start;
+    do {
+      Log() << name << " last_used: " << last_used_;
+      last_used_at_start = last_used_;
+      absl::Duration idle_time = absl::Now() - last_used_;
+      Log() << name << " idle_time: " << idle_time;
+      if (*last_processed != 0 &&
+          mu_.AwaitWithTimeout(absl::Condition(&state_.shutdown),
+                               push_delay - idle_time)) {
+        break;
+      }
+    } while (last_used_ != last_used_at_start);
+    *last_processed = version_;
+    EditNotification notification = state_;
+    mu_.Unlock();
+    Log() << name << " notify";
+    return notification;
+  } else {
+    assert(all_edits_complete());
+    done_collaborators_.insert(id);
+    mu_.Unlock();
+    throw Shutdown();
+  }
 }
 
 static bool HasUpdates(const EditResponse& response) {
@@ -114,80 +123,95 @@ static void IntegrateState(T* state, const typename T::CommandBuf& commands) {
   }
 }
 
-void Buffer::SinkResponse(const char* name, const EditResponse& response) {
+void Buffer::UpdateState(bool become_used,
+                         std::function<void(EditNotification& state)> f) {
   auto updatable = [this]() {
     mu_.AssertHeld();
-    return shutdown_ || !updating_;
+    return !updating_;
   };
+
+  // get the update lock
+  mu_.LockWhen(absl::Condition(&updatable));
+  updating_ = true;
+  auto state = state_;
+  mu_.Unlock();
+
+  f(state);
+
+  // commit the update and advance time
+  mu_.Lock();
+  updating_ = false;
+  version_++;
+  declared_no_edit_collaborators_ = done_collaborators_;
+  state_ = state;
+  if (become_used) {
+    last_used_ = absl::Now();
+  }
+  mu_.Unlock();
+}
+
+void Buffer::SinkResponse(void* id, const char* name,
+                          const EditResponse& response) {
   if (HasUpdates(response)) {
-    // get the update lock
-    mu_.LockWhen(absl::Condition(&updatable));
-    if (shutdown_) {
-      mu_.Unlock();
-      throw std::runtime_error("Done [[shutdown]]");
-    }
-    updating_ = true;
-    auto state = state_;
-    mu_.Unlock();
-
-    Log() << name << " integrating";
-
-    IntegrateState(&state.content, response.content);
-    IntegrateState(&state.token_types, response.token_types);
-    IntegrateState(&state.diagnostics, response.diagnostics);
-    IntegrateState(&state.diagnostic_ranges, response.diagnostic_ranges);
-    IntegrateState(&state.side_buffers, response.side_buffers);
-    IntegrateState(&state.side_buffer_refs, response.side_buffer_refs);
-
-    // commit the update and advance time
-    mu_.Lock();
-    updating_ = false;
-    version_++;
-    Log() << name << " version bump to " << version_;
-    state_ = state;
-    if (response.become_used) {
-      last_used_ = absl::Now();
-    }
-    if (response.become_loaded) {
-      state_.fully_loaded = true;
-    }
-    mu_.Unlock();
+    UpdateState(response.become_used, [&](EditNotification& state) {
+      Log() << name << " integrating";
+      IntegrateState(&state.content, response.content);
+      IntegrateState(&state.token_types, response.token_types);
+      IntegrateState(&state.diagnostics, response.diagnostics);
+      IntegrateState(&state.diagnostic_ranges, response.diagnostic_ranges);
+      IntegrateState(&state.side_buffers, response.side_buffers);
+      IntegrateState(&state.side_buffer_refs, response.side_buffer_refs);
+      if (response.become_loaded) state.fully_loaded = true;
+    });
   } else {
     Log() << name << " gives an empty update";
     absl::MutexLock lock(&mu_);
     if (response.become_used) {
       last_used_ = absl::Now();
     }
-    if (shutdown_) {
-      throw std::runtime_error("Done [[shutdown]]");
-    }
+    declared_no_edit_collaborators_.insert(id);
   }
 
   if (response.done) {
-    throw std::runtime_error("Done [[response.done]]");
+    absl::MutexLock lock(&mu_);
+    done_collaborators_.insert(id);
+    throw Shutdown();
   }
 }
 
 void Buffer::RunPush(Collaborator* collaborator) {
   uint64_t processed_version = 0;
-  for (;;) {
-    collaborator->Push(NextNotification(
-        collaborator->name(), &processed_version, collaborator->push_delay()));
+  try {
+    for (;;) {
+      collaborator->Push(NextNotification(collaborator, collaborator->name(),
+                                          &processed_version,
+                                          collaborator->push_delay()));
+    }
+  } catch (Shutdown) {
+    return;
   }
 }
 
 void Buffer::RunPull(Collaborator* collaborator) {
-  for (;;) {
-    SinkResponse(collaborator->name(), collaborator->Pull());
+  try {
+    for (;;) {
+      SinkResponse(collaborator, collaborator->name(), collaborator->Pull());
+    }
+  } catch (Shutdown) {
+    return;
   }
 }
 
 void Buffer::RunSync(SyncCollaborator* collaborator) {
   uint64_t processed_version = 0;
-  for (;;) {
-    SinkResponse(collaborator->name(),
-                 collaborator->Edit(
-                     NextNotification(collaborator->name(), &processed_version,
-                                      collaborator->push_delay())));
+  try {
+    for (;;) {
+      SinkResponse(collaborator, collaborator->name(),
+                   collaborator->Edit(NextNotification(
+                       collaborator, collaborator->name(), &processed_version,
+                       collaborator->push_delay())));
+    }
+  } catch (Shutdown) {
+    return;
   }
 }

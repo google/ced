@@ -25,8 +25,6 @@ IOCollaborator::IOCollaborator(const Buffer* buffer)
                     [this]() { return open(filename_.c_str(), O_RDONLY); });
 }
 
-void IOCollaborator::Shutdown() {}
-
 void IOCollaborator::Push(const EditNotification& notification) {
   absl::MutexLock lock(&mu_);
   if (!finished_read_) return;

@@ -28,14 +28,8 @@ TerminalCollaborator::TerminalCollaborator(const Buffer* buffer,
         recently_used_ = true;
       }),
       recently_used_(false),
-      shutdown_(false),
       cursor_(String::Begin()),
       cursor_row_(0) {}
-
-void TerminalCollaborator::Shutdown() {
-  absl::MutexLock lock(&mu_);
-  shutdown_ = true;
-}
 
 void TerminalCollaborator::Push(const EditNotification& notification) {
   {
@@ -50,10 +44,11 @@ EditResponse TerminalCollaborator::Pull() {
 
   auto ready = [this]() {
     mu_.AssertHeld();
-    return shutdown_ || !commands_.empty() || recently_used_;
+    return state_.shutdown || !commands_.empty() || recently_used_;
   };
 
   mu_.LockWhen(absl::Condition(&ready));
+  r.done = state_.shutdown;
   r.become_used = recently_used_ || !commands_.empty();
   commands_.swap(r.content);
   assert(commands_.empty());
@@ -84,12 +79,12 @@ static const char* SeverityString(Severity sev) {
 void TerminalCollaborator::Render(absl::Time last_key_press) {
   auto ready = [this]() {
     mu_.AssertHeld();
-    return shutdown_ || state_.content.Has(cursor_);
+    return state_.shutdown || state_.content.Has(cursor_);
   };
 
   mu_.LockWhen(absl::Condition(&ready));
 
-  if (shutdown_) {
+  if (state_.shutdown) {
     mu_.Unlock();
     return;
   }

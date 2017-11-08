@@ -20,6 +20,8 @@
 
 EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   EditResponse response;
+  response.done = notification.shutdown;
+  if (response.done) return response;
   if (!notification.fully_loaded) return response;
   auto str = notification.content;
   auto text = str.Render();

@@ -22,7 +22,6 @@ class TerminalCollaborator final : public Collaborator {
   TerminalCollaborator(const Buffer* buffer, std::function<void()> invalidate);
   void Push(const EditNotification& notification) override;
   EditResponse Pull() override;
-  void Shutdown() override;
 
   void Render(absl::Time last_key_press);
   void ProcessKey(int key);
@@ -33,7 +32,6 @@ class TerminalCollaborator final : public Collaborator {
   absl::Mutex mu_;
   std::vector<String::CommandPtr> commands_ GUARDED_BY(mu_);
   bool recently_used_ GUARDED_BY(mu_);
-  bool shutdown_ GUARDED_BY(mu_);
   EditNotification state_ GUARDED_BY(mu_);
   ID cursor_ GUARDED_BY(mu_);
   int cursor_row_ GUARDED_BY(mu_);

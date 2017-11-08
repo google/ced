@@ -86,6 +86,7 @@ using NotifTrans = T;
 
 struct EditNotification : public EditState<NotifTrans> {
   bool fully_loaded = false;
+  bool shutdown = false;
 };
 
 template <class T>
@@ -104,7 +105,6 @@ class Collaborator {
 
   virtual void Push(const EditNotification& notification) = 0;
   virtual EditResponse Pull() = 0;
-  virtual void Shutdown() = 0;
 
   Site* site() { return &site_; }
 
@@ -163,17 +163,22 @@ class Buffer {
   void AddCollaborator(CollaboratorPtr&& collaborator);
   void AddCollaborator(SyncCollaboratorPtr&& collaborator);
 
-  EditNotification NextNotification(const char* name, uint64_t* last_processed,
+  EditNotification NextNotification(void* id, const char* name,
+                                    uint64_t* last_processed,
                                     absl::Duration push_delay);
-  void SinkResponse(const char* name, const EditResponse& response);
+  void SinkResponse(void* id, const char* name, const EditResponse& response);
 
   void RunPush(Collaborator* collaborator);
   void RunPull(Collaborator* collaborator);
   void RunSync(SyncCollaborator* collaborator);
 
+  void UpdateState(bool become_used,
+                   std::function<void(EditNotification& new_state)>);
+
   absl::Mutex mu_;
-  bool shutdown_ GUARDED_BY(mu_);
   uint64_t version_ GUARDED_BY(mu_);
+  std::set<void*> declared_no_edit_collaborators_ GUARDED_BY(mu_);
+  std::set<void*> done_collaborators_ GUARDED_BY(mu_);
   bool updating_ GUARDED_BY(mu_);
   absl::Time last_used_ GUARDED_BY(mu_);
   const std::string filename_ GUARDED_BY(mu_);

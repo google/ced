@@ -20,7 +20,6 @@ class IOCollaborator final : public Collaborator {
   IOCollaborator(const Buffer* buffer);
   void Push(const EditNotification& notification) override;
   EditResponse Pull() override;
-  void Shutdown() override;
 
  private:
   absl::Mutex mu_;
