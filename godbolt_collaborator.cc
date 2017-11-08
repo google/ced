@@ -27,7 +27,7 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
 
   Log() << "objdump: " << tmpf.filename();
   auto p2 = Popen(
-      {"objdump", "-d", "-l", "-M", "intel", tmpf.filename().c_str()}, input{PIPE}, output{PIPE}, error{PIPE});
+      {"objdump", "-d", "-l", "-M", "intel", "-C", "--no-show-raw-insn", tmpf.filename().c_str()}, input{PIPE}, output{PIPE}, error{PIPE});
   p2.send("", 0);
   auto r = p2.communicate();
   if (p2.poll() != 0) {

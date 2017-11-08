@@ -261,5 +261,22 @@ cc_library(
     name = "temp_file",
     hdrs = ['temp_file.h'],
     deps = ['wrap_syscall']
-    )
+)
+
+cc_test(
+    name = "asm_parser_test",
+    srcs = ["asm_parser_test.cc"],
+    deps = [":asm_parser", "@com_google_googletest//:gtest_main"]
+)
+
+cc_library(
+    name = "asm_parser",
+    srcs = ["asm_parser.cc"],
+    hdrs = ["asm_parser.h"],
+    deps = [
+        "@com_google_absl//absl/strings",
+        '@com_googlesource_code_re2//:re2',
+        ":log"
+    ]
+)
 

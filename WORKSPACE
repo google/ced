@@ -73,3 +73,10 @@ new_http_archive(
   strip_prefix = "clang+llvm-5.0.0-x86_64-apple-darwin",
   build_file = "BUILD.clang.mac"
 )
+
+http_archive(
+    name = "com_googlesource_code_re2",
+    urls = ['https://github.com/google/re2/archive/2017-11-01.tar.gz'],
+    strip_prefix = 're2-2017-11-01'
+)
+

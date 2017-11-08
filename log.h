@@ -40,3 +40,6 @@ class Log : public std::ostringstream {
     int hdl_;
   };
 };
+
+#define Log() if (false); else Log()
+
