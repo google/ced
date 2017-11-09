@@ -18,7 +18,10 @@
 class ClangFormatCollaborator final : public SyncCollaborator {
  public:
   ClangFormatCollaborator(const Buffer* buffer)
-      : SyncCollaborator("clang-format", absl::Seconds(2)) {}
+      : SyncCollaborator("clang-format", absl::Seconds(2)), buffer_(buffer) {}
 
   EditResponse Edit(const EditNotification& notification) override;
+
+ private:
+const  Buffer* const buffer_;
 };
