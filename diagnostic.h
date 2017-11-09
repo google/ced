@@ -19,7 +19,7 @@
 class Diagnostic;
 typedef std::shared_ptr<const Diagnostic> DiagnosticPtr;
 
-class EditResponse;
+struct EditResponse;
 
 enum class Severity {
   UNSET,

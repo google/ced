@@ -20,6 +20,8 @@
 #include "libclang_collaborator.h"
 #include "terminal_collaborator.h"
 
+constexpr char ctrl(char c) { return c & 037; }
+
 class Application {
  public:
   Application(const char* filename)
@@ -28,6 +30,7 @@ class Application {
         terminal_collaborator_(buffer_.MakeCollaborator<TerminalCollaborator>(
             [this]() { Invalidate(); })) {
     initscr();
+    set_escdelay(25);
     start_color();
     InitColors();
     bkgd(COLOR_PAIR(ColorID::DEFAULT));
@@ -97,7 +100,7 @@ class Application {
   bool invalidated_ GUARDED_BY(mu_);
 
   Buffer buffer_;
-  TerminalCollaborator *const terminal_collaborator_;
+  TerminalCollaborator* const terminal_collaborator_;
 };
 
 int main(int argc, char** argv) {
@@ -107,4 +110,3 @@ int main(int argc, char** argv) {
   }
   Application(argv[1]).Run();
 }
-

@@ -17,6 +17,8 @@
 #include "diagnostic.h"
 #include "log.h"
 #include "token_type.h"
+#include "clang_config.h"
+#include "absl/strings/str_join.h"
 
 namespace {
 
@@ -126,7 +128,13 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
 
   absl::MutexLock lock(env->mu());
   env->UpdateUnsavedFile(filename, str);
+  std::vector<std::string> cmd_args_strs;
+  ClangCompileArgs(filename, &cmd_args_strs);
   std::vector<const char*> cmd_args;
+  for (auto& arg : cmd_args_strs) {
+    cmd_args.push_back(arg.c_str());
+  }
+  Log() << "libclang args: " << absl::StrJoin(cmd_args, " ");
   std::vector<CXUnsavedFile> unsaved_files = env->GetUnsavedFiles();
   const int options = 0;
   CXTranslationUnit tu = clang_parseTranslationUnit(

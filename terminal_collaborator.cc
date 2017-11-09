@@ -19,6 +19,10 @@
 #include "colors.h"
 #include "log.h"
 
+constexpr chtype color_pair(ColorID id) {
+  return COLOR_PAIR(static_cast<int>(id));
+}
+
 TerminalCollaborator::TerminalCollaborator(const Buffer* buffer,
                                            std::function<void()> invalidate)
     : Collaborator("terminal", absl::Seconds(0)),
@@ -29,7 +33,7 @@ TerminalCollaborator::TerminalCollaborator(const Buffer* buffer,
       }),
       recently_used_(false),
       cursor_(String::Begin()),
-      cursor_row_(0) {}
+      cursor_row_(0), sb_cursor_row_(0) {}
 
 void TerminalCollaborator::Push(const EditNotification& notification) {
   {
@@ -140,26 +144,26 @@ void TerminalCollaborator::Render(absl::Time last_key_press) {
         chtype attr = 0;
         switch (t_token.cur()) {
           case Token::UNSET:
-            attr = COLOR_PAIR(ColorID::DEFAULT);
+            attr = color_pair(ColorID::DEFAULT);
             break;
           case Token::IDENT:
-            attr = COLOR_PAIR(ColorID::IDENT);
+            attr = color_pair(ColorID::IDENT);
             break;
           case Token::KEYWORD:
-            attr = COLOR_PAIR(ColorID::KEYWORD);
+            attr = color_pair(ColorID::KEYWORD);
             break;
           case Token::SYMBOL:
-            attr = COLOR_PAIR(ColorID::SYMBOL);
+            attr = color_pair(ColorID::SYMBOL);
             break;
           case Token::LITERAL:
-            attr = COLOR_PAIR(ColorID::LITERAL);
+            attr = color_pair(ColorID::LITERAL);
             break;
           case Token::COMMENT:
-            attr = COLOR_PAIR(ColorID::COMMENT);
+            attr = color_pair(ColorID::COMMENT);
             break;
         }
         if (t_diagnostic.cur() != ID()) {
-          attr = COLOR_PAIR(ColorID::ERROR);
+          attr = color_pair(ColorID::ERROR);
         }
         if (col < 80) {
           mvaddch(row, col, it.value() | attr);
@@ -187,20 +191,42 @@ void TerminalCollaborator::Render(absl::Time last_key_press) {
     state_.side_buffers.ForEachValue(
         active_side_buffer_.name, [&](const SideBuffer& buffer) {
           if (row >= fb_rows) return;
+          if (!active_side_buffer_.lines.empty()) {
+            Log() << "sb_cursor_row_=" << sb_cursor_row_ << " line[0]=" << active_side_buffer_.lines.front() << " line[-1]=" << active_side_buffer_.lines.back();
+            if (sb_cursor_row_ >= buffer.line_ofs.size()) {
+              sb_cursor_row_ = buffer.line_ofs.size() - 1;
+            }
+            int adj = 0;
+            if (active_side_buffer_.lines.front() < sb_cursor_row_) {
+              sb_cursor_row_ = active_side_buffer_.lines.front();
+              adj++;
+            }
+            if (active_side_buffer_.lines.back() >= sb_cursor_row_ + fb_rows) {
+              sb_cursor_row_ = active_side_buffer_.lines.back() - fb_rows;
+              adj++;
+            }
+            if (adj == 2) {
+              sb_cursor_row_ = (buffer.line_ofs.front() + buffer.line_ofs.back()) / 2 - fb_rows / 2;
+            }
+            if (sb_cursor_row_ < 0) {
+              sb_cursor_row_ = 0;
+            }
+          }
           int col = 0;
-          int sbrow = 0;
-          for (auto c : buffer.content) {
+          int sbrow = sb_cursor_row_;
+          for (int i = buffer.line_ofs[sb_cursor_row_]; i < buffer.content.size(); i++) {
+            char c = buffer.content[i];
             if (c == '\n') {
               row++;
               sbrow++;
               col = 0;
               if (row >= fb_rows) break;
             } else if (col < fb_cols) {
-              chtype attr = COLOR_PAIR(ColorID::DEFAULT);
+              chtype attr = color_pair(ColorID::DEFAULT);
               if (std::find(active_side_buffer_.lines.begin(),
                             active_side_buffer_.lines.end(),
                             sbrow) != active_side_buffer_.lines.end()) {
-                attr = COLOR_PAIR(ColorID::KEYWORD);
+                attr = color_pair(ColorID::KEYWORD);
               }
               mvaddch(row, 82 + (col++), c | attr);
             }

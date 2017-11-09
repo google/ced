@@ -202,10 +202,9 @@ cc_library(
   deps = [
     ":buffer",
     ":log",
-    ] + select({
-        ":linux_x86_64": ["@clang_linux//:libclang"],
-        ":darwin": ["@clang_mac//:libclang"],
-    })
+    ":clang_config",
+    "//libclang:libclang",
+  ],
 )
 
 cc_library(
@@ -269,7 +268,7 @@ cc_library(
   name = 'clang_config',
   srcs = ['clang_config.cc'],
   hdrs = ['clang_config.h'],
-  deps = ['@com_google_absl//absl/strings', ':config'],
+  deps = ['@com_google_absl//absl/strings', ':config', ':read'],
 )
 
 cc_library(
@@ -320,6 +319,13 @@ cc_library(
 )
 
 cc_library(
+    name = "read",
+    srcs = ["read.cc"],
+    hdrs = ["read.h"],
+    deps = [":wrap_syscall"],
+)
+
+cc_library(
   name = "project",
   srcs = ["project.cc"],
   hdrs = ["project.h"],
@@ -331,3 +337,4 @@ cc_binary(
   srcs = ["projinf.cc"],
   deps = [":project"],
 )
+

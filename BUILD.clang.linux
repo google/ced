@@ -11,10 +11,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+filegroup(
+  name="libclang_headers_list",
+  srcs=glob(["include/clang-c/*.h"]),
+  visibility=["//visibility:public"],
+)
 cc_library(
   name="libclang",
-  hdrs=glob(["include/clang-c/*.h"]),
+  hdrs=[":libclang_headers_list"],
   srcs=["lib/libclang.so.5"],
   visibility=["//visibility:public"],
   includes=["include"]
 )
+cc_library(
+  name="libclang_headers",
+  hdrs=[":libclang_headers_list"],
+  visibility=["//visibility:public"],
+  includes=["include"]
+)
+
