@@ -17,6 +17,7 @@
 #include "log.h"
 #include "run.h"
 #include "temp_file.h"
+#include "absl/strings/str_join.h"
 
 EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   EditResponse response;
@@ -31,7 +32,7 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   std::vector<std::string> args;
   auto cmd =
       ClangCompileCommand(buffer_->filename(), "-", tmpf.filename(), &args);
-  Log() << cmd;
+  Log() << cmd << " " << absl::StrJoin(args, " ");
   auto res = run(cmd, args, text);
 
   Log() << "objdump: " << tmpf.filename();

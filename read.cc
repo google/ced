@@ -11,15 +11,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-class Foo {
- public:
-  int fib(int n) { return n == 0 ? 1 : n + fib(n - 1); }
-};
+#include "read.h"
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include "wrap_syscall.h"
 
-extern void print_int(int n);
+std::string Read(const std::string& filename) {
+  std::string out;
 
-namespace FOO {
-int test(int x) { return Foo().fib(x); }
-}  // namespace FOO
-
-int main(void) { print_int(Foo().fib(5)); }
+  int fd =
+      WrapSyscall("open", [&]() { return open(filename.c_str(), O_RDONLY); });
+  char buf[16384];
+  int n;
+  do {
+    n = WrapSyscall("read", [&]() { return read(fd, buf, sizeof(buf)); });
+    out.append(buf, n);
+  } while (n == sizeof(buf));
+  return out;
+}

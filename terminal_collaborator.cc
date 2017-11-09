@@ -29,7 +29,7 @@ TerminalCollaborator::TerminalCollaborator(const Buffer* buffer,
       }),
       recently_used_(false),
       cursor_(String::Begin()),
-      cursor_row_(0) {}
+      cursor_row_(0), sb_cursor_row_(0) {}
 
 void TerminalCollaborator::Push(const EditNotification& notification) {
   {
@@ -187,9 +187,31 @@ void TerminalCollaborator::Render(absl::Time last_key_press) {
     state_.side_buffers.ForEachValue(
         active_side_buffer_.name, [&](const SideBuffer& buffer) {
           if (row >= fb_rows) return;
+          if (!active_side_buffer_.lines.empty()) {
+            Log() << "sb_cursor_row_=" << sb_cursor_row_ << " line[0]=" << active_side_buffer_.lines.front() << " line[-1]=" << active_side_buffer_.lines.back();
+            if (sb_cursor_row_ >= buffer.line_ofs.size()) {
+              sb_cursor_row_ = buffer.line_ofs.size() - 1;
+            }
+            int adj = 0;
+            if (active_side_buffer_.lines.front() < sb_cursor_row_) {
+              sb_cursor_row_ = active_side_buffer_.lines.front();
+              adj++;
+            }
+            if (active_side_buffer_.lines.back() >= sb_cursor_row_ + fb_rows) {
+              sb_cursor_row_ = active_side_buffer_.lines.back() - fb_rows;
+              adj++;
+            }
+            if (adj == 2) {
+              sb_cursor_row_ = (buffer.line_ofs.front() + buffer.line_ofs.back()) / 2 - fb_rows / 2;
+            }
+            if (sb_cursor_row_ < 0) {
+              sb_cursor_row_ = 0;
+            }
+          }
           int col = 0;
-          int sbrow = 0;
-          for (auto c : buffer.content) {
+          int sbrow = sb_cursor_row_;
+          for (int i = buffer.line_ofs[sb_cursor_row_]; i < buffer.content.size(); i++) {
+            char c = buffer.content[i];
             if (c == '\n') {
               row++;
               sbrow++;

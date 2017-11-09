@@ -12,11 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "clang_config.h"
+#include <sys/param.h>
 #include <stdexcept>
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "config.h"
+#include "read.h"
+#include "log.h"
 
 Config<std::string> clang_version("project/clang-version");
 
@@ -53,18 +57,49 @@ std::string ClangToolPath(const std::string& tool_name) {
       absl::StrCat("Clang tool '", tool_name, "' not found"));
 }
 
+static std::string ClangBuiltinSystemIncludePath() {
+  std::string tool_path = ClangToolPath("clang++");
+  return tool_path.substr(0, tool_path.rfind('/'));
+}
+
+void ClangCompileArgs(const std::string& filename, std::vector<std::string>* args) {
+  args->push_back("-x");
+  args->push_back("c++");
+  args->push_back("-std=c++11");
+  args->push_back(absl::StrCat("-isystem=", ClangBuiltinSystemIncludePath()));
+  
+  char cwd[MAXPATHLEN];
+  getcwd(cwd, sizeof(cwd));
+  std::vector<absl::string_view> segments = absl::StrSplit(cwd, '/');
+  while (!segments.empty()) {
+    auto path = absl::StrJoin(segments, "/");
+    try {
+      auto clang_config = Read(absl::StrCat(path, "/.clang_complete"));
+      for (auto arg : absl::StrSplit(clang_config, '\n')) {
+        args->emplace_back(arg.data(), arg.length());
+      }
+      return;
+    } catch (std::exception& e) {
+      Log() << e.what();
+    }
+    segments.pop_back();
+  }
+}
+
 std::string ClangCompileCommand(const std::string& filename,
                                 const std::string& src_file,
                                 const std::string& dst_file,
                                 std::vector<std::string>* args) {
-  args->push_back("-x");
-  args->push_back("c++");
-  args->push_back("-std=c++11");
   args->push_back("-g");
   args->push_back("-O2");
+  args->push_back("-DNDEBUG");
+
+  ClangCompileArgs(filename, args);
+
   args->push_back("-c");
   args->push_back("-o");
   args->push_back(dst_file);
   args->push_back(src_file);
+
   return ClangToolPath("clang++");
 }

@@ -11,15 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-class Foo {
- public:
-  int fib(int n) { return n == 0 ? 1 : n + fib(n - 1); }
-};
+#pragma once
 
-extern void print_int(int n);
+#include <string>
 
-namespace FOO {
-int test(int x) { return Foo().fib(x); }
-}  // namespace FOO
-
-int main(void) { print_int(Foo().fib(5)); }
+std::string Read(const std::string& filename);

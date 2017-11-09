@@ -21,3 +21,4 @@ std::string ClangCompileCommand(const std::string& filename,
                                 const std::string& src_file,
                                 const std::string& dst_file,
                                 std::vector<std::string>* args);
+void ClangCompileArgs(const std::string& filename,std::vector<std::string>* args);
