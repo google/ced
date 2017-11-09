@@ -4,6 +4,8 @@ ced - A C++ code editor
 This is not an official Google product.
 
 A text editor exploring ideas around editing and optimizing C++ codebases.
+It's still very much in development, and will most likely destroy your files.
+Use at your own risk.
 
 FUTURE PLANS
 ------------
