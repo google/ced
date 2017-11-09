@@ -268,7 +268,13 @@ cc_library(
   name = 'clang_config',
   srcs = ['clang_config.cc'],
   hdrs = ['clang_config.h'],
-  deps = ['@com_google_absl//absl/strings', ':config', ':read'],
+  deps = [
+      '@com_googlesource_code_re2//:re2',
+      '@com_google_absl//absl/strings', 
+      ':config', 
+      ':read',
+      ':run',
+  ],
 )
 
 cc_library(
@@ -315,7 +321,7 @@ cc_library(
     name = "run",
     srcs = ["run.cc"],
     hdrs = ["run.h"],
-    deps = [":wrap_syscall"]
+    deps = [":wrap_syscall", ":log", "@com_google_absl//absl/strings"]
 )
 
 cc_library(

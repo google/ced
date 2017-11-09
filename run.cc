@@ -17,6 +17,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <thread>
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "log.h"
 #include "wrap_syscall.h"
 
 RunResult run(const std::string& command, const std::vector<std::string>& args,
@@ -27,6 +30,8 @@ RunResult run(const std::string& command, const std::vector<std::string>& args,
   for (int i = 0; i < 3; i++) {
     WrapSyscall("pipe", [&]() { return pipe(pipes[i]); });
   }
+
+  Log() << "RUN: " << absl::StrCat(command, " ", absl::StrJoin(args, " "));
 
   pid_t p = WrapSyscall("fork", [&]() { return fork(); });
   if (p == 0) {
