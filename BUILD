@@ -119,7 +119,7 @@ cc_binary(
     ":colors",
     ":config"
   ],
-  linkopts = ["-lcurses", "-lpthread"]
+  linkopts = ["-lcurses", "-lpthread", "-ldl"]
 )
 
 cc_library(

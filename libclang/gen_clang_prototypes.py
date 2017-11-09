@@ -31,6 +31,8 @@ def list_c_apis(filenames):
       type_end = max(last_space, last_star)
       return_type = type_and_name[0:type_end+1].strip()
       name = type_and_name[type_end+1:].strip()
+      if 'CXCursorAndRangeVisitorBlock' in args: continue
+      if 'CXCursorVisitorBlock' in args: continue
       yield {'return_type': return_type, 'name': name, 'arguments': args, 'header': filename}
 
 C = open(sys.argv[1], 'w')
@@ -52,7 +54,7 @@ for api in list_c_apis(sys.argv[3:]):
 print >>H, '};'
 
 print >>C, 'LibClang::LibClang(const char* so) {'
-print >>C, '  dlhdl = dlopen(so, RTLD_LAZY | RTLD_LOCAL | RTLD_FIRST | RTLD_NODELETE);'
+print >>C, '  dlhdl = dlopen(so, RTLD_LAZY | RTLD_LOCAL | RTLD_NODELETE);'
 print >>C, '  if (dlhdl == nullptr) return;'
 for api in list_c_apis(sys.argv[3:]):
   print >>C, '  this->%(name)s = reinterpret_cast<%(name)s_type>(dlsym(dlhdl, "%(name)s"));' % api

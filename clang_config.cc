@@ -57,16 +57,37 @@ std::string ClangToolPath(const std::string& tool_name) {
       absl::StrCat("Clang tool '", tool_name, "' not found"));
 }
 
+std::string ClangLibPath(const std::string& lib_name) {
+  auto version = clang_version.get();
+  if (!version.empty()) {
+    auto path = Config<std::string>(absl::StrCat("clang/", version)).get();
+    if (!path.empty()) {
+      auto lib = absl::StrCat(path, "/lib/", lib_name);
+      if (Exists(lib)) return lib;
+    }
+    for (auto path : {"/lib", "/usr/lib", "/usr/local/lib"}) {
+      auto lib = absl::StrCat(path, "/", lib_name, ".", version);
+      if (Exists(lib)) return lib;
+    }
+  }
+  for (auto path : {"/lib", "/usr/lib", "/usr/local/lib"}) {
+    auto lib = absl::StrCat(path, "/", lib_name);
+    if (Exists(lib)) return lib;
+  }
+  throw std::runtime_error(
+      absl::StrCat("Clang lib '", lib_name, "' not found"));
+}
+
 static std::string ClangBuiltinSystemIncludePath() {
   std::string tool_path = ClangToolPath("clang++");
-  return tool_path.substr(0, tool_path.rfind('/'));
+  return tool_path.substr(0, tool_path.rfind('/')) + "/../include";
 }
 
 void ClangCompileArgs(const std::string& filename, std::vector<std::string>* args) {
   args->push_back("-x");
   args->push_back("c++");
   args->push_back("-std=c++11");
-  args->push_back(absl::StrCat("-isystem=", ClangBuiltinSystemIncludePath()));
+//  args->push_back(absl::StrCat("-isystem=", ClangBuiltinSystemIncludePath()));
   
   char cwd[MAXPATHLEN];
   getcwd(cwd, sizeof(cwd));

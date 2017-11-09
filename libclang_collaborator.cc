@@ -19,10 +19,11 @@
 #include "token_type.h"
 #include "clang_config.h"
 #include "absl/strings/str_join.h"
+#include "libclang/libclang.h"
 
 namespace {
 
-class ClangEnv {
+class ClangEnv : public LibClang {
  public:
   static ClangEnv* Get() {
     static ClangEnv env;
@@ -57,7 +58,10 @@ class ClangEnv {
   CXIndex index() const { return index_; }
 
  private:
-  ClangEnv() { index_ = clang_createIndex(1, 0); }
+  ClangEnv() : LibClang(ClangLibPath("libclang.so").c_str()) {
+    if (!dlhdl) throw std::runtime_error("Failed opening libclang");
+    index_ = this->clang_createIndex(1, 0);
+  }
 
   absl::Mutex mu_;
   CXIndex index_ GUARDED_BY(mu_);
@@ -137,7 +141,7 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   Log() << "libclang args: " << absl::StrJoin(cmd_args, " ");
   std::vector<CXUnsavedFile> unsaved_files = env->GetUnsavedFiles();
   const int options = 0;
-  CXTranslationUnit tu = clang_parseTranslationUnit(
+  CXTranslationUnit tu = env->clang_parseTranslationUnit(
       env->index(), filename.c_str(), cmd_args.data(), cmd_args.size(),
       unsaved_files.data(), unsaved_files.size(), options);
   if (tu == NULL) {
@@ -145,103 +149,103 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   }
   Log() << "Parsed: " << tu;
 
-  CXFile file = clang_getFile(tu, filename.c_str());
+  CXFile file = env->clang_getFile(tu, filename.c_str());
 
   // get top/last location of the file
-  CXSourceLocation topLoc = clang_getLocationForOffset(tu, file, 0);
-  CXSourceLocation lastLoc = clang_getLocationForOffset(tu, file, str.length());
-  if (clang_equalLocations(topLoc, clang_getNullLocation()) ||
-      clang_equalLocations(lastLoc, clang_getNullLocation())) {
+  CXSourceLocation topLoc = env->clang_getLocationForOffset(tu, file, 0);
+  CXSourceLocation lastLoc = env->clang_getLocationForOffset(tu, file, str.length());
+  if (env->clang_equalLocations(topLoc, env->clang_getNullLocation()) ||
+      env->clang_equalLocations(lastLoc, env->clang_getNullLocation())) {
     Log() << "cannot retrieve location";
-    clang_disposeTranslationUnit(tu);
+    env->clang_disposeTranslationUnit(tu);
     return response;
   }
 
   // make a range from locations
-  CXSourceRange range = clang_getRange(topLoc, lastLoc);
-  if (clang_Range_isNull(range)) {
+  CXSourceRange range = env->clang_getRange(topLoc, lastLoc);
+  if (env->clang_Range_isNull(range)) {
     Log() << "cannot retrieve range";
-    clang_disposeTranslationUnit(tu);
+    env->clang_disposeTranslationUnit(tu);
     return response;
   }
 
   CXToken* tokens;
   unsigned numTokens;
-  clang_tokenize(tu, range, &tokens, &numTokens);
+  env->clang_tokenize(tu, range, &tokens, &numTokens);
 
   token_editor_.BeginEdit(&response.token_types);
 
   for (unsigned i = 0; i < numTokens; i++) {
     CXToken token = tokens[i];
-    CXSourceRange extent = clang_getTokenExtent(tu, token);
-    CXSourceLocation start = clang_getRangeStart(extent);
-    CXSourceLocation end = clang_getRangeEnd(extent);
-    CXTokenKind kind = clang_getTokenKind(token);
+    CXSourceRange extent = env->clang_getTokenExtent(tu, token);
+    CXSourceLocation start = env->clang_getRangeStart(extent);
+    CXSourceLocation end = env->clang_getRangeEnd(extent);
+    CXTokenKind kind = env->clang_getTokenKind(token);
 
     CXFile file;
     unsigned line, col, offset_start, offset_end;
-    clang_getFileLocation(start, &file, &line, &col, &offset_start);
-    clang_getFileLocation(end, &file, &line, &col, &offset_end);
+    env->clang_getFileLocation(start, &file, &line, &col, &offset_start);
+    env->clang_getFileLocation(end, &file, &line, &col, &offset_end);
 
     token_editor_.Add(ids[offset_start],
                       Annotation<Token>(ids[offset_end], KindToToken(kind)));
   }
 
-  clang_disposeTokens(tu, tokens, numTokens);
+  env->clang_disposeTokens(tu, tokens, numTokens);
 
   // fetch diagnostics
   if (notification.fully_loaded) {
-    unsigned num_diagnostics = clang_getNumDiagnostics(tu);
+    unsigned num_diagnostics = env->clang_getNumDiagnostics(tu);
     Log() << num_diagnostics << " diagnostics";
     for (unsigned i = 0; i < num_diagnostics; i++) {
-      CXDiagnostic diag = clang_getDiagnostic(tu, i);
-      CXString message = clang_formatDiagnostic(diag, 0);
+      CXDiagnostic diag = env->clang_getDiagnostic(tu, i);
+      CXString message = env->clang_formatDiagnostic(diag, 0);
       diagnostic_editor_.StartDiagnostic(
-          DiagnosticSeverity(clang_getDiagnosticSeverity(diag)),
-          clang_getCString(message));
-      unsigned num_ranges = clang_getDiagnosticNumRanges(diag);
+          DiagnosticSeverity(env->clang_getDiagnosticSeverity(diag)),
+          env->clang_getCString(message));
+      unsigned num_ranges = env->clang_getDiagnosticNumRanges(diag);
       for (size_t j = 0; j < num_ranges; j++) {
-        CXSourceRange extent = clang_getDiagnosticRange(diag, j);
-        CXSourceLocation start = clang_getRangeStart(extent);
-        CXSourceLocation end = clang_getRangeEnd(extent);
+        CXSourceRange extent = env->clang_getDiagnosticRange(diag, j);
+        CXSourceLocation start = env->clang_getRangeStart(extent);
+        CXSourceLocation end = env->clang_getRangeEnd(extent);
         CXFile file;
         unsigned line, col, offset_start, offset_end;
-        clang_getFileLocation(start, &file, &line, &col, &offset_start);
-        clang_getFileLocation(end, &file, &line, &col, &offset_end);
-        if (file && filename == clang_getCString(clang_getFileName(file))) {
+        env->clang_getFileLocation(start, &file, &line, &col, &offset_start);
+        env->clang_getFileLocation(end, &file, &line, &col, &offset_end);
+        if (file && filename == env->clang_getCString(env->clang_getFileName(file))) {
           diagnostic_editor_.AddRange(ids[offset_start], ids[offset_end]);
         }
       }
       CXFile file;
       unsigned line, col, offset;
-      CXSourceLocation loc = clang_getDiagnosticLocation(diag);
-      clang_getFileLocation(loc, &file, &line, &col, &offset);
-      if (file && filename == clang_getCString(clang_getFileName(file))) {
+      CXSourceLocation loc = env->clang_getDiagnosticLocation(diag);
+      env->clang_getFileLocation(loc, &file, &line, &col, &offset);
+      if (file && filename == env->clang_getCString(env->clang_getFileName(file))) {
         diagnostic_editor_.AddPoint(ids[offset]);
       }
-      unsigned num_fixits = clang_getDiagnosticNumFixIts(diag);
+      unsigned num_fixits = env->clang_getDiagnosticNumFixIts(diag);
       Log() << "num_fixits:" << num_fixits;
       for (unsigned j = 0; j < num_fixits; j++) {
         CXSourceRange extent;
-        CXString repl = clang_getDiagnosticFixIt(diag, j, &extent);
-        CXSourceLocation start = clang_getRangeStart(extent);
-        CXSourceLocation end = clang_getRangeEnd(extent);
+        CXString repl = env->clang_getDiagnosticFixIt(diag, j, &extent);
+        CXSourceLocation start = env->clang_getRangeStart(extent);
+        CXSourceLocation end = env->clang_getRangeEnd(extent);
         CXFile file;
         unsigned line, col, offset_start, offset_end;
-        clang_getFileLocation(start, &file, &line, &col, &offset_start);
-        clang_getFileLocation(end, &file, &line, &col, &offset_end);
-        if (file && filename == clang_getCString(clang_getFileName(file))) {
+        env->clang_getFileLocation(start, &file, &line, &col, &offset_start);
+        env->clang_getFileLocation(end, &file, &line, &col, &offset_end);
+        if (file && filename == env->clang_getCString(env->clang_getFileName(file))) {
           diagnostic_editor_.StartFixit().AddReplacement(
-              ids[offset_start], ids[offset_end], clang_getCString(repl));
+              ids[offset_start], ids[offset_end], env->clang_getCString(repl));
         }
       }
 
-      clang_disposeString(message);
-      clang_disposeDiagnostic(diag);
+      env->clang_disposeString(message);
+      env->clang_disposeDiagnostic(diag);
     }
   }
 
-  clang_disposeTranslationUnit(tu);
+  env->clang_disposeTranslationUnit(tu);
 
   token_editor_.Publish();
   diagnostic_editor_.Publish(notification.content, &response);
