@@ -19,8 +19,8 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "config.h"
-#include "read.h"
 #include "log.h"
+#include "read.h"
 
 Config<std::string> clang_version("project/clang-version");
 
@@ -83,12 +83,14 @@ static std::string ClangBuiltinSystemIncludePath() {
   return tool_path.substr(0, tool_path.rfind('/')) + "/../include";
 }
 
-void ClangCompileArgs(const std::string& filename, std::vector<std::string>* args) {
+void ClangCompileArgs(const std::string& filename,
+                      std::vector<std::string>* args) {
   args->push_back("-x");
   args->push_back("c++");
   args->push_back("-std=c++11");
-//  args->push_back(absl::StrCat("-isystem=", ClangBuiltinSystemIncludePath()));
-  
+  //  args->push_back(absl::StrCat("-isystem=",
+  //  ClangBuiltinSystemIncludePath()));
+
   char cwd[MAXPATHLEN];
   getcwd(cwd, sizeof(cwd));
   std::vector<absl::string_view> segments = absl::StrSplit(cwd, '/');

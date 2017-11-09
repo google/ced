@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "godbolt_collaborator.h"
+#include "absl/strings/str_join.h"
 #include "asm_parser.h"
 #include "clang_config.h"
 #include "log.h"
 #include "run.h"
 #include "temp_file.h"
-#include "absl/strings/str_join.h"
 
 EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   EditResponse response;
@@ -33,7 +33,9 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   auto cmd =
       ClangCompileCommand(buffer_->filename(), "-", tmpf.filename(), &args);
   Log() << cmd << " " << absl::StrJoin(args, " ");
-  auto res = run(cmd, args, text);
+  if (run(cmd, args, text).status != 0) {
+    return response;
+  }
 
   Log() << "objdump: " << tmpf.filename();
   auto dump = run(
@@ -41,7 +43,7 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
       {"-d", "-l", "-M", "intel", "-C", "--no-show-raw-insn", tmpf.filename()},
       "");
 
-  AsmParseResult parsed_asm = AsmParse(dump);
+  AsmParseResult parsed_asm = AsmParse(dump.out);
 
   side_buffer_ref_editor_.BeginEdit(&response.side_buffer_refs);
   String::LineIterator line_it(notification.content, String::Begin());

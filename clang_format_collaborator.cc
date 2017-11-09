@@ -26,11 +26,11 @@ EditResponse ClangFormatCollaborator::Edit(
   auto clang_format = ClangToolPath("clang-format");
   Log() << "clang-format command: " << clang_format;
   auto res = run(clang_format, {"-output-replacements-xml"}, text);
-  Log() << res;
+  Log() << res.out;
 
   pugi::xml_document doc;
   auto parse_result =
-      doc.load_buffer(res.data(), res.length(),
+      doc.load_buffer(res.out.data(), res.out.length(),
                       (pugi::parse_default | pugi::parse_ws_pcdata_single));
 
   if (!parse_result) {

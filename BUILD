@@ -315,7 +315,7 @@ cc_library(
     name = "run",
     srcs = ["run.cc"],
     hdrs = ["run.h"],
-    deps = ["@subprocess//:subprocess"],
+    deps = [":wrap_syscall"]
 )
 
 cc_library(

@@ -29,7 +29,7 @@ struct WhatsThere {
   bool clang_complete;
   bool travis;
 };
-}
+}  // namespace
 
 Project::Project() {
   // some path above this one is the root of the project... let's try to figure

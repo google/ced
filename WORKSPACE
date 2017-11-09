@@ -32,19 +32,6 @@ http_archive(
 )
 
 new_git_repository(
-  name="subprocess",
-  commit="70e9e6cc01ab6de692b8bd151d0c4bb168078644",
-  remote="https://github.com/tsaarni/cpp-subprocess.git",
-  build_file_content="""
-cc_library(
-  name="subprocess",
-  hdrs=["include/subprocess.hpp"],
-  visibility=["//visibility:public"]
-)
-  """
-)
-
-new_git_repository(
   name="yaml",
   commit="beb44b872c07c74556314e730c6f20a00b32e8e5",
   remote="https://github.com/jbeder/yaml-cpp.git",

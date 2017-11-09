@@ -16,5 +16,11 @@
 #include <string>
 #include <vector>
 
-std::string run(const std::string& commands,
-                const std::vector<std::string>& args, const std::string& input);
+struct RunResult {
+  std::string out;
+  std::string err;
+  int status;
+};
+
+RunResult run(const std::string& commands, const std::vector<std::string>& args,
+              const std::string& input);
