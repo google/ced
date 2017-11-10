@@ -39,7 +39,7 @@ class ConfigRegistry {
  private:
   ConfigRegistry() {
     const char* home = getenv("HOME");
-    LoadConfig(absl::StrCat(home, "/.config/ced"));
+    LoadConfig(absl::StrCat(home, "/.config/ced/config.yaml"));
     LoadConfig(".ced");
     for (auto it = configs_.crbegin(); it != configs_.crend(); ++it) {
       Log() << *it;

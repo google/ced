@@ -368,3 +368,41 @@ cc_test(
     "@com_google_googletest//:gtest_main",
   ]
 )
+
+py_binary(
+  name = "file2c",
+  srcs = ["file2c.py"]
+)
+
+genrule(
+  name = "default_theme_src",
+  srcs = ["@one_dark//:one_dark"],
+  outs = ['default_theme.cc'],
+  tools = [':file2c'],
+  cmd = './$(location :file2c) $(OUTS) default_theme $(locations @one_dark//:one_dark)'
+)
+
+cc_library(
+  name = "default_theme",
+  srcs = ['default_theme.cc'],
+  hdrs = ['default_theme.h']
+)
+
+cc_library(
+  name = "theme",
+  srcs = ['theme.cc'],
+  hdrs = ['theme.h'],
+  deps = [
+    ':read',
+    ':plist',
+    ':default_theme',
+    ':token_type',
+    '@com_google_absl//absl/types:optional'
+  ]
+)
+
+cc_test(
+  name = "theme_test",
+  srcs = ["theme_test.cc"],
+  deps = [":theme", "@com_google_googletest//:gtest_main"]
+)

@@ -1,11 +1,11 @@
 # Copyright 2017 Google LLC
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     https://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -80,3 +80,15 @@ http_archive(
     strip_prefix = 're2-2017-11-01'
 )
 
+new_http_archive(
+  name="one_dark",
+  urls = ["https://github.com/andresmichel/one-dark-theme/archive/1.3.6.tar.gz"],
+  strip_prefix = "one-dark-theme-1.3.6",
+  build_file_content="""
+filegroup(
+  name="one_dark",
+  srcs=["One Dark.tmTheme"],
+  visibility=["//visibility:public"],
+)
+  """
+)

@@ -89,6 +89,12 @@ class Dict final : public Node {
     return nodes_.end();
   }
 
+  const Node* Get(const std::string& key) const {
+    auto it = nodes_.find(key);
+    if (it == nodes_.end()) return nullptr;
+    return it->second.get();
+  }
+
   template <class T, class... Args>
   T* Add(const std::string& key, Args&&... args) {
     T* t = new T(std::forward<Args>(args)...);
