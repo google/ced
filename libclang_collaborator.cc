@@ -58,7 +58,7 @@ class ClangEnv : public LibClang {
   CXIndex index() const { return index_; }
 
  private:
-  ClangEnv() : LibClang(ClangLibPath("libclang.so").c_str()) {
+  ClangEnv() : LibClang(ClangLibPath("clang").c_str()) {
     if (!dlhdl) throw std::runtime_error("Failed opening libclang");
     index_ = this->clang_createIndex(1, 0);
   }

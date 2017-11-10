@@ -24,6 +24,13 @@
 #include "read.h"
 #include "run.h"
 
+#define PLAT_LIB_PFX "lib"
+#if defined(__APPLE__)
+#define PLAT_LIB_SFX ".dylib"
+#else
+#define PLAT_LIB_SFX ".so"
+#endif
+
 Config<std::string> clang_version("project/clang-version");
 
 static std::vector<absl::string_view> Path() {
@@ -59,7 +66,8 @@ std::string ClangToolPath(const std::string& tool_name) {
       absl::StrCat("Clang tool '", tool_name, "' not found"));
 }
 
-std::string ClangLibPath(const std::string& lib_name) {
+std::string ClangLibPath(const std::string& lib_base) {
+  auto lib_name = absl::StrCat(PLAT_LIB_PFX, lib_base, PLAT_LIB_SFX);
   auto version = clang_version.get();
   if (!version.empty()) {
     auto path = Config<std::string>(absl::StrCat("clang/", version)).get();

@@ -118,6 +118,7 @@ void TerminalCollaborator::Render(absl::Time last_key_press) {
   for (int row = 0; row < fb_rows; row++) {
     int col = 0;
     auto move_next = [&]() {
+      mu_.AssertHeld();
       if (it.id() == cursor_) {
         cursor_row = row;
         cursor_col = col;
