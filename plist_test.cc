@@ -11,13 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#pragma once
+#include "plist.h"
+#include <gtest/gtest.h>
 
-#include <stdint.h>
-#include <string>
-#include "list.h"
-
-typedef List<std::string> Token;
-typedef List<std::string> Selector;
-
-bool SelectorMatches(Selector selector, Token tok);
+TEST(PList, Empty) {
+  auto src =
+      R"(<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict/>
+</plist>
+  )";
+  plist::NodePtr n = plist::Parse(src);
+  EXPECT_NE(nullptr, n);
+  EXPECT_NE(nullptr, n->AsDict());
+}

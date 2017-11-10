@@ -11,13 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#pragma once
+#include "token_type.h"
 
-#include <stdint.h>
-#include <string>
-#include "list.h"
+static bool RuleMatches(const std::string& selector, const std::string& token) {
+  return selector.length() <= token.length() &&
+         std::mismatch(selector.begin(), selector.end(), token.begin()).first ==
+             selector.end();
+}
 
-typedef List<std::string> Token;
-typedef List<std::string> Selector;
-
-bool SelectorMatches(Selector selector, Token tok);
+bool SelectorMatches(Selector selector, Token token) {
+  if (selector.Empty()) return true;
+  if (token.Empty()) return false;
+  if (RuleMatches(selector.Head(), token.Head())) {
+    return SelectorMatches(selector.Tail(), token.Tail());
+  } else {
+    return SelectorMatches(selector, token.Tail());
+  }
+}

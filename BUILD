@@ -130,6 +130,7 @@ cc_binary(
 cc_library(
   name = "token_type",
   hdrs = ["token_type.h"],
+  srcs = ["token_type.cc"],
   deps = [":list"]
 )
 
@@ -348,4 +349,22 @@ cc_binary(
   name = "projinf",
   srcs = ["projinf.cc"],
   deps = [":project"],
+)
+
+cc_library(
+  name = "plist",
+  srcs = ["plist.cc"],
+  hdrs = ["plist.h"],
+  deps = [
+    "@pugixml//:pugixml"
+  ]
+)
+
+cc_test(
+  name = "plist_test",
+  srcs = ["plist_test.cc"],
+  deps = [
+    ":plist",
+    "@com_google_googletest//:gtest_main",
+  ]
 )

@@ -15,6 +15,8 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace plist {
 
@@ -26,6 +28,14 @@ class Node {
   virtual const std::string* AsString() const = 0;
   virtual const Array* AsArray() const = 0;
   virtual const Dict* AsDict() const = 0;
+
+  int AsInt(int def) const {
+    const std::string* s = AsString();
+    if (s == nullptr) return def;
+    int n;
+    if (sscanf(s->c_str(), "%d", &n) == 1) return n;
+    return def;
+  }
 };
 
 typedef std::unique_ptr<const Node> NodePtr;
@@ -58,6 +68,10 @@ class Array final : public Node {
     return t;
   }
 
+  void AddNode(NodePtr&& node) { nodes_.emplace_back(std::move(node)); }
+
+  std::vector<NodePtr>* mutable_nodes() { return &nodes_; }
+
  private:
   std::vector<NodePtr> nodes_;
 };
@@ -80,6 +94,10 @@ class Dict final : public Node {
     T* t = new T(std::forward<Args>(args)...);
     nodes_.emplace(std::make_pair(key, NodePtr(t)));
     return t;
+  }
+
+  void AddNode(const std::string& key, NodePtr&& node) {
+    nodes_.emplace(std::make_pair(key, std::move(node)));
   }
 
  private:
