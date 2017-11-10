@@ -26,4 +26,7 @@ FUTURE PLANS
 * Macro support - perhaps via Lua
 * Undo/redo
 * Out-of-process collaborators (via gRPC)
+* Template files for projects
+* Project configuration discovery: source control, build system, etc... should
+  be auto-discovered and used
 
