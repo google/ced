@@ -1,6 +1,6 @@
 #include "plist.h"
 #include "src/pugixml.hpp"
-
+#include<string.h>
 namespace plist {
 
 namespace {
@@ -16,7 +16,7 @@ NodePtr ParseDict(pugi::xml_node n) {
   for (auto c : n.children()) {
     switch (state) {
       case KEY:
-        if (c.name() != "key") return nullptr;
+        if (strcmp(c.name(), "key") != 0) return nullptr;
         key = c.child_value();
         state = VALUE;
         break;
@@ -32,7 +32,7 @@ NodePtr ParseDict(pugi::xml_node n) {
 }
 
 std::unique_ptr<Array> ParseArrayAsArray(pugi::xml_node n) {
-  std::unique_ptr<Array> a;
+  std::unique_ptr<Array> a(new Array());
   for (auto c : n.children()) {
     NodePtr node = ParseNode(c);
     if (!node) return nullptr;
@@ -50,11 +50,11 @@ NodePtr ParseString(pugi::xml_node n) {
 }
 
 NodePtr ParseNode(pugi::xml_node n) {
-  if (n.name() == "dict") {
+  if (0 == strcmp(n.name(), "dict")) {
     return ParseDict(n);
-  } else if (n.name() == "array") {
+  } else if (0 == strcmp(n.name(), "array")) {
     return ParseArray(n);
-  } else if (n.name() == "string") {
+  } else if (0 == strcmp(n.name(), "string")) {
     return ParseString(n);
   } else {
     return nullptr;
