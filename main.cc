@@ -33,7 +33,7 @@ class Application {
     set_escdelay(25);
     start_color();
     InitColors();
-    bkgd(COLOR_PAIR(ColorID::DEFAULT));
+    bkgd(COLOR_PAIR(static_cast<int>(ColorID::DEFAULT)));
     keypad(stdscr, true);
     buffer_.MakeCollaborator<ClangFormatCollaborator>();
     buffer_.MakeCollaborator<LibClangCollaborator>();

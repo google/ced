@@ -19,6 +19,12 @@
 #include "run.h"
 #include "temp_file.h"
 
+#if defined(__APPLE__)
+#define OBJDUMP_BIN "gobjdump"
+#else
+#define OBJDUMP_BIN "objdump"
+#endif
+
 EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   EditResponse response;
   response.done = notification.shutdown;
@@ -39,7 +45,7 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
 
   Log() << "objdump: " << tmpf.filename();
   auto dump = run(
-      "objdump",
+      OBJDUMP_BIN,
       {"-d", "-l", "-M", "intel", "-C", "--no-show-raw-insn", tmpf.filename()},
       "");
 
