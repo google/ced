@@ -144,25 +144,19 @@ void TerminalCollaborator::Render(absl::Time last_key_press) {
       if (it.is_visible()) {
         if (it.value() == '\n') break;
         chtype attr = 0;
-        switch (t_token.cur()) {
-          case Token::UNSET:
-            attr = color_pair(ColorID::DEFAULT);
-            break;
-          case Token::IDENT:
-            attr = color_pair(ColorID::IDENT);
-            break;
-          case Token::KEYWORD:
-            attr = color_pair(ColorID::KEYWORD);
-            break;
-          case Token::SYMBOL:
-            attr = color_pair(ColorID::SYMBOL);
-            break;
-          case Token::LITERAL:
-            attr = color_pair(ColorID::LITERAL);
-            break;
-          case Token::COMMENT:
-            attr = color_pair(ColorID::COMMENT);
-            break;
+        Token tok = t_token.cur();
+        if (tok.Empty()) {
+          attr = color_pair(ColorID::DEFAULT);
+        } else if (tok.Head() == "ident") {
+          attr = color_pair(ColorID::IDENT);
+        } else if (tok.Head() == "keyword") {
+          attr = color_pair(ColorID::KEYWORD);
+        } else if (tok.Head() == "Symbol") {
+          attr = color_pair(ColorID::SYMBOL);
+        } else if (tok.Head() == "Literal") {
+          attr = color_pair(ColorID::LITERAL);
+        } else if (tok.Head() == "Comment") {
+          attr = color_pair(ColorID::COMMENT);
         }
         if (t_diagnostic.cur() != ID()) {
           attr = color_pair(ColorID::ERROR);
@@ -192,6 +186,7 @@ void TerminalCollaborator::Render(absl::Time last_key_press) {
 
     state_.side_buffers.ForEachValue(
         active_side_buffer_.name, [&](const SideBuffer& buffer) {
+          mu_.AssertHeld();
           if (row >= fb_rows) return;
           if (!active_side_buffer_.lines.empty()) {
             Log() << "sb_cursor_row_=" << sb_cursor_row_
@@ -258,6 +253,7 @@ void TerminalCollaborator::ProcessKey(int key) {
   Log() << "TerminalCollaborator::ProcessKey: " << key;
 
   auto down1 = [&]() {
+    mu_.AssertHeld();
     String::Iterator it(state_.content, cursor_);
     int col = 0;
     auto edge = [&it]() {
@@ -282,6 +278,7 @@ void TerminalCollaborator::ProcessKey(int key) {
   };
 
   auto up1 = [&]() {
+    mu_.AssertHeld();
     String::Iterator it(state_.content, cursor_);
     int col = 0;
     auto edge = [&it]() {

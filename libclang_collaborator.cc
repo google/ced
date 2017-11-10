@@ -55,7 +55,7 @@ class ClangEnv : public LibClang {
     return unsaved_files;
   }
 
-  CXIndex index() const { return index_; }
+  CXIndex index() const EXCLUSIVE_LOCKS_REQUIRED(mu_) { return index_; }
 
  private:
   ClangEnv() : LibClang(ClangLibPath("clang").c_str()) {
@@ -85,17 +85,17 @@ LibClangCollaborator::~LibClangCollaborator() {
 static Token KindToToken(CXTokenKind kind) {
   switch (kind) {
     case CXToken_Punctuation:
-      return Token::SYMBOL;
+      return Token().Push("symbol");
     case CXToken_Keyword:
-      return Token::KEYWORD;
+      return Token().Push("keyword");
     case CXToken_Identifier:
-      return Token::IDENT;
+      return Token().Push("ident");
     case CXToken_Literal:
-      return Token::LITERAL;
+      return Token().Push("literal");
     case CXToken_Comment:
-      return Token::COMMENT;
+      return Token().Push("comment");
   }
-  return Token::UNSET;
+  return Token();
 }
 
 static Severity DiagnosticSeverity(CXDiagnosticSeverity sev) {

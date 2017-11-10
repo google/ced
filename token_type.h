@@ -14,5 +14,8 @@
 #pragma once
 
 #include <stdint.h>
+#include "list.h"
 
-enum class Token : uint8_t { UNSET, IDENT, KEYWORD, SYMBOL, LITERAL, COMMENT };
+typedef List<std::string> Token;
+
+bool Matches(List<std::string> selector, Token tok);

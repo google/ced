@@ -78,6 +78,11 @@ cc_test(
 )
 
 cc_library(
+  name = "list",
+  hdrs = ["list.h"]
+)
+
+cc_library(
   name = "crdt",
   hdrs = ["crdt.h"],
 )
@@ -124,7 +129,8 @@ cc_binary(
 
 cc_library(
   name = "token_type",
-  hdrs = ["token_type.h"]
+  hdrs = ["token_type.h"],
+  deps = [":list"]
 )
 
 cc_library(
@@ -270,8 +276,8 @@ cc_library(
   hdrs = ['clang_config.h'],
   deps = [
       '@com_googlesource_code_re2//:re2',
-      '@com_google_absl//absl/strings', 
-      ':config', 
+      '@com_google_absl//absl/strings',
+      ':config',
       ':read',
       ':run',
   ],
@@ -343,4 +349,3 @@ cc_binary(
   srcs = ["projinf.cc"],
   deps = [":project"],
 )
-
