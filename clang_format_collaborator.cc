@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "clang_format_collaborator.h"
+#include "absl/strings/str_cat.h"
 #include "clang_config.h"
 #include "log.h"
 #include "run.h"
@@ -25,12 +26,15 @@ EditResponse ClangFormatCollaborator::Edit(
   auto text = str.Render();
   auto clang_format = ClangToolPath("clang-format");
   Log() << "clang-format command: " << clang_format;
-  auto res = run(clang_format, {"-output-replacements-xml"}, text);
-  Log() << res;
+  auto res = run(clang_format,
+                 {"-output-replacements-xml",
+                  absl::StrCat("-assume-filename=", buffer_->filename())},
+                 text);
+  Log() << res.out;
 
   pugi::xml_document doc;
   auto parse_result =
-      doc.load_buffer(res.data(), res.length(),
+      doc.load_buffer(res.out.data(), res.out.length(),
                       (pugi::parse_default | pugi::parse_ws_pcdata_single));
 
   if (!parse_result) {

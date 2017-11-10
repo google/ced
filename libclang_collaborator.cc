@@ -13,13 +13,13 @@
 // limitations under the License.
 #include "libclang_collaborator.h"
 #include <unordered_map>
+#include "absl/strings/str_join.h"
 #include "clang-c/Index.h"
+#include "clang_config.h"
 #include "diagnostic.h"
+#include "libclang/libclang.h"
 #include "log.h"
 #include "token_type.h"
-#include "clang_config.h"
-#include "absl/strings/str_join.h"
-#include "libclang/libclang.h"
 
 namespace {
 
@@ -153,7 +153,8 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
 
   // get top/last location of the file
   CXSourceLocation topLoc = env->clang_getLocationForOffset(tu, file, 0);
-  CXSourceLocation lastLoc = env->clang_getLocationForOffset(tu, file, str.length());
+  CXSourceLocation lastLoc =
+      env->clang_getLocationForOffset(tu, file, str.length());
   if (env->clang_equalLocations(topLoc, env->clang_getNullLocation()) ||
       env->clang_equalLocations(lastLoc, env->clang_getNullLocation())) {
     Log() << "cannot retrieve location";
@@ -212,7 +213,8 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
         unsigned line, col, offset_start, offset_end;
         env->clang_getFileLocation(start, &file, &line, &col, &offset_start);
         env->clang_getFileLocation(end, &file, &line, &col, &offset_end);
-        if (file && filename == env->clang_getCString(env->clang_getFileName(file))) {
+        if (file &&
+            filename == env->clang_getCString(env->clang_getFileName(file))) {
           diagnostic_editor_.AddRange(ids[offset_start], ids[offset_end]);
         }
       }
@@ -220,7 +222,8 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
       unsigned line, col, offset;
       CXSourceLocation loc = env->clang_getDiagnosticLocation(diag);
       env->clang_getFileLocation(loc, &file, &line, &col, &offset);
-      if (file && filename == env->clang_getCString(env->clang_getFileName(file))) {
+      if (file &&
+          filename == env->clang_getCString(env->clang_getFileName(file))) {
         diagnostic_editor_.AddPoint(ids[offset]);
       }
       unsigned num_fixits = env->clang_getDiagnosticNumFixIts(diag);
@@ -234,7 +237,8 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
         unsigned line, col, offset_start, offset_end;
         env->clang_getFileLocation(start, &file, &line, &col, &offset_start);
         env->clang_getFileLocation(end, &file, &line, &col, &offset_end);
-        if (file && filename == env->clang_getCString(env->clang_getFileName(file))) {
+        if (file &&
+            filename == env->clang_getCString(env->clang_getFileName(file))) {
           diagnostic_editor_.StartFixit().AddReplacement(
               ids[offset_start], ids[offset_end], env->clang_getCString(repl));
         }

@@ -19,8 +19,10 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "config.h"
-#include "read.h"
 #include "log.h"
+#include "re2/re2.h"
+#include "read.h"
+#include "run.h"
 
 Config<std::string> clang_version("project/clang-version");
 
@@ -78,17 +80,44 @@ std::string ClangLibPath(const std::string& lib_name) {
       absl::StrCat("Clang lib '", lib_name, "' not found"));
 }
 
-static std::string ClangBuiltinSystemIncludePath() {
-  std::string tool_path = ClangToolPath("clang++");
-  return tool_path.substr(0, tool_path.rfind('/')) + "/../include";
-}
-
-void ClangCompileArgs(const std::string& filename, std::vector<std::string>* args) {
+void ClangCompileArgs(const std::string& filename,
+                      std::vector<std::string>* args) {
   args->push_back("-x");
   args->push_back("c++");
   args->push_back("-std=c++11");
-//  args->push_back(absl::StrCat("-isystem=", ClangBuiltinSystemIncludePath()));
-  
+
+  /*
+#include <...> search starts here:
+ /usr/local/google/home/ctiller/clang+llvm-4.0.0-x86_64-linux-gnu-ubuntu-14.04/bin/../include/c++/v1
+ /usr/local/include
+ /usr/local/google/home/ctiller/clang+llvm-4.0.0-x86_64-linux-gnu-ubuntu-14.04/bin/../lib/clang/4.0.0/include
+ /usr/include/x86_64-linux-gnu
+ /usr/include
+End of search list.
+  */
+  RE2 r_start(R"(#include <...> search starts here:.*)");
+  RE2 r_ent(R"(\s+(.*))");
+  RE2 r_end(R"(End of search list\..*)");
+  bool started = false;
+  std::string ent;
+  for (auto line : absl::StrSplit(
+           run(ClangToolPath("clang"),
+               {"-std=c++11", "-stdlib=libc++", "-v", "-E", "-x", "c++", "-"},
+               "")
+               .err,
+           '\n')) {
+    re2::StringPiece spline(line.data(), line.length());
+    Log() << "CLANGARGLINE: " << line;
+    if (!started && RE2::FullMatch(spline, r_start)) {
+      started = true;
+    } else if (started && RE2::FullMatch(spline, r_ent, &ent)) {
+      args->push_back("-isystem");
+      args->push_back(ent);
+    } else if (started && RE2::FullMatch(spline, r_end)) {
+      started = false;
+    }
+  }
+
   char cwd[MAXPATHLEN];
   getcwd(cwd, sizeof(cwd));
   std::vector<absl::string_view> segments = absl::StrSplit(cwd, '/');
