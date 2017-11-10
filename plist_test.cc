@@ -25,3 +25,23 @@ TEST(PList, Empty) {
   EXPECT_NE(nullptr, n);
   EXPECT_NE(nullptr, n->AsDict());
 }
+
+TEST(PList, ArrayOfStrings) {
+  auto src =
+      R"(<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+  <string>foo</string>
+  <string>bar</string>
+</array>
+</plist>
+  )";
+  plist::NodePtr n = plist::Parse(src);
+  EXPECT_NE(nullptr, n);
+  std::vector<std::string> expect = {"foo", "bar"};
+  auto expect_it = expect.begin();
+  for (const auto& c : *n->AsArray()) {
+    EXPECT_EQ(*expect_it, *c->AsString());
+    ++expect_it;
+  }
+}
