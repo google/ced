@@ -199,19 +199,23 @@ void TerminalCollaborator::Render(TerminalColor* color,
           int sbrow = sb_cursor_row_;
           for (int i = buffer.line_ofs[sb_cursor_row_];
                i < buffer.content.size(); i++) {
+            uint32_t flags = 0;
+            if (std::find(active_side_buffer_.lines.begin(),
+                          active_side_buffer_.lines.end(),
+                          sbrow) != active_side_buffer_.lines.end()) {
+              flags |= Theme::HIGHLIGHT_LINE;
+            }
             char c = buffer.content[i];
             if (c == '\n') {
+              chtype fill = ' ' | color->Theme(Token(), flags);
+              while (col < fb_cols) {
+                mvaddch(row, 82 + (col++), fill);
+              }
               row++;
               sbrow++;
               col = 0;
               if (row >= fb_rows) break;
             } else if (col < fb_cols) {
-              uint32_t flags = 0;
-              if (std::find(active_side_buffer_.lines.begin(),
-                            active_side_buffer_.lines.end(),
-                            sbrow) != active_side_buffer_.lines.end()) {
-                flags |= Theme::HIGHLIGHT_LINE;
-              }
               mvaddch(row, 82 + (col++), c | color->Theme(Token(), flags));
             }
           }

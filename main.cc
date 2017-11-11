@@ -32,7 +32,9 @@ class Application {
     initscr();
     set_escdelay(25);
     start_color();
-    bkgd(color_.Theme(Token(), 0));
+    color_.reset(
+        new TerminalColor{std::unique_ptr<Theme>(new Theme(Theme::DEFAULT))});
+    bkgd(color_->Theme(Token(), 0));
     keypad(stdscr, true);
     buffer_.MakeCollaborator<ClangFormatCollaborator>();
     buffer_.MakeCollaborator<LibClangCollaborator>();
@@ -91,7 +93,7 @@ class Application {
 
  private:
   void Render(absl::Time last_key_press) {
-    terminal_collaborator_->Render(&color_, last_key_press);
+    terminal_collaborator_->Render(color_.get(), last_key_press);
   }
 
   absl::Mutex mu_;
@@ -100,7 +102,7 @@ class Application {
 
   Buffer buffer_;
   TerminalCollaborator* const terminal_collaborator_;
-  TerminalColor color_{std::unique_ptr<Theme>(new Theme(Theme::DEFAULT))};
+  std::unique_ptr<TerminalColor> color_;
 };
 
 int main(int argc, char** argv) {

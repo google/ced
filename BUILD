@@ -388,6 +388,7 @@ cc_library(
   hdrs = ["terminal_color.h"],
   deps = [
       ":theme",
+      ":log"
   ]
 )
 
