@@ -16,6 +16,7 @@
 #include <unordered_map>
 #include "absl/strings/str_split.h"
 #include "default_theme.h"
+#include "log.h"
 #include "plist.h"
 #include "read.h"
 
@@ -39,6 +40,20 @@ template <class T>
 static absl::optional<T> Merge(absl::optional<T> a, absl::optional<T> b) {
   if (!a) return b;
   return a;
+}
+
+static uint8_t blend(uint8_t a, uint8_t b, uint8_t alpha) {
+  return (alpha * a + (255 - alpha) * b) / 255;
+}
+
+static absl::optional<Theme::Color> Merge(absl::optional<Theme::Color> a,
+                                          absl::optional<Theme::Color> b) {
+  if (!a)
+    return b;
+  else if (!b)
+    return a;
+  return Theme::Color{blend(a->r, b->r, a->a), blend(a->g, b->g, a->a),
+                      blend(a->b, b->b, a->a), 255};
 }
 
 Theme::Result Theme::ThemeToken(Token token, uint32_t flags) {
@@ -102,8 +117,7 @@ Theme::Result Theme::ThemeToken(Token token, uint32_t flags) {
   Highlight highlight = composite.font_style;
 
   if (flags & HIGHLIGHT_LINE) {
-    background = Merge(composite.highlight, background);
-    foreground = Merge(composite.highlight_foreground, foreground);
+    background = Merge(composite.line_highlight, background);
   }
 
   Result result{foreground ? *foreground : Color{255, 255, 255, 255},

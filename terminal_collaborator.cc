@@ -134,6 +134,8 @@ void TerminalCollaborator::Render(TerminalColor* color,
     do {
       move_next();
     } while (!it.is_end() && !it.is_visible());
+    uint32_t flags = 0;
+    if (row == cursor_row_) flags |= Theme::HIGHLIGHT_LINE;
     for (;;) {
       if (it.is_end()) {
         row = fb_rows;
@@ -146,11 +148,14 @@ void TerminalCollaborator::Render(TerminalColor* color,
           tok = tok.Push("error");
         }
         if (col < 80) {
-          mvaddch(row, col, it.value() | color->Theme(tok, 0));
+          mvaddch(row, col, it.value() | color->Theme(tok, flags));
         }
         col++;
       }
       move_next();
+    }
+    for (; col < 80; col++) {
+      mvaddch(row, col, ' ' | color->Theme(Token(), flags));
     }
   }
 
@@ -173,62 +178,60 @@ void TerminalCollaborator::Render(TerminalColor* color,
       mvaddstr(row++, 82, msg.c_str());
     });
 
-    if (false)
-      state_.side_buffers.ForEachValue(
-          active_side_buffer_.name, [&](const SideBuffer& buffer) {
-            mu_.AssertHeld();
-            if (row >= fb_rows) return;
-            if (!active_side_buffer_.lines.empty()) {
-              Log() << "sb_cursor_row_=" << sb_cursor_row_
-                    << " line[0]=" << active_side_buffer_.lines.front()
-                    << " line[-1]=" << active_side_buffer_.lines.back();
-              if (sb_cursor_row_ >= buffer.line_ofs.size()) {
-                sb_cursor_row_ = buffer.line_ofs.size() - 1;
-              }
-              int adj = 0;
-              if (active_side_buffer_.lines.front() < sb_cursor_row_) {
-                sb_cursor_row_ = active_side_buffer_.lines.front();
-                adj++;
-              }
-              if (active_side_buffer_.lines.back() >=
-                  sb_cursor_row_ + fb_rows) {
-                sb_cursor_row_ = active_side_buffer_.lines.back() - fb_rows;
-                adj++;
-              }
-              if (adj == 2) {
-                sb_cursor_row_ =
-                    (buffer.line_ofs.front() + buffer.line_ofs.back()) / 2 -
-                    fb_rows / 2;
-              }
-              if (sb_cursor_row_ < 0) {
-                sb_cursor_row_ = 0;
-              }
+    state_.side_buffers.ForEachValue(
+        active_side_buffer_.name, [&](const SideBuffer& buffer) {
+          mu_.AssertHeld();
+          if (row >= fb_rows) return;
+          if (!active_side_buffer_.lines.empty()) {
+            Log() << "sb_cursor_row_=" << sb_cursor_row_
+                  << " line[0]=" << active_side_buffer_.lines.front()
+                  << " line[-1]=" << active_side_buffer_.lines.back();
+            if (sb_cursor_row_ >= buffer.line_ofs.size()) {
+              sb_cursor_row_ = buffer.line_ofs.size() - 1;
             }
-            int col = 0;
-            int sbrow = sb_cursor_row_;
-            for (int i = buffer.line_ofs[sb_cursor_row_];
-                 i < buffer.content.size(); i++) {
-              uint32_t flags = 0;
-              if (std::find(active_side_buffer_.lines.begin(),
-                            active_side_buffer_.lines.end(),
-                            sbrow) != active_side_buffer_.lines.end()) {
-                flags |= Theme::HIGHLIGHT_LINE;
-              }
-              char c = buffer.content[i];
-              if (c == '\n') {
-                chtype fill = ' ' | color->Theme(Token(), flags);
-                while (col < fb_cols) {
-                  mvaddch(row, 82 + (col++), fill);
-                }
-                row++;
-                sbrow++;
-                col = 0;
-                if (row >= fb_rows) break;
-              } else if (col < fb_cols) {
-                mvaddch(row, 82 + (col++), c | color->Theme(Token(), flags));
-              }
+            int adj = 0;
+            if (active_side_buffer_.lines.front() < sb_cursor_row_) {
+              sb_cursor_row_ = active_side_buffer_.lines.front();
+              adj++;
             }
-          });
+            if (active_side_buffer_.lines.back() >= sb_cursor_row_ + fb_rows) {
+              sb_cursor_row_ = active_side_buffer_.lines.back() - fb_rows;
+              adj++;
+            }
+            if (adj == 2) {
+              sb_cursor_row_ =
+                  (buffer.line_ofs.front() + buffer.line_ofs.back()) / 2 -
+                  fb_rows / 2;
+            }
+            if (sb_cursor_row_ < 0) {
+              sb_cursor_row_ = 0;
+            }
+          }
+          int col = 0;
+          int sbrow = sb_cursor_row_;
+          for (int i = buffer.line_ofs[sb_cursor_row_];
+               i < buffer.content.size(); i++) {
+            uint32_t flags = 0;
+            if (std::find(active_side_buffer_.lines.begin(),
+                          active_side_buffer_.lines.end(),
+                          sbrow) != active_side_buffer_.lines.end()) {
+              flags |= Theme::HIGHLIGHT_LINE;
+            }
+            char c = buffer.content[i];
+            if (c == '\n') {
+              chtype fill = ' ' | color->Theme(Token(), flags);
+              while (col < fb_cols) {
+                mvaddch(row, 82 + (col++), fill);
+              }
+              row++;
+              sbrow++;
+              col = 0;
+              if (row >= fb_rows) break;
+            } else if (col < fb_cols) {
+              mvaddch(row, 82 + (col++), c | color->Theme(Token(), flags));
+            }
+          }
+        });
   }
 
   auto frame_time = absl::Now() - last_key_press;

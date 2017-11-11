@@ -378,6 +378,7 @@ cc_library(
     ':plist',
     ':default_theme',
     ':token_type',
+    ':log',
     '@com_google_absl//absl/types:optional'
   ]
 )

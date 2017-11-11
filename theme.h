@@ -103,14 +103,15 @@ class Theme {
       long hex = strtol(value.c_str() + inc, &end, 16);
       if (*end) throw std::runtime_error("Failed to parse color");
       Color c;
-      c.r = (hex >> 16) & 0xff;
-      c.g = (hex >> 8) & 0xff;
-      c.b = (hex)&0xff;
       if (value.length() <= 7) {
         c.a = 255;
       } else {
-        c.a = (hex >> 24) & 0xff;
+        c.a = hex & 0xff;
+        hex >>= 8;
       }
+      c.r = (hex >> 16) & 0xff;
+      c.g = (hex >> 8) & 0xff;
+      c.b = hex & 0xff;
       (setting->*Field) = c;
     }
   };
