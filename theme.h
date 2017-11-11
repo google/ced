@@ -26,21 +26,33 @@ class Theme {
   enum default_type { DEFAULT };
   explicit Theme(default_type);
 
-  void ConfigureNCurses();
-  int GetAttr(Token tok);
-
- private:
-  void Load(const std::string& src);
+  enum class Highlight : uint8_t { UNSET, NONE, BOLD, UNDERLINE, ITALIC };
 
   struct Color {
     uint8_t r;
     uint8_t g;
     uint8_t b;
     uint8_t a;
-  };
-  typedef absl::optional<Color> OptColor;
 
-  enum class Highlight : uint8_t { UNSET, NONE, BOLD, UNDERLINE, ITALIC };
+    bool operator==(const Color& other) const {
+      return r == other.r && g == other.g && b == other.b && a == other.a;
+    }
+    bool operator!=(const Color& other) const { return !operator==(other); }
+  };
+
+  static constexpr uint32_t HIGHLIGHT_LINE = 1;
+
+  struct Result {
+    Color foreground;
+    Color background;
+    Highlight highlight;
+  };
+  Result ThemeToken(Token token, uint32_t flags);
+
+ private:
+  void Load(const std::string& src);
+
+  typedef absl::optional<Color> OptColor;
 
   struct Setting {
     std::vector<Selector> scopes;
@@ -117,5 +129,5 @@ class Theme {
   };
 
   std::vector<Setting> settings_;
-  std::map<Token, int> attr_cache_;
+  std::map<std::pair<Token, uint32_t>, Result> theme_cache_;
 };

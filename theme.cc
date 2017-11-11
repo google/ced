@@ -25,6 +25,94 @@ Theme::Theme(const std::string& filename) { Load(Read(filename)); }
 
 Theme::Theme(default_type) { Load(default_theme); }
 
+static Theme::Highlight Merge(Theme::Highlight a, Theme::Highlight b) {
+  if (a == Theme::Highlight::UNSET) return b;
+  return a;
+}
+
+static int Merge(int a, int b) {
+  if (a < 0) return b;
+  return a;
+}
+
+template <class T>
+static absl::optional<T> Merge(absl::optional<T> a, absl::optional<T> b) {
+  if (!a) return b;
+  return a;
+}
+
+Theme::Result Theme::ThemeToken(Token token, uint32_t flags) {
+  auto key = std::make_pair(token, flags);
+  auto it = theme_cache_.find(key);
+  if (it != theme_cache_.end()) return it->second;
+
+  Setting composite;
+  for (auto sit = settings_.crbegin(); sit != settings_.crend(); ++sit) {
+    bool matches = false;
+    for (const auto& sel : sit->scopes) {
+      if (SelectorMatches(sel, token)) {
+        matches = true;
+        break;
+      }
+    }
+    if (!matches) continue;
+    composite.font_style = Merge(composite.font_style, sit->font_style);
+    composite.bracket_contents_options = Merge(
+        composite.bracket_contents_options, sit->bracket_contents_options);
+    composite.brackets_options =
+        Merge(composite.brackets_options, sit->brackets_options);
+    composite.tags_options = Merge(composite.tags_options, sit->tags_options);
+    composite.shadow_width = Merge(composite.shadow_width, sit->shadow_width);
+    composite.foreground = Merge(composite.foreground, sit->foreground);
+    composite.background = Merge(composite.background, sit->background);
+    composite.invisibles = Merge(composite.invisibles, sit->invisibles);
+    composite.caret = Merge(composite.caret, sit->caret);
+    composite.line_highlight =
+        Merge(composite.line_highlight, sit->line_highlight);
+    composite.bracket_contents_foreground =
+        Merge(composite.bracket_contents_foreground,
+              sit->bracket_contents_foreground);
+    composite.brackets_foreground =
+        Merge(composite.brackets_foreground, sit->brackets_foreground);
+    composite.tags_foreground =
+        Merge(composite.tags_foreground, sit->tags_foreground);
+    composite.find_highlight =
+        Merge(composite.find_highlight, sit->find_highlight);
+    composite.find_highlight_foreground = Merge(
+        composite.find_highlight_foreground, sit->find_highlight_foreground);
+    composite.gutter = Merge(composite.gutter, sit->gutter);
+    composite.gutter_foreground =
+        Merge(composite.gutter_foreground, sit->gutter_foreground);
+    composite.selection = Merge(composite.selection, sit->selection);
+    composite.selection_border =
+        Merge(composite.selection_border, sit->selection_border);
+    composite.inactive_selection =
+        Merge(composite.inactive_selection, sit->inactive_selection);
+    composite.guide = Merge(composite.guide, sit->guide);
+    composite.active_guide = Merge(composite.active_guide, sit->active_guide);
+    composite.stack_guide = Merge(composite.stack_guide, sit->stack_guide);
+    composite.highlight = Merge(composite.highlight, sit->highlight);
+    composite.highlight_foreground =
+        Merge(composite.highlight_foreground, sit->highlight_foreground);
+    composite.shadow = Merge(composite.shadow, sit->shadow);
+  }
+
+  OptColor foreground = composite.foreground;
+  OptColor background = composite.background;
+  Highlight highlight = composite.font_style;
+
+  if (flags & HIGHLIGHT_LINE) {
+    background = Merge(composite.highlight, background);
+    foreground = Merge(composite.highlight_foreground, foreground);
+  }
+
+  Result result{foreground ? *foreground : Color{255, 255, 255, 255},
+                background ? *background : Color{0, 0, 0, 255},
+                highlight != Highlight::UNSET ? highlight : Highlight::NONE};
+  theme_cache_.insert(std::make_pair(key, result));
+  return result;
+}
+
 static std::string GetName(const plist::Dict* d) {
   auto* name_node = d->Get("name");
   if (!name_node) return "<<unnamed>>";
@@ -35,7 +123,7 @@ static std::string GetName(const plist::Dict* d) {
 
 static std::vector<Selector> ParseScopes(const plist::Dict* d) {
   auto scopes_node = d->Get("scope");
-  if (!scopes_node) return {};
+  if (!scopes_node) return {Selector()};
   auto* str = scopes_node->AsString();
   if (!str) throw std::runtime_error("scope not a string");
   std::vector<Selector> r;
