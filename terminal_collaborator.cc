@@ -106,6 +106,7 @@ void TerminalCollaborator::Render(TerminalColor* color,
 
   int cursor_row = 0;
   int cursor_col = 0;
+  Token cursor_token;
 
   String::AllIterator it(state_.content, line_it.id());
   AnnotationTracker<Token> t_token(state_.token_types);
@@ -118,6 +119,7 @@ void TerminalCollaborator::Render(TerminalColor* color,
       if (it.id() == cursor_) {
         cursor_row = row;
         cursor_col = col;
+        cursor_token = t_token.cur();
         if (!t_side_buffer_ref.cur().name.empty()) {
           active_side_buffer_ = t_side_buffer_ref.cur();
         } else {
@@ -166,60 +168,67 @@ void TerminalCollaborator::Render(TerminalColor* color,
       mvaddstr(row++, 82, msg.c_str());
     });
 
-    state_.side_buffers.ForEachValue(
-        active_side_buffer_.name, [&](const SideBuffer& buffer) {
-          mu_.AssertHeld();
-          if (row >= fb_rows) return;
-          if (!active_side_buffer_.lines.empty()) {
-            Log() << "sb_cursor_row_=" << sb_cursor_row_
-                  << " line[0]=" << active_side_buffer_.lines.front()
-                  << " line[-1]=" << active_side_buffer_.lines.back();
-            if (sb_cursor_row_ >= buffer.line_ofs.size()) {
-              sb_cursor_row_ = buffer.line_ofs.size() - 1;
-            }
-            int adj = 0;
-            if (active_side_buffer_.lines.front() < sb_cursor_row_) {
-              sb_cursor_row_ = active_side_buffer_.lines.front();
-              adj++;
-            }
-            if (active_side_buffer_.lines.back() >= sb_cursor_row_ + fb_rows) {
-              sb_cursor_row_ = active_side_buffer_.lines.back() - fb_rows;
-              adj++;
-            }
-            if (adj == 2) {
-              sb_cursor_row_ =
-                  (buffer.line_ofs.front() + buffer.line_ofs.back()) / 2 -
-                  fb_rows / 2;
-            }
-            if (sb_cursor_row_ < 0) {
-              sb_cursor_row_ = 0;
-            }
-          }
-          int col = 0;
-          int sbrow = sb_cursor_row_;
-          for (int i = buffer.line_ofs[sb_cursor_row_];
-               i < buffer.content.size(); i++) {
-            uint32_t flags = 0;
-            if (std::find(active_side_buffer_.lines.begin(),
-                          active_side_buffer_.lines.end(),
-                          sbrow) != active_side_buffer_.lines.end()) {
-              flags |= Theme::HIGHLIGHT_LINE;
-            }
-            char c = buffer.content[i];
-            if (c == '\n') {
-              chtype fill = ' ' | color->Theme(Token(), flags);
-              while (col < fb_cols) {
-                mvaddch(row, 82 + (col++), fill);
+    cursor_token.ForEach([&](const std::string& msg) {
+      if (row >= fb_rows) return;
+      mvaddstr(row++, 82, msg.c_str());
+    });
+
+    if (false)
+      state_.side_buffers.ForEachValue(
+          active_side_buffer_.name, [&](const SideBuffer& buffer) {
+            mu_.AssertHeld();
+            if (row >= fb_rows) return;
+            if (!active_side_buffer_.lines.empty()) {
+              Log() << "sb_cursor_row_=" << sb_cursor_row_
+                    << " line[0]=" << active_side_buffer_.lines.front()
+                    << " line[-1]=" << active_side_buffer_.lines.back();
+              if (sb_cursor_row_ >= buffer.line_ofs.size()) {
+                sb_cursor_row_ = buffer.line_ofs.size() - 1;
               }
-              row++;
-              sbrow++;
-              col = 0;
-              if (row >= fb_rows) break;
-            } else if (col < fb_cols) {
-              mvaddch(row, 82 + (col++), c | color->Theme(Token(), flags));
+              int adj = 0;
+              if (active_side_buffer_.lines.front() < sb_cursor_row_) {
+                sb_cursor_row_ = active_side_buffer_.lines.front();
+                adj++;
+              }
+              if (active_side_buffer_.lines.back() >=
+                  sb_cursor_row_ + fb_rows) {
+                sb_cursor_row_ = active_side_buffer_.lines.back() - fb_rows;
+                adj++;
+              }
+              if (adj == 2) {
+                sb_cursor_row_ =
+                    (buffer.line_ofs.front() + buffer.line_ofs.back()) / 2 -
+                    fb_rows / 2;
+              }
+              if (sb_cursor_row_ < 0) {
+                sb_cursor_row_ = 0;
+              }
             }
-          }
-        });
+            int col = 0;
+            int sbrow = sb_cursor_row_;
+            for (int i = buffer.line_ofs[sb_cursor_row_];
+                 i < buffer.content.size(); i++) {
+              uint32_t flags = 0;
+              if (std::find(active_side_buffer_.lines.begin(),
+                            active_side_buffer_.lines.end(),
+                            sbrow) != active_side_buffer_.lines.end()) {
+                flags |= Theme::HIGHLIGHT_LINE;
+              }
+              char c = buffer.content[i];
+              if (c == '\n') {
+                chtype fill = ' ' | color->Theme(Token(), flags);
+                while (col < fb_cols) {
+                  mvaddch(row, 82 + (col++), fill);
+                }
+                row++;
+                sbrow++;
+                col = 0;
+                if (row >= fb_rows) break;
+              } else if (col < fb_cols) {
+                mvaddch(row, 82 + (col++), c | color->Theme(Token(), flags));
+              }
+            }
+          });
   }
 
   auto frame_time = absl::Now() - last_key_press;

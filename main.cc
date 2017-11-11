@@ -29,11 +29,11 @@ class Application {
         buffer_(filename),
         terminal_collaborator_(buffer_.MakeCollaborator<TerminalCollaborator>(
             [this]() { Invalidate(); })) {
+    auto theme = std::unique_ptr<Theme>(new Theme(Theme::DEFAULT));
     initscr();
     set_escdelay(25);
     start_color();
-    color_.reset(
-        new TerminalColor{std::unique_ptr<Theme>(new Theme(Theme::DEFAULT))});
+    color_.reset(new TerminalColor{std::move(theme)});
     bkgd(color_->Theme(Token(), 0));
     keypad(stdscr, true);
     buffer_.MakeCollaborator<ClangFormatCollaborator>();
@@ -110,5 +110,11 @@ int main(int argc, char** argv) {
     fprintf(stderr, "USAGE: ced <filename.{h,cc}>\n");
     return 1;
   }
-  Application(argv[1]).Run();
+  try {
+    Application(argv[1]).Run();
+  } catch (std::exception& e) {
+    fprintf(stderr, "ERROR: %s", e.what());
+    _exit(1);
+  }
+  return 0;
 }

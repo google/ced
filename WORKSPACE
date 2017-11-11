@@ -86,8 +86,21 @@ new_http_archive(
   strip_prefix = "one-dark-theme-1.3.6",
   build_file_content="""
 filegroup(
-  name="one_dark",
+  name="theme",
   srcs=["One Dark.tmTheme"],
+  visibility=["//visibility:public"],
+)
+  """
+)
+
+new_http_archive(
+  name="material",
+  urls = ["https://github.com/equinusocio/material-theme/archive/v4.1.2.tar.gz"],
+  strip_prefix = "material-theme-4.1.2",
+  build_file_content="""
+filegroup(
+  name="theme",
+  srcs=["schemes/Material-Theme.tmTheme"],
   visibility=["//visibility:public"],
 )
   """

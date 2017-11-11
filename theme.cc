@@ -142,6 +142,7 @@ void Theme::Load(const std::string& src) {
   static const std::unordered_map<
       std::string, std::function<void(const std::string&, Setting*)>>
       load_setting = {
+          {"phantomCss", LoadIgnored},
           {"shadowWidth", LoadInt<&Setting::shadow_width>()},
           {"fontStyle", LoadHighlight<&Setting::font_style>()},
           {"bracketContentsOptions",

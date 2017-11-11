@@ -357,10 +357,10 @@ py_binary(
 
 genrule(
   name = "default_theme_src",
-  srcs = ["@one_dark//:one_dark"],
+  srcs = ["@material//:theme"],
   outs = ['default_theme.cc'],
   tools = [':file2c'],
-  cmd = './$(location :file2c) $(OUTS) default_theme $(locations @one_dark//:one_dark)'
+  cmd = './$(location :file2c) $(OUTS) default_theme $(locations @material//:theme)'
 )
 
 cc_library(

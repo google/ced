@@ -82,21 +82,21 @@ LibClangCollaborator::~LibClangCollaborator() {
   env->ClearUnsavedFile(buffer_->filename());
 }
 
-static Token KindToToken(CXTokenKind kind) {
-  switch (kind) {
-    case CXToken_Punctuation:
-      return Token().Push("symbol");
-    case CXToken_Keyword:
-      return Token().Push("keyword");
-    case CXToken_Identifier:
-      return Token().Push("ident");
-    case CXToken_Literal:
-      return Token().Push("literal");
-    case CXToken_Comment:
-      return Token().Push("comment");
-  }
-  return Token();
-}
+static const std::map<CXCursorKind, std::string> tok_cursor_rules = {
+    {CXCursor_StructDecl, "meta.class-struct-block.c++"},
+    {CXCursor_UnionDecl, "meta.class-struct-block.c++"},
+    {CXCursor_ClassDecl, "meta.class-struct-block.c++"},
+    {CXCursor_EnumDecl, "meta.enum-block.c++"},
+    {CXCursor_DeclRefExpr, "entity.name.c++"},
+    {CXCursor_MemberRefExpr, "entity.name.c++"},
+    {CXCursor_CXXMethod, "entity.name.function"},
+    {CXCursor_IntegerLiteral, "constant.numeric"},
+    {CXCursor_FloatingLiteral, "constant.numeric"},
+    {CXCursor_ImaginaryLiteral, "constant.numeric"},
+    {CXCursor_StringLiteral, "string"},
+    {CXCursor_CharacterLiteral, "string"},
+    {CXCursor_BinaryOperator, "keyword.operator.binary.c++"},
+    {CXCursor_UnaryOperator, "keyword.operator.unary.c++"}};
 
 static Severity DiagnosticSeverity(CXDiagnosticSeverity sev) {
   switch (sev) {
@@ -173,23 +173,54 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   CXToken* tokens;
   unsigned numTokens;
   env->clang_tokenize(tu, range, &tokens, &numTokens);
+  std::unique_ptr<CXCursor[]> tok_cursors(new CXCursor[numTokens]);
+  env->clang_annotateTokens(tu, tokens, numTokens, tok_cursors.get());
 
   token_editor_.BeginEdit(&response.token_types);
 
+  std::function<Token(Token, CXCursor)> f_add = [&f_add, env](Token t,
+                                                              CXCursor cursor) {
+    if (!env->clang_Cursor_isNull(cursor)) {
+      t = f_add(t, env->clang_getCursorLexicalParent(cursor));
+    }
+    CXCursorKind kind = env->clang_getCursorKind(cursor);
+    auto it = tok_cursor_rules.find(kind);
+    if (it != tok_cursor_rules.end()) {
+      t = t.Push(it->second);
+    }
+    t = t.Push(absl::StrCat(
+        "LIBCLANG-",
+        env->clang_getCString(env->clang_getCursorKindSpelling(kind))));
+    return t;
+  };
+  std::function<Token(Token, CXToken)> f_tidy = [env](Token t, CXToken token) {
+    switch (env->clang_getTokenKind(token)) {
+      case CXToken_Keyword:
+        return t.Push("keyword.c++");
+      case CXToken_Comment:
+        return t.Push("comment.c++");
+      default:
+        return t;
+    }
+  };
+
   for (unsigned i = 0; i < numTokens; i++) {
     CXToken token = tokens[i];
+    CXCursor cursor = tok_cursors[i];
     CXSourceRange extent = env->clang_getTokenExtent(tu, token);
     CXSourceLocation start = env->clang_getRangeStart(extent);
     CXSourceLocation end = env->clang_getRangeEnd(extent);
-    CXTokenKind kind = env->clang_getTokenKind(token);
 
     CXFile file;
     unsigned line, col, offset_start, offset_end;
     env->clang_getFileLocation(start, &file, &line, &col, &offset_start);
     env->clang_getFileLocation(end, &file, &line, &col, &offset_end);
 
-    token_editor_.Add(ids[offset_start],
-                      Annotation<Token>(ids[offset_end], KindToToken(kind)));
+    token_editor_.Add(
+        ids[offset_start],
+        Annotation<Token>(
+            ids[offset_end],
+            f_tidy(f_add(Token().Push("source.c++"), cursor), token)));
   }
 
   env->clang_disposeTokens(tu, tokens, numTokens);

@@ -26,7 +26,14 @@ class Theme {
   enum default_type { DEFAULT };
   explicit Theme(default_type);
 
-  enum class Highlight : uint8_t { UNSET, NONE, BOLD, UNDERLINE, ITALIC };
+  enum class Highlight : uint8_t {
+    UNSET,
+    NONE,
+    BOLD,
+    UNDERLINE,
+    ITALIC,
+    STRIKE
+  };
 
   struct Color {
     uint8_t r;
@@ -87,7 +94,9 @@ class Theme {
   template <OptColor(Setting::*Field)>
   struct LoadColor {
     void operator()(const std::string& value, Setting* setting) {
-      if (value.empty()) throw std::runtime_error("Color empty");
+      if (value.empty()) {
+        setting->*Field = OptColor();
+      }
       int inc = 0;
       if (value[inc] == '#') inc++;
       char* end;
@@ -112,7 +121,13 @@ class Theme {
         setting->*Field = Highlight::UNDERLINE;
       } else if (value == "italic") {
         setting->*Field = Highlight::ITALIC;
-      } else if (value.empty()) {
+      } else if (value == "bold") {
+        setting->*Field = Highlight::BOLD;
+      } else if (value == "bold italic") {
+        setting->*Field = Highlight::ITALIC;
+      } else if (value == "strike") {
+        setting->*Field = Highlight::STRIKE;
+      } else if (value.empty() || value == "normal") {
         setting->*Field = Highlight::NONE;
       } else {
         throw std::runtime_error("Unknown highlight " + value);
@@ -127,6 +142,7 @@ class Theme {
       }
     }
   };
+  static void LoadIgnored(const std::string& value, Setting* setting) {}
 
   std::vector<Setting> settings_;
   std::map<std::pair<Token, uint32_t>, Result> theme_cache_;
