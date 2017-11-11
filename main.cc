@@ -15,10 +15,10 @@
 #include <signal.h>
 #include "buffer.h"
 #include "clang_format_collaborator.h"
-#include "colors.h"
 #include "godbolt_collaborator.h"
 #include "libclang_collaborator.h"
 #include "terminal_collaborator.h"
+#include "terminal_color.h"
 
 constexpr char ctrl(char c) { return c & 037; }
 
@@ -32,8 +32,7 @@ class Application {
     initscr();
     set_escdelay(25);
     start_color();
-    InitColors();
-    bkgd(COLOR_PAIR(static_cast<int>(ColorID::DEFAULT)));
+    bkgd(color_.Theme(Token(), 0));
     keypad(stdscr, true);
     buffer_.MakeCollaborator<ClangFormatCollaborator>();
     buffer_.MakeCollaborator<LibClangCollaborator>();
@@ -92,7 +91,7 @@ class Application {
 
  private:
   void Render(absl::Time last_key_press) {
-    terminal_collaborator_->Render(last_key_press);
+    terminal_collaborator_->Render(&color_, last_key_press);
   }
 
   absl::Mutex mu_;
@@ -101,6 +100,7 @@ class Application {
 
   Buffer buffer_;
   TerminalCollaborator* const terminal_collaborator_;
+  TerminalColor color_{std::unique_ptr<Theme>(new Theme(Theme::DEFAULT))};
 };
 
 int main(int argc, char** argv) {

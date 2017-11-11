@@ -16,12 +16,7 @@
 #include <deque>
 #include <vector>
 #include "absl/strings/str_cat.h"
-#include "colors.h"
 #include "log.h"
-
-constexpr chtype color_pair(ColorID id) {
-  return COLOR_PAIR(static_cast<int>(id));
-}
 
 TerminalCollaborator::TerminalCollaborator(const Buffer* buffer,
                                            std::function<void()> invalidate)
@@ -81,7 +76,8 @@ static const char* SeverityString(Severity sev) {
   return "XXXXX";
 }
 
-void TerminalCollaborator::Render(absl::Time last_key_press) {
+void TerminalCollaborator::Render(TerminalColor* color,
+                                  absl::Time last_key_press) {
   auto ready = [this]() {
     mu_.AssertHeld();
     return state_.shutdown || state_.content.Has(cursor_);
@@ -143,26 +139,12 @@ void TerminalCollaborator::Render(absl::Time last_key_press) {
       }
       if (it.is_visible()) {
         if (it.value() == '\n') break;
-        chtype attr = 0;
         Token tok = t_token.cur();
-        if (tok.Empty()) {
-          attr = color_pair(ColorID::DEFAULT);
-        } else if (tok.Head() == "ident") {
-          attr = color_pair(ColorID::IDENT);
-        } else if (tok.Head() == "keyword") {
-          attr = color_pair(ColorID::KEYWORD);
-        } else if (tok.Head() == "Symbol") {
-          attr = color_pair(ColorID::SYMBOL);
-        } else if (tok.Head() == "Literal") {
-          attr = color_pair(ColorID::LITERAL);
-        } else if (tok.Head() == "Comment") {
-          attr = color_pair(ColorID::COMMENT);
-        }
         if (t_diagnostic.cur() != ID()) {
-          attr = color_pair(ColorID::ERROR);
+          tok = tok.Push("error");
         }
         if (col < 80) {
-          mvaddch(row, col, it.value() | attr);
+          mvaddch(row, col, it.value() | color->Theme(tok, 0));
         }
         col++;
       }
@@ -224,13 +206,13 @@ void TerminalCollaborator::Render(absl::Time last_key_press) {
               col = 0;
               if (row >= fb_rows) break;
             } else if (col < fb_cols) {
-              chtype attr = color_pair(ColorID::DEFAULT);
+              uint32_t flags = 0;
               if (std::find(active_side_buffer_.lines.begin(),
                             active_side_buffer_.lines.end(),
                             sbrow) != active_side_buffer_.lines.end()) {
-                attr = color_pair(ColorID::KEYWORD);
+                flags |= Theme::HIGHLIGHT_LINE;
               }
-              mvaddch(row, 82 + (col++), c | attr);
+              mvaddch(row, 82 + (col++), c | color->Theme(Token(), flags));
             }
           }
         });

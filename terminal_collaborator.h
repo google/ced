@@ -16,6 +16,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "buffer.h"
+#include "terminal_color.h"
 
 class TerminalCollaborator final : public Collaborator {
  public:
@@ -23,7 +24,7 @@ class TerminalCollaborator final : public Collaborator {
   void Push(const EditNotification& notification) override;
   EditResponse Pull() override;
 
-  void Render(absl::Time last_key_press);
+  void Render(TerminalColor* color, absl::Time last_key_press);
   void ProcessKey(int key);
 
  private:

@@ -121,8 +121,8 @@ cc_binary(
     ":clang_format_collaborator",
     ":libclang_collaborator",
     ":godbolt_collaborator",
-    ":colors",
-    ":config"
+    ":config",
+    ":terminal_color",
   ],
   linkopts = ["-lcurses", "-lpthread", "-ldl"]
 )
@@ -171,7 +171,7 @@ cc_library(
   name = "terminal_collaborator",
   srcs = ["terminal_collaborator.cc"],
   hdrs = ["terminal_collaborator.h"],
-  deps = [":buffer", ":log", ":colors", "@com_google_absl//absl/time"],
+  deps = [":buffer", ":log", ":terminal_color", "@com_google_absl//absl/time"],
 )
 
 cc_library(
@@ -238,25 +238,6 @@ cc_test(
   name = "log_test",
   srcs = ["log_test.cc"],
   deps = [":log"]
-)
-
-py_binary(
-  name = 'gen_colors',
-  srcs = ['gen_colors.py'],
-)
-
-genrule(
-  name = 'mkcolors',
-  srcs = ['colors.yaml'],
-  outs = ['colors.h', 'colors.cc'],
-  tools = [':gen_colors'],
-  cmd = './$(location :gen_colors) $(location colors.yaml) $(OUTS)'
-)
-
-cc_library(
-  name = 'colors',
-  srcs = ['colors.cc'],
-  hdrs = ['colors.h']
 )
 
 cc_library(
@@ -398,6 +379,15 @@ cc_library(
     ':default_theme',
     ':token_type',
     '@com_google_absl//absl/types:optional'
+  ]
+)
+
+cc_library(
+  name = "terminal_color",
+  srcs = ["terminal_color.cc"],
+  hdrs = ["terminal_color.h"],
+  deps = [
+      ":theme",
   ]
 )
 
