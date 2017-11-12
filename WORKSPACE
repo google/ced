@@ -105,3 +105,18 @@ filegroup(
 )
   """
 )
+
+new_http_archive(
+  name='rhea',
+  urls=['https://github.com/Nocte-/rhea/archive/0.2.4.tar.gz'],
+  strip_prefix='rhea-0.2.4',
+  build_file_content="""
+cc_library(
+  name='rhea',
+  srcs=glob(['rhea/*.cpp']),
+  hdrs=glob(['rhea/*.hpp']),
+  visibility=["//visibility:public"],
+)
+  """
+)
+
