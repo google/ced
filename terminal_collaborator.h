@@ -18,7 +18,7 @@
 #include "buffer.h"
 #include "terminal_color.h"
 
-class AppEnv {
+struct AppEnv {
   std::string clipboard;
 };
 
@@ -32,6 +32,8 @@ class TerminalCollaborator final : public Collaborator {
   void ProcessKey(AppEnv* app_env, int key);
 
  private:
+  std::pair<ID, ID> SelRange() const EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
   const std::function<void()> invalidate_;
   const std::function<void()> used_;
   absl::Mutex mu_;

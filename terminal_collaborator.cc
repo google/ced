@@ -80,6 +80,17 @@ static const char* SeverityString(Severity sev) {
   return "XXXXX";
 }
 
+std::pair<ID, ID> TerminalCollaborator::SelRange() const {
+  if (selection_anchor_ == ID()) {
+    return std::make_pair(String::Begin(), String::Begin());
+  }
+  auto p = std::make_pair(cursor_, selection_anchor_);
+  if (state_.content.OrderIDs(p.first, p.second) > 0) {
+    std::swap(p.first, p.second);
+  }
+  return p;
+}
+
 void TerminalCollaborator::Render(TerminalColor* color,
                                   absl::Time last_key_press) {
   auto ready = [this]() {
@@ -340,6 +351,14 @@ void TerminalCollaborator::ProcessKey(AppEnv* app_env, int key) {
           << absl::StrJoin(ID(), ":");
   };
 
+  auto delete_selection = [&]() {
+    if (selection_anchor_ == ID()) return;
+    state_.content.MakeRemove(&commands_, cursor_, selection_anchor_);
+    String::Iterator it(state_.content, cursor_);
+    it.MovePrev();
+    cursor_ = it.id();
+  };
+
   int fb_rows, fb_cols;
   getmaxyx(stdscr, fb_rows, fb_cols);
 
@@ -419,18 +438,34 @@ void TerminalCollaborator::ProcessKey(AppEnv* app_env, int key) {
       cursor_ = it.id();
     } break;
     case ctrl('C'):
+      if (selection_anchor_ != ID()) {
+        app_env->clipboard = state_.content.Render(cursor_, selection_anchor_);
+      }
       break;
     case ctrl('X'):
+      if (selection_anchor_ != ID()) {
+        app_env->clipboard = state_.content.Render(cursor_, selection_anchor_);
+        delete_selection();
+        select_mode(false);
+      }
       break;
     case ctrl('V'):
+      if (selection_anchor_ != ID()) {
+        delete_selection();
+        select_mode(false);
+      }
+      cursor_ = state_.content.MakeInsert(&commands_, site(),
+                                          app_env->clipboard, cursor_);
       break;
     case 10: {
+      delete_selection();
       select_mode(false);
       cursor_ = state_.content.MakeInsert(&commands_, site(), key, cursor_);
       cursor_row_++;
     } break;
     default: {
       if (key >= 32 && key < 127) {
+        delete_selection();
         select_mode(false);
         cursor_ = state_.content.MakeInsert(&commands_, site(), key, cursor_);
       }

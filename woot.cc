@@ -93,3 +93,62 @@ String String::IntegrateInsert(ID id, char c, ID after, ID before) const {
     ;
   return IntegrateInsert(id, c, L[i - 1]->first, L[i]->first);
 }
+
+int String::OrderIDs(ID a, ID b) const {
+  // same id
+  if (a == b) return 0;
+  if (a == Begin()) return -1;
+  if (a == End()) return 1;
+  if (b == Begin()) return 1;
+  if (b == End()) return -1;
+  LineIterator line_a(*this, a);
+  LineIterator line_b(*this, b);
+  if (line_a.id() == line_b.id()) {
+    // same line
+    AllIterator it(*this, line_a.id());
+    for (;;) {
+      if (it.id() == a) return -1;
+      if (it.id() == b) return 1;
+      it.MoveNext();
+    }
+  }
+  LineIterator bk = line_a;
+  LineIterator fw = line_a;
+  for (;;) {
+    bk.MovePrev();
+    fw.MoveNext();
+    if (bk.id() == line_b.id()) return 1;
+    if (fw.id() == line_b.id()) return -1;
+    if (bk.is_begin()) return -1;
+    if (fw.is_end()) return 1;
+  }
+}
+
+std::string String::Render() const { return Render(Begin(), End()); }
+
+std::string String::Render(ID beg, ID end) const {
+  if (OrderIDs(beg, end) > 0) {
+    std::swap(beg, end);
+  }
+
+  std::string out;
+  ID cur = beg;
+  while (cur != end) {
+    const CharInfo* c = avl_.Lookup(cur);
+    if (c->visible) out += c->chr;
+    cur = c->next;
+  }
+  return out;
+}
+
+void String::MakeRemove(CommandBuf* buf, ID beg, ID end) const {
+  if (OrderIDs(beg, end) > 0) {
+    std::swap(beg, end);
+  }
+
+  AllIterator it(*this, beg);
+  while (it.id() != end) {
+    if (it.is_visible()) MakeRemove(buf, it.id());
+    it.MoveNext();
+  }
+}

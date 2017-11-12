@@ -37,6 +37,9 @@ class String : public CRDT<String> {
   static ID Begin() { return begin_id_; }
   static ID End() { return end_id_; }
 
+  // return <0 if a before b, >0 if a after b, ==0 if a==b
+  int OrderIDs(ID a, ID b) const;
+
   bool Has(ID id) const { return avl_.Lookup(id) != nullptr; }
 
   static ID MakeRawInsert(CommandBuf* buf, Site* site, char c, ID after,
@@ -46,25 +49,30 @@ class String : public CRDT<String> {
                          return s.IntegrateInsert(id, c, after, before);
                        });
   }
-  ID MakeInsert(CommandBuf* buf, Site* site, char c, ID after) const {
+
+  static ID MakeRawInsert(CommandBuf* buf, Site* site, const std::string& s,
+                          ID after, ID before) {
+    // TODO(ctiller): make this an optimization
+    for (auto c : s) {
+      after = MakeRawInsert(buf, site, c, after, before);
+    }
+    return after;
+  }
+
+  template <class T>
+  ID MakeInsert(CommandBuf* buf, Site* site, const T& c, ID after) const {
     return MakeRawInsert(buf, site, c, after, avl_.Lookup(after)->next);
   }
 
-  ID MakeRemove(CommandBuf* buf, ID chr) const {
-    return MakeCommand(buf, chr,
-                       [](String s, ID id) { return s.IntegrateRemove(id); });
+  void MakeRemove(CommandBuf* buf, ID chr) const {
+    MakeCommand(buf, chr,
+                [](String s, ID id) { return s.IntegrateRemove(id); });
   }
 
-  std::basic_string<char> Render() const {
-    std::basic_string<char> out;
-    ID cur = avl_.Lookup(Begin())->next;
-    while (cur != End()) {
-      const CharInfo* c = avl_.Lookup(cur);
-      if (c->visible) out += c->chr;
-      cur = c->next;
-    }
-    return out;
-  }
+  void MakeRemove(CommandBuf* buf, ID beg, ID end) const;
+
+  std::string Render() const;
+  std::string Render(ID beg, ID end) const;
 
   bool SameIdentity(String s) const { return avl_.SameIdentity(s.avl_); }
 
@@ -172,6 +180,9 @@ class String : public CRDT<String> {
       }
       id_ = it.id();
     }
+
+    bool is_end() const { return id_ == End(); }
+    bool is_begin() const { return id_ == Begin(); }
 
     void MovePrev() {
       if (id_ == Begin()) return;
