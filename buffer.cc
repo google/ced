@@ -41,6 +41,8 @@ void Buffer::AddCollaborator(CollaboratorPtr&& collaborator) {
     } catch (std::exception& e) {
       Log() << raw->name() << " collaborator pull broke: " << e.what();
     }
+    absl::MutexLock lock(&mu_);
+    done_collaborators_.insert(raw);
   });
   collaborator_threads_.emplace_back([this, raw]() {
     try {
@@ -61,6 +63,8 @@ void Buffer::AddCollaborator(SyncCollaboratorPtr&& collaborator) {
     } catch (std::exception& e) {
       Log() << raw->name() << " collaborator sync broke: " << e.what();
     }
+    absl::MutexLock lock(&mu_);
+    done_collaborators_.insert(raw);
   });
 }
 
@@ -84,18 +88,20 @@ EditNotification Buffer::NextNotification(void* id, const char* name,
   // wait until something interesting to work on
   mu_.LockWhen(absl::Condition(&processable));
   if (version_ != *last_processed) {
-    absl::Time last_used_at_start;
-    do {
-      Log() << name << " last_used: " << last_used_;
-      last_used_at_start = last_used_;
-      absl::Duration idle_time = absl::Now() - last_used_;
-      Log() << name << " idle_time: " << idle_time;
-      if (*last_processed != 0 &&
-          mu_.AwaitWithTimeout(absl::Condition(&state_.shutdown),
-                               push_delay - idle_time)) {
-        break;
-      }
-    } while (last_used_ != last_used_at_start);
+    if (!state_.shutdown) {
+      absl::Time last_used_at_start;
+      do {
+        Log() << name << " last_used: " << last_used_;
+        last_used_at_start = last_used_;
+        absl::Duration idle_time = absl::Now() - last_used_;
+        Log() << name << " idle_time: " << idle_time;
+        if (*last_processed != 0 &&
+            mu_.AwaitWithTimeout(absl::Condition(&state_.shutdown),
+                                 push_delay - idle_time)) {
+          break;
+        }
+      } while (last_used_ != last_used_at_start);
+    }
     *last_processed = version_;
     EditNotification notification = state_;
     mu_.Unlock();

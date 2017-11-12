@@ -41,7 +41,7 @@ AsmParseResult AsmParse(const std::string& src) {
   RE2 r_start{R"(Disassembly of section \.text:.*)"};
   RE2 r_section_start{R"([0-9a-f]+\s+<([^>]+)>:.*)"};
   RE2 r_label{R"(([^ ()]+)([()]*):[^0-9]*)"};
-  RE2 r_lineno{R"(([^ ]+):([0-9]+))"};
+  RE2 r_lineno{R"(([^ ]+):([0-9]+).*)"};
   RE2 r_has_stdin{R"(.*<stdin>.*)"};
   RE2 r_instr{R"(\s+[0-9a-f]+:\s*(.*))"};
 
