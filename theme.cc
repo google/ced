@@ -119,6 +119,9 @@ Theme::Result Theme::ThemeToken(Token token, uint32_t flags) {
   if (flags & HIGHLIGHT_LINE) {
     background = Merge(composite.line_highlight, background);
   }
+  if (flags & SELECTED) {
+    background = Merge(composite.selection, background);
+  }
 
   Result result{foreground ? *foreground : Color{255, 255, 255, 255},
                 background ? *background : Color{0, 0, 0, 255},

@@ -16,7 +16,7 @@
 #include "crdt.h"
 #include "woot.h"
 
-class Diagnostic;
+struct Diagnostic;
 typedef std::shared_ptr<const Diagnostic> DiagnosticPtr;
 
 struct EditResponse;

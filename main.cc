@@ -31,6 +31,7 @@ class Application {
             [this]() { Invalidate(); })) {
     auto theme = std::unique_ptr<Theme>(new Theme(Theme::DEFAULT));
     initscr();
+    raw();
     set_escdelay(25);
     start_color();
     color_.reset(new TerminalColor{std::move(theme)});
@@ -79,7 +80,7 @@ class Application {
           Quit();
           break;
         default:
-          terminal_collaborator_->ProcessKey(c);
+          terminal_collaborator_->ProcessKey(&app_env_, c);
       }
 
       absl::MutexLock lock(&mu_);
@@ -103,6 +104,7 @@ class Application {
   Buffer buffer_;
   TerminalCollaborator* const terminal_collaborator_;
   std::unique_ptr<TerminalColor> color_;
+  AppEnv app_env_;
 };
 
 int main(int argc, char** argv) {

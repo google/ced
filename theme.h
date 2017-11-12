@@ -48,6 +48,7 @@ class Theme {
   };
 
   static constexpr uint32_t HIGHLIGHT_LINE = 1;
+  static constexpr uint32_t SELECTED = 2;
 
   struct Result {
     Color foreground;

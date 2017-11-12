@@ -18,6 +18,10 @@
 #include "buffer.h"
 #include "terminal_color.h"
 
+class AppEnv {
+  std::string clipboard;
+};
+
 class TerminalCollaborator final : public Collaborator {
  public:
   TerminalCollaborator(const Buffer* buffer, std::function<void()> invalidate);
@@ -25,7 +29,7 @@ class TerminalCollaborator final : public Collaborator {
   EditResponse Pull() override;
 
   void Render(TerminalColor* color, absl::Time last_key_press);
-  void ProcessKey(int key);
+  void ProcessKey(AppEnv* app_env, int key);
 
  private:
   const std::function<void()> invalidate_;
@@ -35,6 +39,7 @@ class TerminalCollaborator final : public Collaborator {
   bool recently_used_ GUARDED_BY(mu_);
   EditNotification state_ GUARDED_BY(mu_);
   ID cursor_ GUARDED_BY(mu_);
+  ID selection_anchor_ GUARDED_BY(mu_);
   int cursor_row_ GUARDED_BY(mu_);
   int sb_cursor_row_ GUARDED_BY(mu_);
   SideBufferRef active_side_buffer_ GUARDED_BY(mu_);

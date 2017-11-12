@@ -16,7 +16,10 @@
 #include <deque>
 #include <vector>
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "log.h"
+
+constexpr char ctrl(char c) { return c & 0x1f; }
 
 TerminalCollaborator::TerminalCollaborator(const Buffer* buffer,
                                            std::function<void()> invalidate)
@@ -28,6 +31,7 @@ TerminalCollaborator::TerminalCollaborator(const Buffer* buffer,
       }),
       recently_used_(false),
       cursor_(String::Begin()),
+      selection_anchor_(String::Begin()),
       cursor_row_(0),
       sb_cursor_row_(0) {}
 
@@ -112,11 +116,18 @@ void TerminalCollaborator::Render(TerminalColor* color,
   AnnotationTracker<Token> t_token(state_.token_types);
   AnnotationTracker<ID> t_diagnostic(state_.diagnostic_ranges);
   AnnotationTracker<SideBufferRef> t_side_buffer_ref(state_.side_buffer_refs);
+  bool in_selection = false;
   for (int row = 0; row < fb_rows; row++) {
     int col = 0;
     auto move_next = [&]() {
       mu_.AssertHeld();
+      if (selection_anchor_ != ID() && it.id() == selection_anchor_) {
+        in_selection = !in_selection;
+      }
       if (it.id() == cursor_) {
+        if (selection_anchor_ != ID()) {
+          in_selection = !in_selection;
+        }
         cursor_row = row;
         cursor_col = col;
         cursor_token = t_token.cur();
@@ -147,8 +158,10 @@ void TerminalCollaborator::Render(TerminalColor* color,
         if (t_diagnostic.cur() != ID()) {
           tok = tok.Push("error");
         }
+        uint32_t chr_flags = flags;
+        if (in_selection) chr_flags |= Theme::SELECTED;
         if (col < 80) {
-          mvaddch(row, col, it.value() | color->Theme(tok, flags));
+          mvaddch(row, col, it.value() | color->Theme(tok, chr_flags));
         }
         col++;
       }
@@ -245,10 +258,26 @@ void TerminalCollaborator::Render(TerminalColor* color,
   move(cursor_row, cursor_col);
 }
 
-void TerminalCollaborator::ProcessKey(int key) {
+void TerminalCollaborator::ProcessKey(AppEnv* app_env, int key) {
   absl::MutexLock lock(&mu_);
 
   Log() << "TerminalCollaborator::ProcessKey: " << key;
+
+  auto left1 = [&]() {
+    mu_.AssertHeld();
+    String::Iterator it(state_.content, cursor_);
+    cursor_row_ -= it.value() == '\n';
+    it.MovePrev();
+    cursor_ = it.id();
+  };
+
+  auto right1 = [&]() {
+    mu_.AssertHeld();
+    String::Iterator it(state_.content, cursor_);
+    it.MoveNext();
+    cursor_row_ += it.value() == '\n';
+    cursor_ = it.id();
+  };
 
   auto down1 = [&]() {
     mu_.AssertHeld();
@@ -297,34 +326,53 @@ void TerminalCollaborator::ProcessKey(int key) {
     it.MovePrev();
     cursor_ = it.id();
     cursor_row_--;
-    used_();
+  };
+
+  auto select_mode = [&](bool sel) {
+    mu_.AssertHeld();
+    if (!sel) {
+      selection_anchor_ = ID();
+    } else if (selection_anchor_ == ID()) {
+      selection_anchor_ = cursor_;
+    }
+    Log() << "SM: " << sel << " --> " << absl::StrJoin(selection_anchor_, ":")
+          << " " << absl::StrJoin(cursor_, ":") << " "
+          << absl::StrJoin(ID(), ":");
   };
 
   int fb_rows, fb_cols;
   getmaxyx(stdscr, fb_rows, fb_cols);
 
   switch (key) {
-    case KEY_LEFT: {
-      String::Iterator it(state_.content, cursor_);
-      cursor_row_ -= it.value() == '\n';
-      it.MovePrev();
-      cursor_ = it.id();
+    case KEY_SLEFT:
+      select_mode(true);
+      left1();
       used_();
-    } break;
-    case KEY_RIGHT: {
-      String::Iterator it(state_.content, cursor_);
-      it.MoveNext();
-      cursor_row_ += it.value() == '\n';
-      cursor_ = it.id();
+      break;
+    case KEY_LEFT:
+      select_mode(false);
+      left1();
       used_();
-    } break;
+      break;
+    case KEY_SRIGHT:
+      select_mode(true);
+      right1();
+      used_();
+      break;
+    case KEY_RIGHT:
+      select_mode(false);
+      right1();
+      used_();
+      break;
     case KEY_HOME: {
+      select_mode(false);
       String::Iterator it(state_.content, cursor_);
       while (!it.is_begin() && it.value() != '\n') it.MovePrev();
       cursor_ = it.id();
       used_();
     } break;
     case KEY_END: {
+      select_mode(false);
       String::Iterator it(state_.content, cursor_);
       it.MoveNext();
       while (!it.is_end() && it.value() != '\n') it.MoveNext();
@@ -333,34 +381,57 @@ void TerminalCollaborator::ProcessKey(int key) {
       used_();
     } break;
     case KEY_PPAGE:
+      select_mode(false);
       for (int i = 0; i < fb_rows; i++) up1();
       used_();
       break;
-    case KEY_UP:
-      up1();
-      used_();
-      break;
     case KEY_NPAGE:
+      select_mode(false);
       for (int i = 0; i < fb_rows; i++) down1();
       used_();
       break;
+    case KEY_SR:  // shift down on my mac
+      select_mode(true);
+      up1();
+      used_();
+      break;
+    case KEY_SF:
+      select_mode(true);
+      down1();
+      used_();
+      break;
+    case KEY_UP:
+      select_mode(false);
+      up1();
+      used_();
+      break;
     case KEY_DOWN:
+      select_mode(false);
       down1();
       used_();
       break;
     case 127:
     case KEY_BACKSPACE: {
+      select_mode(false);
       state_.content.MakeRemove(&commands_, cursor_);
       String::Iterator it(state_.content, cursor_);
       it.MovePrev();
       cursor_ = it.id();
     } break;
+    case ctrl('C'):
+      break;
+    case ctrl('X'):
+      break;
+    case ctrl('V'):
+      break;
     case 10: {
+      select_mode(false);
       cursor_ = state_.content.MakeInsert(&commands_, site(), key, cursor_);
       cursor_row_++;
     } break;
     default: {
       if (key >= 32 && key < 127) {
+        select_mode(false);
         cursor_ = state_.content.MakeInsert(&commands_, site(), key, cursor_);
       }
     } break;
