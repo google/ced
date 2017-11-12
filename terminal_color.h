@@ -19,6 +19,6 @@ class TerminalColor {
   std::map<std::pair<Token, uint32_t>, chtype> cache_;
   std::map<RGB, int> color_cache_;
   std::map<std::pair<int, int>, chtype> pair_cache_;
-  int next_color_ = 1;
+  int next_color_ = 16;
   int next_pair_ = 1;
 };
