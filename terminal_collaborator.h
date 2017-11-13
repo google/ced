@@ -20,6 +20,7 @@
 #include "editor.h"
 #include "render.h"
 #include "terminal_color.h"
+#include "log.h"
 
 struct TerminalRenderContext {
   TerminalColor* const color;

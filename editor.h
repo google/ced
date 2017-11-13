@@ -66,6 +66,7 @@ class Editor {
 
     template <class T, class A>
     void Put(int row, int col, const T& val, const A& attr) {
+      if (row < 0 || col < 0 || row >= window->height() || col >= window->width()) return;
       parent_context->Put(row + ofs_row + window->row(), col + window->column(),
                           val, attr);
     }
@@ -86,10 +87,6 @@ class Editor {
               container
                   .AddItem(LAY_TOP | LAY_LEFT,
                            [li, ci](EditRenderContext<RC>* ctx) {
-                             Log() << "ED l:" << ctx->window->column()
-                                   << " t:" << ctx->window->row()
-                                   << " w:" << ctx->window->width()
-                                   << " h:" << ctx->window->height();
                              int col = 0;
                              for (const auto& c : ci) {
                                ctx->Put(0, col++, c.c,
@@ -108,12 +105,13 @@ class Editor {
           }
         });
     renderer.Layout();
+    Log() << "cursor_row_ = " << cursor_row_ << "  layout = " << (cursor_row ? cursor_row.GetRect().row() : 0);
     EditRenderContext<RC> ctx{
         parent_context, parent_context->color, nullptr,
         // out_row = buf_row + ofs
         // => cursor_row_ = cursor_row.Rect().row() + ofs
         // => ofs = cursor_row_ - cursor_row.Rect().row()
-        cursor_row_ - cursor_row ? cursor_row.GetRect().row() : 0};
+        cursor_row_ - (cursor_row ? cursor_row.GetRect().row() : 0)};
     renderer.Draw(&ctx);
   }
 

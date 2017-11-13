@@ -204,6 +204,7 @@ void Editor::RenderCommon(
 
   cursor_ = String::Iterator(state_.content, cursor_).id();
   String::LineIterator line_cr(state_.content, cursor_);
+  String::LineIterator line_end_cr = line_cr.Next();
   String::LineIterator line_bk = line_cr;
   String::LineIterator line_fw = line_cr;
   for (int i = 0; i < window_height; i++) {
@@ -218,8 +219,6 @@ void Editor::RenderCommon(
   std::vector<CharInfo> ci;
   int nrow = 0;
   int ncol = 0;
-  int nrow_cursor = -1;
-  int ncol_cursor = -1;
   while (it.id() != line_fw.id()) {
     t_token.Enter(it.id());
     t_diagnostic.Enter(it.id());
@@ -227,13 +226,8 @@ void Editor::RenderCommon(
     if (SelectMode() && it.id() == selection_anchor_) {
       in_selection = !in_selection;
     }
-    if (it.id() == line_cr.id()) {
-      nrow_cursor = nrow;
-    }
     if (it.id() == cursor_) {
       if (SelectMode()) in_selection = !in_selection;
-      assert(nrow_cursor == nrow);
-      ncol_cursor = ncol;
       cursor_token_ = t_token.cur();
       if (!t_side_buffer_ref.cur().name.empty()) {
         active_side_buffer_ = t_side_buffer_ref.cur();
@@ -244,11 +238,13 @@ void Editor::RenderCommon(
 
     if (it.is_visible()) {
       if (it.value() == '\n') {
-        LineInfo li{nrow, nrow_cursor == nrow};
+        LineInfo li{nrow, it.id() == line_end_cr.id()};
         nrow++;
+        ncol = 0;
         add_line(li, ci);
         ci.clear();
       } else {
+        ncol++;
         Tag tok = t_token.cur();
         if (t_diagnostic.cur() != ID()) {
           tok = tok.Push("error");

@@ -12,6 +12,10 @@ class TerminalColor {
 
  private:
   typedef std::tuple<uint8_t, uint8_t, uint8_t> RGB;
+  typedef std::tuple<float, float, float> LAB;
+
+  static LAB RGB2LAB(RGB x);
+  static float RGBDistance(RGB a, RGB b);
 
   int ColorToIndex(Theme::Color c);
 
