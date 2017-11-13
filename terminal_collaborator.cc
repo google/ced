@@ -91,121 +91,135 @@ std::pair<ID, ID> TerminalCollaborator::SelRange() const {
   return p;
 }
 
-void TerminalCollaborator::Render(TerminalColor* color,
-                                  absl::Time last_key_press) {
-  auto ready = [this]() {
-    mu_.AssertHeld();
-    return state_.shutdown || state_.content.Has(cursor_);
-  };
+void TerminalCollaborator::Render(TerminalRenderer::ContainerRef container) {
+  /*
+   * edit item
+   */
+  container
+      .AddItem(
+          LAY_FILL,
+          [this](TerminalRenderContext* context) {
+            auto ready = [this]() {
+              mu_.AssertHeld();
+              return state_.shutdown || state_.content.Has(cursor_);
+            };
 
-  mu_.LockWhen(absl::Condition(&ready));
+            mu_.LockWhen(absl::Condition(&ready));
 
-  if (state_.shutdown) {
-    mu_.Unlock();
-    return;
-  }
+            if (state_.shutdown) {
+              mu_.Unlock();
+              return;
+            }
 
-  int fb_rows, fb_cols;
-  getmaxyx(stdscr, fb_rows, fb_cols);
+            auto r = *context->window;
 
-  if (cursor_row_ >= fb_rows) {
-    cursor_row_ = fb_rows - 1;
-  } else if (cursor_row_ < 0) {
-    cursor_row_ = 0;
-  }
+            if (cursor_row_ >= r.height()) {
+              cursor_row_ = r.height() - 1;
+            } else if (cursor_row_ < 0) {
+              cursor_row_ = 0;
+            }
 
-  Log() << "cursor_row_:" << cursor_row_;
+            Log() << "cursor_row_:" << cursor_row_;
 
-  String::LineIterator line_it(state_.content, cursor_);
-  for (int i = 0; i < cursor_row_; i++) line_it.MovePrev();
+            String::LineIterator line_it(state_.content, cursor_);
+            for (int i = 0; i < cursor_row_; i++) line_it.MovePrev();
 
-  int cursor_row = 0;
-  int cursor_col = 0;
-  Tag cursor_token;
+            int cursor_row = 0;
+            int cursor_col = 0;
+            Tag cursor_token;
 
-  String::AllIterator it(state_.content, line_it.id());
-  AnnotationTracker<Tag> t_token(state_.token_types);
-  AnnotationTracker<ID> t_diagnostic(state_.diagnostic_ranges);
-  AnnotationTracker<SideBufferRef> t_side_buffer_ref(state_.side_buffer_refs);
-  bool in_selection = false;
-  for (int row = 0; row < fb_rows; row++) {
-    int col = 0;
-    auto move_next = [&]() {
-      mu_.AssertHeld();
-      if (selection_anchor_ != ID() && it.id() == selection_anchor_) {
-        in_selection = !in_selection;
-      }
-      if (it.id() == cursor_) {
-        if (selection_anchor_ != ID()) {
-          in_selection = !in_selection;
-        }
-        cursor_row = row;
-        cursor_col = col;
-        cursor_token = t_token.cur();
-        if (!t_side_buffer_ref.cur().name.empty()) {
-          active_side_buffer_ = t_side_buffer_ref.cur();
-        } else {
-          active_side_buffer_.lines.clear();
-        }
-      }
-      it.MoveNext();
-      t_token.Enter(it.id());
-      t_diagnostic.Enter(it.id());
-      t_side_buffer_ref.Enter(it.id());
-    };
-    do {
-      move_next();
-    } while (!it.is_end() && !it.is_visible());
-    uint32_t flags = 0;
-    if (row == cursor_row_) flags |= Theme::HIGHLIGHT_LINE;
-    for (;;) {
-      if (it.is_end()) {
-        row = fb_rows;
-        break;
-      }
-      if (it.is_visible()) {
-        if (it.value() == '\n') break;
-        Tag tok = t_token.cur();
-        if (t_diagnostic.cur() != ID()) {
-          tok = tok.Push("error");
-        }
-        uint32_t chr_flags = flags;
-        if (in_selection) chr_flags |= Theme::SELECTED;
-        if (col < 80) {
-          mvaddch(row, col, it.value() | color->Theme(tok, chr_flags));
-        }
-        col++;
-      }
-      move_next();
-    }
-    for (; col < 80; col++) {
-      mvaddch(row, col, ' ' | color->Theme(Tag(), flags));
-    }
-  }
+            String::AllIterator it(state_.content, line_it.id());
+            AnnotationTracker<Tag> t_token(state_.token_types);
+            AnnotationTracker<ID> t_diagnostic(state_.diagnostic_ranges);
+            AnnotationTracker<SideBufferRef> t_side_buffer_ref(
+                state_.side_buffer_refs);
+            bool in_selection = false;
+            for (int row = 0; row < r.height(); row++) {
+              int col = 0;
+              auto move_next = [&]() {
+                mu_.AssertHeld();
+                if (selection_anchor_ != ID() && it.id() == selection_anchor_) {
+                  in_selection = !in_selection;
+                }
+                if (it.id() == cursor_) {
+                  if (selection_anchor_ != ID()) {
+                    in_selection = !in_selection;
+                  }
+                  cursor_row = row;
+                  cursor_col = col;
+                  cursor_token_ = t_token.cur();
+                  if (!t_side_buffer_ref.cur().name.empty()) {
+                    active_side_buffer_ = t_side_buffer_ref.cur();
+                  } else {
+                    active_side_buffer_.lines.clear();
+                  }
+                }
+                it.MoveNext();
+                t_token.Enter(it.id());
+                t_diagnostic.Enter(it.id());
+                t_side_buffer_ref.Enter(it.id());
+              };
+              do {
+                move_next();
+              } while (!it.is_end() && !it.is_visible());
+              uint32_t flags = 0;
+              if (row == cursor_row_) flags |= Theme::HIGHLIGHT_LINE;
+              for (;;) {
+                if (it.is_end()) {
+                  row = r.height();
+                  break;
+                }
+                if (it.is_visible()) {
+                  if (it.value() == '\n') break;
+                  Tag tok = t_token.cur();
+                  if (t_diagnostic.cur() != ID()) {
+                    tok = tok.Push("error");
+                  }
+                  uint32_t chr_flags = flags;
+                  if (in_selection) chr_flags |= Theme::SELECTED;
+                  context->Put(row, col, it.value(),
+                               context->color->Theme(tok, chr_flags));
+                  col++;
+                }
+                move_next();
+              }
+              for (; col < r.width(); col++) {
+                context->Put(row, col, ' ',
+                             context->color->Theme(Tag(), flags));
+              }
+            }
 
-  if (fb_cols >= 100) {
-    int max_length = fb_cols - 82;
+            mu_.Unlock();
+          })
+      .FixSize(80, 0);
+
+  container.AddItem(LAY_FILL, [this](TerminalRenderContext* context) {
+    absl::MutexLock lock(&mu_);
+
+    auto r = *context->window;
+
+    int max_length = r.width();
     int row = 0;
     state_.diagnostics.ForEachValue([&](const Diagnostic& diagnostic) {
-      if (row >= fb_rows) return;
+      if (row >= r.height()) return;
       std::string msg = absl::StrCat(diagnostic.index, ": [",
                                      SeverityString(diagnostic.severity), "] ",
                                      diagnostic.message);
       if (msg.length() > max_length) {
         msg.resize(max_length);
       }
-      mvaddstr(row++, 82, msg.c_str());
+      context->Put(row++, 0, msg, context->color->Theme(Tag(), 0));
     });
 
-    cursor_token.ForEach([&](const std::string& msg) {
-      if (row >= fb_rows) return;
-      mvaddstr(row++, 82, msg.c_str());
+    cursor_token_.ForEach([&](const std::string& msg) {
+      if (row >= r.height()) return;
+      context->Put(row++, 0, msg, context->color->Theme(Tag(), 0));
     });
 
     state_.side_buffers.ForEachValue(
         active_side_buffer_.name, [&](const SideBuffer& buffer) {
           mu_.AssertHeld();
-          if (row >= fb_rows) return;
+          if (row >= r.height()) return;
           if (!active_side_buffer_.lines.empty()) {
             Log() << "sb_cursor_row_=" << sb_cursor_row_
                   << " line[0]=" << active_side_buffer_.lines.front()
@@ -218,14 +232,15 @@ void TerminalCollaborator::Render(TerminalColor* color,
               sb_cursor_row_ = active_side_buffer_.lines.front();
               adj++;
             }
-            if (active_side_buffer_.lines.back() >= sb_cursor_row_ + fb_rows) {
-              sb_cursor_row_ = active_side_buffer_.lines.back() - fb_rows;
+            if (active_side_buffer_.lines.back() >=
+                sb_cursor_row_ + r.height()) {
+              sb_cursor_row_ = active_side_buffer_.lines.back() - r.height();
               adj++;
             }
             if (adj == 2) {
               sb_cursor_row_ =
                   (buffer.line_ofs.front() + buffer.line_ofs.back()) / 2 -
-                  fb_rows / 2;
+                  r.height() / 2;
             }
             if (sb_cursor_row_ < 0) {
               sb_cursor_row_ = 0;
@@ -241,32 +256,28 @@ void TerminalCollaborator::Render(TerminalColor* color,
                           sbrow) != active_side_buffer_.lines.end()) {
               flags |= Theme::HIGHLIGHT_LINE;
             }
+            auto attr = context->color->Theme(Tag(), flags);
             char c = buffer.content[i];
             if (c == '\n') {
-              chtype fill = ' ' | color->Theme(Tag(), flags);
-              while (col < fb_cols) {
-                mvaddch(row, 82 + (col++), fill);
+              chtype fill = ' ';
+              while (col < r.width()) {
+                context->Put(row, col++, fill, attr);
               }
               row++;
               sbrow++;
               col = 0;
-              if (row >= fb_rows) break;
-            } else if (col < fb_cols) {
-              mvaddch(row, 82 + (col++), c | color->Theme(Tag(), flags));
+              if (row >= r.height()) break;
+            } else if (col < r.width()) {
+              context->Put(row, col++, c, attr);
             }
           }
         });
-  }
+  });
 
-  auto frame_time = absl::Now() - last_key_press;
-  std::ostringstream out;
-  out << frame_time;
-  std::string ftstr = out.str();
-  mvaddstr(fb_rows - 1, fb_cols - ftstr.length(), ftstr.c_str());
-
-  mu_.Unlock();
+#if 0
 
   move(cursor_row, cursor_col);
+#endif
 }
 
 void TerminalCollaborator::ProcessKey(AppEnv* app_env, int key) {

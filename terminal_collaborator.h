@@ -13,10 +13,33 @@
 // limitations under the License.
 #pragma once
 
+#include <curses.h>
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "buffer.h"
+#include "render.h"
 #include "terminal_color.h"
+
+struct TerminalRenderContext {
+  TerminalColor* const color;
+  const Renderer<TerminalRenderContext>::Rect* window;
+
+  void Put(int row, int col, chtype ch, chtype attr) {
+    if (row < 0 || col < 0 || col >= window->width() ||
+        row >= window->height()) {
+      return;
+    }
+    mvaddch(row + window->row(), col + window->column(), ch | attr);
+  }
+
+  void Put(int row, int col, const std::string& str, chtype attr) {
+    for (auto c : str) {
+      Put(row, col++, c, attr);
+    }
+  }
+};
+
+typedef Renderer<TerminalRenderContext> TerminalRenderer;
 
 struct AppEnv {
   std::string clipboard;
@@ -28,7 +51,7 @@ class TerminalCollaborator final : public Collaborator {
   void Push(const EditNotification& notification) override;
   EditResponse Pull() override;
 
-  void Render(TerminalColor* color, absl::Time last_key_press);
+  void Render(TerminalRenderer::ContainerRef container);
   void ProcessKey(AppEnv* app_env, int key);
 
  private:
@@ -42,6 +65,7 @@ class TerminalCollaborator final : public Collaborator {
   EditNotification state_ GUARDED_BY(mu_);
   ID cursor_ GUARDED_BY(mu_);
   ID selection_anchor_ GUARDED_BY(mu_);
+  Tag cursor_token_ GUARDED_BY(mu_);
   int cursor_row_ GUARDED_BY(mu_);
   int sb_cursor_row_ GUARDED_BY(mu_);
   SideBufferRef active_side_buffer_ GUARDED_BY(mu_);

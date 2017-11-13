@@ -127,6 +127,7 @@ cc_binary(
     ":godbolt_collaborator",
     ":config",
     ":terminal_color",
+    ":render"
   ],
   linkopts = ["-lcurses", "-lpthread", "-ldl"]
 )
@@ -175,7 +176,7 @@ cc_library(
   name = "terminal_collaborator",
   srcs = ["terminal_collaborator.cc"],
   hdrs = ["terminal_collaborator.h"],
-  deps = [":buffer", ":log", ":terminal_color", "@com_google_absl//absl/time"],
+  deps = [":buffer", ":log", ":terminal_color", ":render", "@com_google_absl//absl/time"],
 )
 
 cc_library(
@@ -392,4 +393,10 @@ cc_test(
   name = "theme_test",
   srcs = ["theme_test.cc"],
   deps = [":theme", "@com_google_googletest//:gtest_main"]
+)
+
+cc_library(
+  name = "render",
+  hdrs = ["render.h"],
+  deps = ["@layout//:layout"],
 )

@@ -17,6 +17,7 @@
 #include "clang_format_collaborator.h"
 #include "godbolt_collaborator.h"
 #include "libclang_collaborator.h"
+#include "render.h"
 #include "terminal_collaborator.h"
 #include "terminal_color.h"
 
@@ -94,7 +95,23 @@ class Application {
 
  private:
   void Render(absl::Time last_key_press) {
-    terminal_collaborator_->Render(color_.get(), last_key_press);
+    TerminalRenderer renderer;
+    int fb_rows, fb_cols;
+    getmaxyx(stdscr, fb_rows, fb_cols);
+    auto top = renderer.AddContainer(LAY_COLUMN).FixSize(fb_cols, fb_rows);
+    auto main = top.AddContainer(LAY_FILL, LAY_ROW);
+    auto status = top.AddContainer(LAY_HFILL, LAY_ROW).FixSize(0, 1);
+    terminal_collaborator_->Render(main);
+    TerminalRenderContext ctx{
+        color_.get(), nullptr,
+    };
+    renderer.Run(&ctx);
+
+    auto frame_time = absl::Now() - last_key_press;
+    std::ostringstream out;
+    out << frame_time;
+    std::string ftstr = out.str();
+    mvaddstr(fb_rows - 1, fb_cols - ftstr.length(), ftstr.c_str());
   }
 
   absl::Mutex mu_;
