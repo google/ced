@@ -120,3 +120,21 @@ cc_library(
   """
 )
 
+new_git_repository(
+  name='layout',
+  commit="cad4eb645163d66707eb573ed63e34feb4311c32",
+  remote="https://github.com/randrew/layout.git",
+  build_file_content="""
+genrule(
+  name="layout_cc",
+  outs = ['layout.cc'],
+  cmd = 'echo -e "#define LAY_IMPLEMENTATION\\n#include \\\\"layout.h\\\\"\\n" > $(OUTS)'
+)
+cc_library(
+  name="layout",
+  hdrs=['layout.h'],
+  srcs=['layout.cc'],
+  visibility=["//visibility:public"]
+)
+  """
+)

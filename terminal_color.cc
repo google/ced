@@ -26,7 +26,7 @@ int TerminalColor::ColorToIndex(Theme::Color c) {
   return n;
 }
 
-chtype TerminalColor::Theme(Token token, uint32_t flags) {
+chtype TerminalColor::Theme(Tag token, uint32_t flags) {
   auto key = std::make_pair(token, flags);
   auto it = cache_.find(key);
   if (it != cache_.end()) return it->second;

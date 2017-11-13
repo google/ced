@@ -19,7 +19,7 @@
 #include "diagnostic.h"
 #include "libclang/libclang.h"
 #include "log.h"
-#include "token_type.h"
+#include "selector.h"
 
 namespace {
 
@@ -178,7 +178,7 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
 
   token_editor_.BeginEdit(&response.token_types);
 
-  std::function<Token(Token, CXCursor)> f_add = [&f_add, env](Token t,
+  std::function<Tag(Tag, CXCursor)> f_add = [&f_add, env](Tag t,
                                                               CXCursor cursor) {
     if (!env->clang_Cursor_isNull(cursor)) {
       t = f_add(t, env->clang_getCursorLexicalParent(cursor));
@@ -193,7 +193,7 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
         env->clang_getCString(env->clang_getCursorKindSpelling(kind))));
     return t;
   };
-  std::function<Token(Token, CXToken)> f_tidy = [env](Token t, CXToken token) {
+  std::function<Tag(Tag, CXToken)> f_tidy = [env](Tag t, CXToken token) {
     switch (env->clang_getTokenKind(token)) {
       case CXToken_Keyword:
         return t.Push("keyword.c++");
@@ -218,9 +218,9 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
 
     token_editor_.Add(
         ids[offset_start],
-        Annotation<Token>(
+        Annotation<Tag>(
             ids[offset_end],
-            f_tidy(f_add(Token().Push("source.c++"), cursor), token)));
+            f_tidy(f_add(Tag().Push("source.c++"), cursor), token)));
   }
 
   env->clang_disposeTokens(tu, tokens, numTokens);

@@ -19,7 +19,7 @@
 #include "absl/types/any.h"
 #include "diagnostic.h"
 #include "side_buffer.h"
-#include "token_type.h"
+#include "selector.h"
 #include "umap.h"
 #include "uset.h"
 #include "woot.h"
@@ -74,7 +74,7 @@ struct SideBufferRef {
 template <template <class Type> class TypeTranslator>
 struct EditState {
   TypeTranslator<String> content;
-  TypeTranslator<AnnotationMap<Token>> token_types;
+  TypeTranslator<AnnotationMap<Tag>> token_types;
   TypeTranslator<USet<Diagnostic>> diagnostics;
   TypeTranslator<AnnotationMap<ID>> diagnostic_ranges;
   TypeTranslator<UMap<std::string, SideBuffer>> side_buffers;

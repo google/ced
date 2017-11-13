@@ -17,12 +17,13 @@ struct A {};
 class Foo : private A {
  public:
   int fib(int n) { return n == -1 ? 1 : n + fib(n - 1); }
+  int fib2(int n) { return n == -1 ? 1 : n - fib2(n - 1); }
 };
 
 extern void print_int(int n);
 
 namespace FOO {
-int test(int x) { return Foo().fib(x); }
+int test(int x) { return Foo().fib(x) - Foo().fib2(x); }
 }  // namespace FOO
 
 class Bar {

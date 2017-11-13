@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+load('//:rules.bzl', 'file2lib')
+
 config_setting(
     name = "linux_x86_64",
     values = {"cpu": "k8"},
@@ -114,6 +117,7 @@ cc_test(
 
 cc_binary(
   name = "ced",
+  linkstatic = 1,
   srcs = ["main.cc"],
   deps = [
     ":buffer",
@@ -128,9 +132,9 @@ cc_binary(
 )
 
 cc_library(
-  name = "token_type",
-  hdrs = ["token_type.h"],
-  srcs = ["token_type.cc"],
+  name = "selector",
+  hdrs = ["selector.h"],
+  srcs = ["selector.cc"],
   deps = [":list"]
 )
 
@@ -138,7 +142,7 @@ cc_library(
   name = "side_buffer",
   hdrs = ["side_buffer.h"],
   srcs = ["side_buffer.cc"],
-  deps = [":token_type"],
+  deps = [":selector"],
 )
 
 cc_library(
@@ -151,7 +155,7 @@ cc_library(
     ":uset",
     ":log",
     ":wrap_syscall",
-    ":token_type",
+    ":selector",
     ":side_buffer",
     ":temp_file",
     "@com_google_absl//absl/synchronization",
@@ -355,18 +359,9 @@ py_binary(
   srcs = ["file2c.py"]
 )
 
-genrule(
-  name = "default_theme_src",
-  srcs = ["@material//:theme"],
-  outs = ['default_theme.cc'],
-  tools = [':file2c'],
-  cmd = './$(location :file2c) $(OUTS) default_theme $(locations @material//:theme)'
-)
-
-cc_library(
+file2lib(
   name = "default_theme",
-  srcs = ['default_theme.cc'],
-  hdrs = ['default_theme.h']
+  src = "@material//:theme",
 )
 
 cc_library(
@@ -377,7 +372,7 @@ cc_library(
     ':read',
     ':plist',
     ':default_theme',
-    ':token_type',
+    ':selector',
     ':log',
     '@com_google_absl//absl/types:optional'
   ]

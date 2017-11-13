@@ -121,10 +121,10 @@ void TerminalCollaborator::Render(TerminalColor* color,
 
   int cursor_row = 0;
   int cursor_col = 0;
-  Token cursor_token;
+  Tag cursor_token;
 
   String::AllIterator it(state_.content, line_it.id());
-  AnnotationTracker<Token> t_token(state_.token_types);
+  AnnotationTracker<Tag> t_token(state_.token_types);
   AnnotationTracker<ID> t_diagnostic(state_.diagnostic_ranges);
   AnnotationTracker<SideBufferRef> t_side_buffer_ref(state_.side_buffer_refs);
   bool in_selection = false;
@@ -165,7 +165,7 @@ void TerminalCollaborator::Render(TerminalColor* color,
       }
       if (it.is_visible()) {
         if (it.value() == '\n') break;
-        Token tok = t_token.cur();
+        Tag tok = t_token.cur();
         if (t_diagnostic.cur() != ID()) {
           tok = tok.Push("error");
         }
@@ -179,7 +179,7 @@ void TerminalCollaborator::Render(TerminalColor* color,
       move_next();
     }
     for (; col < 80; col++) {
-      mvaddch(row, col, ' ' | color->Theme(Token(), flags));
+      mvaddch(row, col, ' ' | color->Theme(Tag(), flags));
     }
   }
 
@@ -243,7 +243,7 @@ void TerminalCollaborator::Render(TerminalColor* color,
             }
             char c = buffer.content[i];
             if (c == '\n') {
-              chtype fill = ' ' | color->Theme(Token(), flags);
+              chtype fill = ' ' | color->Theme(Tag(), flags);
               while (col < fb_cols) {
                 mvaddch(row, 82 + (col++), fill);
               }
@@ -252,7 +252,7 @@ void TerminalCollaborator::Render(TerminalColor* color,
               col = 0;
               if (row >= fb_rows) break;
             } else if (col < fb_cols) {
-              mvaddch(row, 82 + (col++), c | color->Theme(Token(), flags));
+              mvaddch(row, 82 + (col++), c | color->Theme(Tag(), flags));
             }
           }
         });

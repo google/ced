@@ -18,7 +18,7 @@
 #include <vector>
 
 #include "absl/types/optional.h"
-#include "token_type.h"
+#include "selector.h"
 
 class Theme {
  public:
@@ -55,7 +55,7 @@ class Theme {
     Color background;
     Highlight highlight;
   };
-  Result ThemeToken(Token token, uint32_t flags);
+  Result ThemeToken(Tag token, uint32_t flags);
 
  private:
   void Load(const std::string& src);
@@ -147,5 +147,5 @@ class Theme {
   static void LoadIgnored(const std::string& value, Setting* setting) {}
 
   std::vector<Setting> settings_;
-  std::map<std::pair<Token, uint32_t>, Result> theme_cache_;
+  std::map<std::pair<Tag, uint32_t>, Result> theme_cache_;
 };

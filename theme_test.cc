@@ -18,11 +18,11 @@ TEST(Theme, DefaultParses) { Theme theme(Theme::DEFAULT); }
 
 TEST(Theme, DefaultNoScope) {
   Theme theme(Theme::DEFAULT);
-  Theme::Result r = theme.ThemeToken(Token(), 0);
+  Theme::Result r = theme.ThemeToken(Tag(), 0);
   EXPECT_EQ((Theme::Color{0x6c, 0x70, 0x79, 0xff}), r.foreground);
   EXPECT_EQ((Theme::Color{0x28, 0x2c, 0x34, 0xff}), r.background);
   EXPECT_EQ(Theme::Highlight::NONE, r.highlight);
-  r = theme.ThemeToken(Token(), 0);
+  r = theme.ThemeToken(Tag(), 0);
   EXPECT_EQ((Theme::Color{0x6c, 0x70, 0x79, 0xff}), r.foreground);
   EXPECT_EQ((Theme::Color{0x28, 0x2c, 0x34, 0xff}), r.background);
   EXPECT_EQ(Theme::Highlight::NONE, r.highlight);

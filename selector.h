@@ -13,4 +13,11 @@
 // limitations under the License.
 #pragma once
 
-extern const char* default_theme;
+#include <stdint.h>
+#include <string>
+#include "list.h"
+
+typedef List<std::string> Tag;
+typedef List<std::string> Selector;
+
+bool SelectorMatches(Selector selector, Tag tag);

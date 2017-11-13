@@ -35,7 +35,7 @@ class Application {
     set_escdelay(25);
     start_color();
     color_.reset(new TerminalColor{std::move(theme)});
-    bkgd(color_->Theme(Token(), 0));
+    bkgd(color_->Theme(Tag(), 0));
     keypad(stdscr, true);
     buffer_.MakeCollaborator<ClangFormatCollaborator>();
     buffer_.MakeCollaborator<LibClangCollaborator>();

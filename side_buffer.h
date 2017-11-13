@@ -15,11 +15,11 @@
 
 #include <stddef.h>
 #include <vector>
-#include "token_type.h"
+#include "selector.h"
 
 struct SideBuffer {
   std::vector<char> content;
-  std::vector<Token> tokens;
+  std::vector<Tag> tokens;
   std::vector<size_t> line_ofs;
 
   void CalcLines();

@@ -56,7 +56,7 @@ static absl::optional<Theme::Color> Merge(absl::optional<Theme::Color> a,
                       blend(a->b, b->b, a->a), 255};
 }
 
-Theme::Result Theme::ThemeToken(Token token, uint32_t flags) {
+Theme::Result Theme::ThemeToken(Tag token, uint32_t flags) {
   auto key = std::make_pair(token, flags);
   auto it = theme_cache_.find(key);
   if (it != theme_cache_.end()) return it->second;

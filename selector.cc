@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "token_type.h"
+#include "selector.h"
 
 static bool RuleMatches(const std::string& selector, const std::string& token) {
   return selector.length() <= token.length() &&
@@ -19,7 +19,7 @@ static bool RuleMatches(const std::string& selector, const std::string& token) {
              selector.end();
 }
 
-bool SelectorMatches(Selector selector, Token token) {
+bool SelectorMatches(Selector selector, Tag token) {
   if (selector.Empty()) return true;
   if (token.Empty()) return false;
   if (RuleMatches(selector.Head(), token.Head())) {
