@@ -30,10 +30,25 @@ void Editor::MoveEndOfLine() {
   CursorEndOfLine();
 }
 
-void Editor::MoveDownN(int n) {}
-void Editor::MoveUpN(int n) {}
-void Editor::SelectDownN(int n) {}
-void Editor::SelectUpN(int n) {}
+void Editor::MoveDownN(int n) {
+  SetSelectMode(false);
+  for (int i=0; i<n; i++) CursorDown();
+}
+
+void Editor::MoveUpN(int n) {
+  SetSelectMode(false);
+  for (int i=0; i<n; i++) CursorUp();
+}
+
+void Editor::SelectDownN(int n) {
+  SetSelectMode(true);
+  for (int i=0; i<n; i++) CursorDown();
+}
+
+void Editor::SelectUpN(int n) {
+  SetSelectMode(true);
+  for (int i=0; i<n; i++) CursorUp();
+}
 
 void Editor::Backspace() {
   SetSelectMode(false);

@@ -179,7 +179,7 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   token_editor_.BeginEdit(&response.token_types);
 
   std::function<Tag(Tag, CXCursor)> f_add = [&f_add, env](Tag t,
-                                                              CXCursor cursor) {
+                                                          CXCursor cursor) {
     if (!env->clang_Cursor_isNull(cursor)) {
       t = f_add(t, env->clang_getCursorLexicalParent(cursor));
     }

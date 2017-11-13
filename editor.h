@@ -75,17 +75,21 @@ class Editor {
   template <class RC>
   void Render(RC* parent_context) {
     Renderer<EditRenderContext<RC>> renderer;
-    auto container = renderer.AddContainer(LAY_ROW).FixSize(
-        parent_context->window->width(), 0);
+    auto container = renderer.AddContainer(LAY_COLUMN).FixSize(
+        parent_context->window->width(), 0*parent_context->window->height());
     typename Renderer<EditRenderContext<RC>>::ItemRef cursor_row;
     RenderCommon(
         parent_context->window->height(),
-        [&container, &cursor_row](LineInfo li,
+        [&container, &cursor_row, parent_context](LineInfo li,
                                   const std::vector<CharInfo>& ci) {
           auto ref =
               container
-                  .AddItem(LAY_HFILL,
+                  .AddItem(LAY_TOP | LAY_LEFT,
                            [li, ci](EditRenderContext<RC>* ctx) {
+                             Log() << "ED l:" << ctx->window->column()
+                                   << " t:" << ctx->window->row()
+                                   << " w:" << ctx->window->width()
+                                   << " h:" << ctx->window->height();
                              int col = 0;
                              for (const auto& c : ci) {
                                ctx->Put(0, col++, c.c,
@@ -98,17 +102,18 @@ class Editor {
                                             Tag(), ThemeFlags(&li, nullptr)));
                              }
                            })
-                  .FixSize(0, 1);
+                  .FixSize(parent_context->window->width(), 1);
           if (li.cursor) {
             cursor_row = ref;
           }
         });
     renderer.Layout();
-    EditRenderContext<RC> ctx{parent_context, parent_context->color, nullptr,
-                              // out_row = buf_row + ofs
-                              // => cursor_row_ = cursor_row.Rect().row() + ofs
-                              // => ofs = cursor_row_ - cursor_row.Rect().row()
-                              cursor_row_ - cursor_row.GetRect().row()};
+    EditRenderContext<RC> ctx{
+        parent_context, parent_context->color, nullptr,
+        // out_row = buf_row + ofs
+        // => cursor_row_ = cursor_row.Rect().row() + ofs
+        // => ofs = cursor_row_ - cursor_row.Rect().row()
+        cursor_row_ - cursor_row ? cursor_row.GetRect().row() : 0};
     renderer.Draw(&ctx);
   }
 

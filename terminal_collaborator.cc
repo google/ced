@@ -83,6 +83,10 @@ void TerminalCollaborator::Render(TerminalRenderer::ContainerRef container) {
 
                  mu_.LockWhen(absl::Condition(&ready));
 
+                 Log() << "l:" << context->window->column()
+                       << " t:" << context->window->row()
+                       << " w:" << context->window->width()
+                       << " h:" << context->window->height();
                  editor_.Render(context);
 
                  mu_.Unlock();

@@ -32,6 +32,8 @@ class Renderer {
       return *this;
     }
 
+    operator bool() const { return renderer_ != nullptr; }
+
     // available post-Renderer::Layout
     Rect GetRect() { return Rect(lay_get_rect(&renderer_->ctx_, id_)); }
 

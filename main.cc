@@ -104,7 +104,8 @@ class Application {
     terminal_collaborator_->Render(main);
     renderer.Layout();
     TerminalRenderContext ctx{
-        color_.get(), nullptr,
+        color_.get(),
+        nullptr,
     };
     renderer.Draw(&ctx);
 
