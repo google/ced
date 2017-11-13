@@ -176,7 +176,14 @@ cc_library(
   name = "terminal_collaborator",
   srcs = ["terminal_collaborator.cc"],
   hdrs = ["terminal_collaborator.h"],
-  deps = [":buffer", ":log", ":terminal_color", ":render", "@com_google_absl//absl/time"],
+  deps = [
+    ":buffer",
+    ":log",
+    ":terminal_color",
+    ":render",
+    ":editor",
+    "@com_google_absl//absl/time"
+  ],
 )
 
 cc_library(
@@ -399,4 +406,11 @@ cc_library(
   name = "render",
   hdrs = ["render.h"],
   deps = ["@layout//:layout"],
+)
+
+cc_library(
+  name = "editor",
+  hdrs = ["editor.h"],
+  srcs = ["editor.cc"],
+  deps = [":render", ":theme", ":buffer"],
 )

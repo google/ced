@@ -17,6 +17,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "buffer.h"
+#include "editor.h"
 #include "render.h"
 #include "terminal_color.h"
 
@@ -41,10 +42,6 @@ struct TerminalRenderContext {
 
 typedef Renderer<TerminalRenderContext> TerminalRenderer;
 
-struct AppEnv {
-  std::string clipboard;
-};
-
 class TerminalCollaborator final : public Collaborator {
  public:
   TerminalCollaborator(const Buffer* buffer, std::function<void()> invalidate);
@@ -55,18 +52,8 @@ class TerminalCollaborator final : public Collaborator {
   void ProcessKey(AppEnv* app_env, int key);
 
  private:
-  std::pair<ID, ID> SelRange() const EXCLUSIVE_LOCKS_REQUIRED(mu_);
-
   const std::function<void()> invalidate_;
-  const std::function<void()> used_;
   absl::Mutex mu_;
-  std::vector<String::CommandPtr> commands_ GUARDED_BY(mu_);
+  Editor editor_ GUARDED_BY(mu_);
   bool recently_used_ GUARDED_BY(mu_);
-  EditNotification state_ GUARDED_BY(mu_);
-  ID cursor_ GUARDED_BY(mu_);
-  ID selection_anchor_ GUARDED_BY(mu_);
-  Tag cursor_token_ GUARDED_BY(mu_);
-  int cursor_row_ GUARDED_BY(mu_);
-  int sb_cursor_row_ GUARDED_BY(mu_);
-  SideBufferRef active_side_buffer_ GUARDED_BY(mu_);
 };

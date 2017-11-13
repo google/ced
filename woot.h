@@ -200,6 +200,9 @@ class String : public CRDT<String> {
       return tmp;
     }
 
+    Iterator AsIterator() { return Iterator(*str_, id_); }
+    AllIterator AsAllIterator() { return AllIterator(*str_, id_); }
+
     ID id() const { return id_; }
 
    private:

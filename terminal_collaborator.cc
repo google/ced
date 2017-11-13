@@ -25,37 +25,26 @@ TerminalCollaborator::TerminalCollaborator(const Buffer* buffer,
                                            std::function<void()> invalidate)
     : Collaborator("terminal", absl::Seconds(0)),
       invalidate_(invalidate),
-      used_([this]() {
-        mu_.AssertHeld();
-        recently_used_ = true;
-      }),
-      recently_used_(false),
-      cursor_(String::Begin()),
-      selection_anchor_(String::Begin()),
-      cursor_row_(0),
-      sb_cursor_row_(0) {}
+      editor_(site()),
+      recently_used_(false) {}
 
 void TerminalCollaborator::Push(const EditNotification& notification) {
   {
     absl::MutexLock lock(&mu_);
-    state_ = notification;
+    editor_.UpdateState(notification);
   }
   invalidate_();
 }
 
 EditResponse TerminalCollaborator::Pull() {
-  EditResponse r;
-
   auto ready = [this]() {
     mu_.AssertHeld();
-    return state_.shutdown || !commands_.empty() || recently_used_;
+    return editor_.HasCommands() || recently_used_;
   };
 
   mu_.LockWhen(absl::Condition(&ready));
-  r.done = state_.shutdown;
-  r.become_used = recently_used_ || !commands_.empty();
-  commands_.swap(r.content);
-  assert(commands_.empty());
+  EditResponse r = editor_.MakeResponse();
+  r.become_used |= recently_used_;
   recently_used_ = false;
   mu_.Unlock();
 
@@ -80,119 +69,27 @@ static const char* SeverityString(Severity sev) {
   return "XXXXX";
 }
 
-std::pair<ID, ID> TerminalCollaborator::SelRange() const {
-  if (selection_anchor_ == ID()) {
-    return std::make_pair(String::Begin(), String::Begin());
-  }
-  auto p = std::make_pair(cursor_, selection_anchor_);
-  if (state_.content.OrderIDs(p.first, p.second) > 0) {
-    std::swap(p.first, p.second);
-  }
-  return p;
-}
-
 void TerminalCollaborator::Render(TerminalRenderer::ContainerRef container) {
   /*
    * edit item
    */
   container
-      .AddItem(
-          LAY_FILL,
-          [this](TerminalRenderContext* context) {
-            auto ready = [this]() {
-              mu_.AssertHeld();
-              return state_.shutdown || state_.content.Has(cursor_);
-            };
+      .AddItem(LAY_FILL,
+               [this](TerminalRenderContext* context) {
+                 auto ready = [this]() {
+                   mu_.AssertHeld();
+                   return editor_.HasMostRecentEdit();
+                 };
 
-            mu_.LockWhen(absl::Condition(&ready));
+                 mu_.LockWhen(absl::Condition(&ready));
 
-            if (state_.shutdown) {
-              mu_.Unlock();
-              return;
-            }
+                 editor_.Render(context);
 
-            auto r = *context->window;
-
-            if (cursor_row_ >= r.height()) {
-              cursor_row_ = r.height() - 1;
-            } else if (cursor_row_ < 0) {
-              cursor_row_ = 0;
-            }
-
-            Log() << "cursor_row_:" << cursor_row_;
-
-            String::LineIterator line_it(state_.content, cursor_);
-            for (int i = 0; i < cursor_row_; i++) line_it.MovePrev();
-
-            int cursor_row = 0;
-            int cursor_col = 0;
-            Tag cursor_token;
-
-            String::AllIterator it(state_.content, line_it.id());
-            AnnotationTracker<Tag> t_token(state_.token_types);
-            AnnotationTracker<ID> t_diagnostic(state_.diagnostic_ranges);
-            AnnotationTracker<SideBufferRef> t_side_buffer_ref(
-                state_.side_buffer_refs);
-            bool in_selection = false;
-            for (int row = 0; row < r.height(); row++) {
-              int col = 0;
-              auto move_next = [&]() {
-                mu_.AssertHeld();
-                if (selection_anchor_ != ID() && it.id() == selection_anchor_) {
-                  in_selection = !in_selection;
-                }
-                if (it.id() == cursor_) {
-                  if (selection_anchor_ != ID()) {
-                    in_selection = !in_selection;
-                  }
-                  cursor_row = row;
-                  cursor_col = col;
-                  cursor_token_ = t_token.cur();
-                  if (!t_side_buffer_ref.cur().name.empty()) {
-                    active_side_buffer_ = t_side_buffer_ref.cur();
-                  } else {
-                    active_side_buffer_.lines.clear();
-                  }
-                }
-                it.MoveNext();
-                t_token.Enter(it.id());
-                t_diagnostic.Enter(it.id());
-                t_side_buffer_ref.Enter(it.id());
-              };
-              do {
-                move_next();
-              } while (!it.is_end() && !it.is_visible());
-              uint32_t flags = 0;
-              if (row == cursor_row_) flags |= Theme::HIGHLIGHT_LINE;
-              for (;;) {
-                if (it.is_end()) {
-                  row = r.height();
-                  break;
-                }
-                if (it.is_visible()) {
-                  if (it.value() == '\n') break;
-                  Tag tok = t_token.cur();
-                  if (t_diagnostic.cur() != ID()) {
-                    tok = tok.Push("error");
-                  }
-                  uint32_t chr_flags = flags;
-                  if (in_selection) chr_flags |= Theme::SELECTED;
-                  context->Put(row, col, it.value(),
-                               context->color->Theme(tok, chr_flags));
-                  col++;
-                }
-                move_next();
-              }
-              for (; col < r.width(); col++) {
-                context->Put(row, col, ' ',
-                             context->color->Theme(Tag(), flags));
-              }
-            }
-
-            mu_.Unlock();
-          })
+                 mu_.Unlock();
+               })
       .FixSize(80, 0);
 
+#if 0
   container.AddItem(LAY_FILL, [this](TerminalRenderContext* context) {
     absl::MutexLock lock(&mu_);
 
@@ -274,8 +171,6 @@ void TerminalCollaborator::Render(TerminalRenderer::ContainerRef container) {
         });
   });
 
-#if 0
-
   move(cursor_row, cursor_col);
 #endif
 }
@@ -285,200 +180,66 @@ void TerminalCollaborator::ProcessKey(AppEnv* app_env, int key) {
 
   Log() << "TerminalCollaborator::ProcessKey: " << key;
 
-  auto left1 = [&]() {
-    mu_.AssertHeld();
-    String::Iterator it(state_.content, cursor_);
-    cursor_row_ -= it.value() == '\n';
-    it.MovePrev();
-    cursor_ = it.id();
-  };
-
-  auto right1 = [&]() {
-    mu_.AssertHeld();
-    String::Iterator it(state_.content, cursor_);
-    it.MoveNext();
-    cursor_row_ += it.value() == '\n';
-    cursor_ = it.id();
-  };
-
-  auto down1 = [&]() {
-    mu_.AssertHeld();
-    String::Iterator it(state_.content, cursor_);
-    int col = 0;
-    auto edge = [&it]() {
-      return it.is_begin() || it.is_end() || it.value() == '\n';
-    };
-    while (!edge()) {
-      it.MovePrev();
-      col++;
-    }
-    Log() << "col:" << col;
-    it = String::Iterator(state_.content, cursor_);
-    do {
-      it.MoveNext();
-    } while (!edge());
-    it.MoveNext();
-    for (; col > 0 && !edge(); col--) {
-      it.MoveNext();
-    }
-    it.MovePrev();
-    cursor_ = it.id();
-    cursor_row_++;
-  };
-
-  auto up1 = [&]() {
-    mu_.AssertHeld();
-    String::Iterator it(state_.content, cursor_);
-    int col = 0;
-    auto edge = [&it]() {
-      return it.is_begin() || it.is_end() || it.value() == '\n';
-    };
-    while (!edge()) {
-      it.MovePrev();
-      col++;
-    }
-    Log() << "col:" << col;
-    do {
-      it.MovePrev();
-    } while (!edge());
-    it.MoveNext();
-    for (; col > 0 && !edge(); col--) {
-      it.MoveNext();
-    }
-    it.MovePrev();
-    cursor_ = it.id();
-    cursor_row_--;
-  };
-
-  auto select_mode = [&](bool sel) {
-    mu_.AssertHeld();
-    if (!sel) {
-      selection_anchor_ = ID();
-    } else if (selection_anchor_ == ID()) {
-      selection_anchor_ = cursor_;
-    }
-    Log() << "SM: " << sel << " --> " << absl::StrJoin(selection_anchor_, ":")
-          << " " << absl::StrJoin(cursor_, ":") << " "
-          << absl::StrJoin(ID(), ":");
-  };
-
-  auto delete_selection = [&]() {
-    if (selection_anchor_ == ID()) return;
-    state_.content.MakeRemove(&commands_, cursor_, selection_anchor_);
-    String::Iterator it(state_.content, cursor_);
-    it.MovePrev();
-    cursor_ = it.id();
-  };
-
   int fb_rows, fb_cols;
   getmaxyx(stdscr, fb_rows, fb_cols);
 
+  recently_used_ = true;
   switch (key) {
     case KEY_SLEFT:
-      select_mode(true);
-      left1();
-      used_();
+      editor_.SelectLeft();
       break;
     case KEY_LEFT:
-      select_mode(false);
-      left1();
-      used_();
+      editor_.MoveLeft();
       break;
     case KEY_SRIGHT:
-      select_mode(true);
-      right1();
-      used_();
+      editor_.SelectRight();
       break;
     case KEY_RIGHT:
-      select_mode(false);
-      right1();
-      used_();
+      editor_.MoveRight();
       break;
-    case KEY_HOME: {
-      select_mode(false);
-      String::Iterator it(state_.content, cursor_);
-      while (!it.is_begin() && it.value() != '\n') it.MovePrev();
-      cursor_ = it.id();
-      used_();
-    } break;
-    case KEY_END: {
-      select_mode(false);
-      String::Iterator it(state_.content, cursor_);
-      it.MoveNext();
-      while (!it.is_end() && it.value() != '\n') it.MoveNext();
-      it.MovePrev();
-      cursor_ = it.id();
-      used_();
-    } break;
+    case KEY_HOME:
+      editor_.MoveStartOfLine();
+      break;
+    case KEY_END:
+      editor_.MoveEndOfLine();
+      break;
     case KEY_PPAGE:
-      select_mode(false);
-      for (int i = 0; i < fb_rows; i++) up1();
-      used_();
+      editor_.MoveUpN(fb_rows);
       break;
     case KEY_NPAGE:
-      select_mode(false);
-      for (int i = 0; i < fb_rows; i++) down1();
-      used_();
+      editor_.MoveDownN(fb_rows);
       break;
     case KEY_SR:  // shift down on my mac
-      select_mode(true);
-      up1();
-      used_();
+      editor_.SelectUp();
       break;
     case KEY_SF:
-      select_mode(true);
-      down1();
-      used_();
+      editor_.SelectDown();
       break;
     case KEY_UP:
-      select_mode(false);
-      up1();
-      used_();
+      editor_.MoveUp();
       break;
     case KEY_DOWN:
-      select_mode(false);
-      down1();
-      used_();
+      editor_.MoveDown();
       break;
     case 127:
-    case KEY_BACKSPACE: {
-      select_mode(false);
-      state_.content.MakeRemove(&commands_, cursor_);
-      String::Iterator it(state_.content, cursor_);
-      it.MovePrev();
-      cursor_ = it.id();
-    } break;
+    case KEY_BACKSPACE:
+      editor_.Backspace();
+      break;
     case ctrl('C'):
-      if (selection_anchor_ != ID()) {
-        app_env->clipboard = state_.content.Render(cursor_, selection_anchor_);
-      }
+      editor_.Copy(app_env);
       break;
     case ctrl('X'):
-      if (selection_anchor_ != ID()) {
-        app_env->clipboard = state_.content.Render(cursor_, selection_anchor_);
-        delete_selection();
-        select_mode(false);
-      }
+      editor_.Cut(app_env);
       break;
     case ctrl('V'):
-      if (selection_anchor_ != ID()) {
-        delete_selection();
-        select_mode(false);
-      }
-      cursor_ = state_.content.MakeInsert(&commands_, site(),
-                                          app_env->clipboard, cursor_);
+      editor_.Paste(app_env);
       break;
-    case 10: {
-      delete_selection();
-      select_mode(false);
-      cursor_ = state_.content.MakeInsert(&commands_, site(), key, cursor_);
-      cursor_row_++;
-    } break;
+    case 10:
+      editor_.InsNewLine();
+      break;
     default: {
       if (key >= 32 && key < 127) {
-        delete_selection();
-        select_mode(false);
-        cursor_ = state_.content.MakeInsert(&commands_, site(), key, cursor_);
+        editor_.InsChar(key);
       }
     } break;
   }

@@ -102,10 +102,11 @@ class Application {
     auto main = top.AddContainer(LAY_FILL, LAY_ROW);
     auto status = top.AddContainer(LAY_HFILL, LAY_ROW).FixSize(0, 1);
     terminal_collaborator_->Render(main);
+    renderer.Layout();
     TerminalRenderContext ctx{
         color_.get(), nullptr,
     };
-    renderer.Run(&ctx);
+    renderer.Draw(&ctx);
 
     auto frame_time = absl::Now() - last_key_press;
     std::ostringstream out;

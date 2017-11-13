@@ -24,12 +24,16 @@ class Renderer {
 
   class ItemRef {
    public:
+    ItemRef() : renderer_(nullptr), id_(0) {}
     ItemRef(Renderer* renderer, lay_id id) : renderer_(renderer), id_(id) {}
 
     ItemRef& FixSize(lay_scalar width, lay_scalar height) {
       lay_set_size_xy(&renderer_->ctx_, id_, width, height);
       return *this;
     }
+
+    // available post-Renderer::Layout
+    Rect GetRect() { return Rect(lay_get_rect(&renderer_->ctx_, id_)); }
 
    private:
     Renderer* renderer_;
@@ -77,8 +81,9 @@ class Renderer {
     return ContainerRef{this, id};
   }
 
-  void Run(Context* ctx) {
-    lay_run_context(&ctx_);
+  void Layout() { lay_run_context(&ctx_); }
+
+  void Draw(Context* ctx) {
     for (const auto& draw : draw_) {
       Rect rect(lay_get_rect(&ctx_, draw.id));
       ctx->window = &rect;
