@@ -47,8 +47,26 @@ struct Diagnostic {
 
 struct Fixit {
   size_t index;
-  ID diagnostic;
-  String::CommandBuf commands;
+  ID begin;
+  ID end;
+  std::string replacement;
+
+  bool operator<(const Fixit& other) const {
+    if (index < other.index) {
+      return true;
+    } else if (index > other.index) {
+      return false;
+    } else if (begin < other.begin) {
+      return true;
+    } else if (begin > other.begin) {
+      return false;
+    } else if (end < other.end) {
+      return true;
+    } else if (end > other.end) {
+      return false;
+    }
+    return replacement < other.replacement;
+  }
 };
 
 class DiagnosticEditor {

@@ -40,11 +40,18 @@ struct DiagData {
 }  // namespace
 
 struct DiagnosticEditor::Impl {
-  Impl(Site* site) : diagnostic_editor(site), range_editor(site) {}
+  Impl(Site* site)
+      : site_(site),
+        diagnostic_editor(site),
+        range_editor(site),
+        fixit_editor(site) {}
+  Site* const site_;
+
   std::vector<DiagData> new_diags;
 
   USetEditor<Diagnostic> diagnostic_editor;
   UMapEditor<ID, Annotation<ID>> range_editor;
+  UMapEditor<ID, Fixit> fixit_editor;
 };
 
 DiagnosticEditor::DiagnosticEditor(Site* site) : impl_(new Impl(site)) {}
@@ -100,6 +107,21 @@ void DiagnosticEditor::Publish(const String& content, EditResponse* response) {
     }
   }
   impl_->range_editor.Publish();
+
+  impl_->fixit_editor.BeginEdit(&response->fixits);
+  for (const auto& diag : impl_->new_diags) {
+    size_t idx = 0;
+    for (const auto& fixit : diag.fixits) {
+      idx++;
+      for (const auto& replacement : fixit.replacements) {
+        impl_->fixit_editor.Add(
+            diag.diag_id,
+            Fixit{idx, replacement.range.first, replacement.range.second,
+                  replacement.new_text});
+      }
+    }
+  }
+  impl_->fixit_editor.Publish();
 
   impl_->new_diags.clear();
 }

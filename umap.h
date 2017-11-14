@@ -28,8 +28,6 @@ class UMap : public CRDT<UMap<K, V>> {
 
   static ID MakeInsert(CommandBuf* buf, Site* site, const K& k, const V& v) {
     return MakeCommand(buf, site->GenerateID(), [k, v](UMap m, ID id) {
-      Log() << __PRETTY_FUNCTION__ << " " << std::get<0>(id) << ":"
-            << std::get<1>(id);
       auto* id2v = m.k2id2v_.Lookup(k);
       if (id2v == nullptr) {
         // first use of this key
@@ -44,8 +42,6 @@ class UMap : public CRDT<UMap<K, V>> {
 
   static void MakeRemove(CommandBuf* buf, ID id) {
     MakeCommand(buf, id, [](UMap m, ID id) {
-      Log() << __PRETTY_FUNCTION__ << " " << std::get<0>(id) << ":"
-            << std::get<1>(id);
       auto* p = m.id2kv_.Lookup(id);
       auto* id2v = m.k2id2v_.Lookup(p->first);
       auto id2v_new = id2v->Remove(id);
