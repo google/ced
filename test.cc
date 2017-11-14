@@ -17,8 +17,7 @@ class Foo : private A {
  public:
   int fib(int n) { return n == -1 ? 1 : n + fib(n - 1); }
   int fib2(int n) { return n == -1 ? 1 : n - fib2(n - 1); }
-}
-;
+};
 extern void print_int(int n);
 
 namespace FOO {

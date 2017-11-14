@@ -44,6 +44,7 @@ class UMap : public CRDT<UMap<K, V>> {
     MakeCommand(buf, id, [](UMap m, ID id) {
       auto* p = m.id2kv_.Lookup(id);
       auto* id2v = m.k2id2v_.Lookup(p->first);
+      if (id2v == nullptr) return m; // must already be removed
       auto id2v_new = id2v->Remove(id);
       if (id2v_new.Empty()) {
         return UMap(m.k2id2v_.Remove(p->first), m.id2kv_.Remove(id));

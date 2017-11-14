@@ -8,7 +8,7 @@ EditResponse FixitCollaborator::Edit(const EditNotification& notification) {
     notification.fixits.MakeRemove(&response.fixits, fixit_id);
     notification.content.MakeRemove(&response.content, fixit.begin, fixit.end);
     notification.content.MakeInsert(&response.content, site(),
-                                    fixit.replacement, fixit.begin);
+                                    fixit.replacement, String::Iterator(notification.content, fixit.begin).Prev().id());
   });
   return response;
 }
