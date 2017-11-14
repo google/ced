@@ -219,6 +219,9 @@ void Editor::RenderCommon(
   std::vector<CharInfo> ci;
   int nrow = 0;
   int ncol = 0;
+  auto last_was_cursor = [&]() {
+    return String::Iterator(state_.content, it.id()).Prev().id() == cursor_;
+  };
   while (it.id() != line_fw.id()) {
     t_token.Enter(it.id());
     t_diagnostic.Enter(it.id());
@@ -239,6 +242,7 @@ void Editor::RenderCommon(
     if (it.is_visible()) {
       if (it.value() == '\n') {
         LineInfo li{it.id() == line_end_cr.id()};
+        ci.emplace_back(CharInfo{' ', false, last_was_cursor(), Tag()});
         nrow++;
         ncol = 0;
         add_line(li, ci);
@@ -250,7 +254,7 @@ void Editor::RenderCommon(
           tok = tok.Push("error");
         }
         ci.emplace_back(
-            CharInfo{it.value(), in_selection, it.id() == cursor_, tok});
+            CharInfo{it.value(), in_selection, last_was_cursor(), tok});
       }
     }
     it.MoveNext();

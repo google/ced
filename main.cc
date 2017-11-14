@@ -103,17 +103,20 @@ class Application {
     auto status = top.AddContainer(LAY_HFILL, LAY_ROW).FixSize(0, 1);
     terminal_collaborator_->Render(main);
     renderer.Layout();
-    TerminalRenderContext ctx{
-        color_.get(),
-        nullptr,
-    };
+    TerminalRenderContext ctx{color_.get(), nullptr, -1, -1};
     renderer.Draw(&ctx);
+
+    Log() << "cursor:: " << ctx.crow << ", " << ctx.ccol;
 
     auto frame_time = absl::Now() - last_key_press;
     std::ostringstream out;
     out << frame_time;
     std::string ftstr = out.str();
     mvaddstr(fb_rows - 1, fb_cols - ftstr.length(), ftstr.c_str());
+
+    if (ctx.crow != -1) {
+      move(ctx.crow, ctx.ccol);
+    }
   }
 
   absl::Mutex mu_;

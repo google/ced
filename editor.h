@@ -117,10 +117,21 @@ class Editor {
     template <class T, class A>
     void Put(int row, int col, const T& val, const A& attr) {
       if (row < 0 || col < 0 || row >= window->height() ||
-          col >= window->width())
+          col >= window->width()) {
         return;
+      }
       parent_context->Put(row + ofs_row + window->row(), col + window->column(),
                           val, attr);
+    }
+
+    void Move(int row, int col) {
+      Log() << "EDMOVE: " << row << ", " << col;
+      if (row < 0 || col < 0 || row >= window->height() ||
+          col >= window->width()) {
+        return;
+      }
+      parent_context->Move(row + ofs_row + window->row(),
+                           col + window->column());
     }
   };
 
@@ -141,6 +152,9 @@ class Editor {
                            [li, ci](EditRenderContext<RC>* ctx) {
                              int col = 0;
                              for (const auto& c : ci) {
+                               if (c.cursor) {
+                                 ctx->Move(0, col);
+                               }
                                ctx->Put(0, col++, c.c,
                                         ctx->color->Theme(c.tag,
                                                           ThemeFlags(&li, &c)));

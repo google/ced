@@ -26,6 +26,9 @@ struct TerminalRenderContext {
   TerminalColor* const color;
   const Renderer<TerminalRenderContext>::Rect* window;
 
+  int crow;
+  int ccol;
+
   void Put(int row, int col, chtype ch, chtype attr) {
     if (row < 0 || col < 0 || col >= window->width() ||
         row >= window->height()) {
@@ -37,6 +40,17 @@ struct TerminalRenderContext {
   void Put(int row, int col, const std::string& str, chtype attr) {
     for (auto c : str) {
       Put(row, col++, c, attr);
+    }
+  }
+
+  void Move(int row, int col) {
+    Log() << "TRMOVE: " << row << ", " << col;
+    if (row < 0 || col < 0 || col >= window->width() ||
+        row >= window->height()) {
+      crow = ccol = -1;
+    } else {
+      crow = row + window->row();
+      ccol = col + window->column();
     }
   }
 };
