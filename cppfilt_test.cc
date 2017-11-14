@@ -15,12 +15,18 @@
 #include <gtest/gtest.h>
 #include <thread>
 
-TEST(CppFilt, Simple) { EXPECT_EQ(cppfilt("_Z4testv"), "test()"); }
+#ifdef __APPLE__
+#define MANGLED "__Z4testv"
+#else
+#define MANGLED "_Z4testv"
+#endif
+
+TEST(CppFilt, Simple) { EXPECT_EQ(cppfilt(MANGLED), "test()"); }
 
 TEST(CppFilt, Threaded) {
   std::vector<std::thread> threads;
   for (int i = 0; i < 1000; i++) {
-    threads.emplace_back([]() { EXPECT_EQ(cppfilt("_Z4testv"), "test()"); });
+    threads.emplace_back([]() { EXPECT_EQ(cppfilt(MANGLED), "test()"); });
   }
   for (auto& t : threads) {
     t.join();
