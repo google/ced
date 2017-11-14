@@ -119,7 +119,8 @@ static bool HasUpdates(const EditResponse& response) {
   return response.become_loaded || !response.content.empty() ||
          !response.token_types.empty() || !response.diagnostics.empty() ||
          !response.diagnostic_ranges.empty() ||
-         !response.side_buffers.empty() || !response.side_buffer_refs.empty();
+         !response.side_buffers.empty() || !response.side_buffer_refs.empty() ||
+         !response.fixits.empty();
 }
 
 template <class T>
@@ -167,6 +168,7 @@ void Buffer::SinkResponse(void* id, const char* name,
       IntegrateState(&state.diagnostic_ranges, response.diagnostic_ranges);
       IntegrateState(&state.side_buffers, response.side_buffers);
       IntegrateState(&state.side_buffer_refs, response.side_buffer_refs);
+      IntegrateState(&state.fixits, response.fixits);
       if (response.become_loaded) state.fully_loaded = true;
     });
   } else {

@@ -125,6 +125,7 @@ cc_binary(
     ":clang_format_collaborator",
     ":libclang_collaborator",
     ":godbolt_collaborator",
+    ":fixit_collaborator",
     ":config",
     ":terminal_color",
     ":render"
@@ -212,6 +213,16 @@ cc_library(
     ":run",
     "@pugixml//:pugixml"
   ],
+)
+
+cc_library(
+  name = "fixit_collaborator",
+  srcs = ["fixit_collaborator.cc"],
+  hdrs = ["fixit_collaborator.h"],
+  deps = [
+    ":buffer",
+    ":log",
+  ]
 )
 
 cc_library(

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "diagnostic.h"
+#include "absl/strings/str_join.h"
 #include "buffer.h"
 #include "umap.h"
 #include "uset.h"
@@ -114,10 +115,11 @@ void DiagnosticEditor::Publish(const String& content, EditResponse* response) {
     for (const auto& fixit : diag.fixits) {
       idx++;
       for (const auto& replacement : fixit.replacements) {
-        impl_->fixit_editor.Add(
+        ID id = impl_->fixit_editor.Add(
             diag.diag_id,
             Fixit{idx, replacement.range.first, replacement.range.second,
                   replacement.new_text});
+        Log() << "PUBLISH FIXIT: " << absl::StrJoin(id, ":");
       }
     }
   }

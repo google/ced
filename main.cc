@@ -15,6 +15,7 @@
 #include <signal.h>
 #include "buffer.h"
 #include "clang_format_collaborator.h"
+#include "fixit_collaborator.h"
 #include "godbolt_collaborator.h"
 #include "libclang_collaborator.h"
 #include "render.h"
@@ -41,6 +42,7 @@ class Application {
     buffer_.MakeCollaborator<ClangFormatCollaborator>();
     buffer_.MakeCollaborator<LibClangCollaborator>();
     buffer_.MakeCollaborator<GodboltCollaborator>();
+    buffer_.MakeCollaborator<FixitCollaborator>();
   }
 
   ~Application() { endwin(); }

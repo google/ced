@@ -60,6 +60,12 @@ class UMap : public CRDT<UMap<K, V>> {
     id2v->ForEach([f](ID, const V& v) { f(v); });
   }
 
+  template <class F>
+  void ForEach(F&& f) const {
+    id2kv_.ForEach(
+        [&](ID id, const std::pair<K, V>& kv) { f(id, kv.first, kv.second); });
+  }
+
  private:
   UMap(AVL<K, AVL<ID, V>>&& k2id2v, const AVL<ID, std::pair<K, V>>&& id2kv)
       : k2id2v_(std::move(k2id2v)), id2kv_(std::move(id2kv)) {}
