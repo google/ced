@@ -99,9 +99,12 @@ class Application {
     int fb_rows, fb_cols;
     getmaxyx(stdscr, fb_rows, fb_cols);
     auto top = renderer.AddContainer(LAY_COLUMN).FixSize(fb_cols, fb_rows);
-    auto main = top.AddContainer(LAY_FILL, LAY_ROW);
-    auto status = top.AddContainer(LAY_HFILL, LAY_ROW).FixSize(0, 1);
-    terminal_collaborator_->Render(main);
+    TerminalRenderContainers containers{
+        top.AddContainer(LAY_FILL, LAY_ROW),
+        top.AddContainer(LAY_BOTTOM | LAY_HFILL, LAY_COLUMN),
+        top.AddContainer(LAY_HFILL, LAY_ROW).FixSize(0, 1),
+    };
+    terminal_collaborator_->Render(containers);
     renderer.Layout();
     TerminalRenderContext ctx{color_.get(), nullptr, -1, -1};
     renderer.Draw(&ctx);

@@ -57,13 +57,19 @@ struct TerminalRenderContext {
 
 typedef Renderer<TerminalRenderContext> TerminalRenderer;
 
+struct TerminalRenderContainers {
+  TerminalRenderer::ContainerRef main;
+  TerminalRenderer::ContainerRef ext_status;
+  TerminalRenderer::ContainerRef status;
+};
+
 class TerminalCollaborator final : public Collaborator {
  public:
   TerminalCollaborator(const Buffer* buffer, std::function<void()> invalidate);
   void Push(const EditNotification& notification) override;
   EditResponse Pull() override;
 
-  void Render(TerminalRenderer::ContainerRef container);
+  void Render(TerminalRenderContainers containers);
   void ProcessKey(AppEnv* app_env, int key);
 
  private:

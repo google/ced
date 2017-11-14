@@ -69,7 +69,7 @@ static const char* SeverityString(Severity sev) {
   return "XXXXX";
 }
 
-void TerminalCollaborator::Render(TerminalRenderer::ContainerRef container) {
+void TerminalCollaborator::Render(TerminalRenderContainers containers) {
   auto ready = [this]() {
     mu_.AssertHeld();
     return editor_.HasMostRecentEdit();
@@ -78,7 +78,7 @@ void TerminalCollaborator::Render(TerminalRenderer::ContainerRef container) {
   /*
    * edit item
    */
-  container
+  containers.main
       .AddItem(LAY_LEFT | LAY_VFILL,
                [this, ready](TerminalRenderContext* context) {
                  mu_.LockWhen(absl::Condition(&ready));
@@ -87,7 +87,7 @@ void TerminalCollaborator::Render(TerminalRenderer::ContainerRef container) {
                })
       .FixSize(80, 0);
 
-  auto side_bar = container.AddContainer(LAY_FILL, LAY_COLUMN);
+  auto side_bar = containers.main.AddContainer(LAY_FILL, LAY_COLUMN);
 
   side_bar.AddItem(LAY_FILL, [this, ready](TerminalRenderContext* context) {
     mu_.LockWhen(absl::Condition(&ready));
@@ -95,7 +95,8 @@ void TerminalCollaborator::Render(TerminalRenderer::ContainerRef container) {
     mu_.Unlock();
   });
 
-  auto diagnostics = side_bar.AddContainer(LAY_TOP | LAY_HFILL, LAY_COLUMN);
+  auto diagnostics =
+      containers.ext_status.AddContainer(LAY_TOP | LAY_HFILL, LAY_COLUMN);
 
   absl::MutexLock lock(&mu_);
   editor_.CurrentState().diagnostics.ForEachValue(
@@ -111,87 +112,6 @@ void TerminalCollaborator::Render(TerminalRenderer::ContainerRef container) {
                      })
             .FixSize(0, 1);
       });
-
-#if 0
-  container.AddItem(LAY_FILL, [this](TerminalRenderContext* context) {
-    absl::MutexLock lock(&mu_);
-
-    auto r = *context->window;
-
-    int max_length = r.width();
-    int row = 0;
-    state_.diagnostics.ForEachValue([&](const Diagnostic& diagnostic) {
-      if (row >= r.height()) return;
-        msg.resize(max_length);
-      }
-      context->Put(row++, 0, msg, context->color->Theme(Tag(), 0));
-    });
-
-    cursor_token_.ForEach([&](const std::string& msg) {
-      if (row >= r.height()) return;
-      context->Put(row++, 0, msg, context->color->Theme(Tag(), 0));
-    });
-
-    state_.side_buffers.ForEachValue(
-        active_side_buffer_.name, [&](const SideBuffer& buffer) {
-          mu_.AssertHeld();
-          if (row >= r.height()) return;
-          if (!active_side_buffer_.lines.empty()) {
-            Log() << "sb_cursor_row_=" << sb_cursor_row_
-                  << " line[0]=" << active_side_buffer_.lines.front()
-                  << " line[-1]=" << active_side_buffer_.lines.back();
-            if (sb_cursor_row_ >= buffer.line_ofs.size()) {
-              sb_cursor_row_ = buffer.line_ofs.size() - 1;
-            }
-            int adj = 0;
-            if (active_side_buffer_.lines.front() < sb_cursor_row_) {
-              sb_cursor_row_ = active_side_buffer_.lines.front();
-              adj++;
-            }
-            if (active_side_buffer_.lines.back() >=
-                sb_cursor_row_ + r.height()) {
-              sb_cursor_row_ = active_side_buffer_.lines.back() - r.height();
-              adj++;
-            }
-            if (adj == 2) {
-              sb_cursor_row_ =
-                  (buffer.line_ofs.front() + buffer.line_ofs.back()) / 2 -
-                  r.height() / 2;
-            }
-            if (sb_cursor_row_ < 0) {
-              sb_cursor_row_ = 0;
-            }
-          }
-          int col = 0;
-          int sbrow = sb_cursor_row_;
-          for (int i = buffer.line_ofs[sb_cursor_row_];
-               i < buffer.content.size(); i++) {
-            uint32_t flags = 0;
-            if (std::find(active_side_buffer_.lines.begin(),
-                          active_side_buffer_.lines.end(),
-                          sbrow) != active_side_buffer_.lines.end()) {
-              flags |= Theme::HIGHLIGHT_LINE;
-            }
-            auto attr = context->color->Theme(Tag(), flags);
-            char c = buffer.content[i];
-            if (c == '\n') {
-              chtype fill = ' ';
-              while (col < r.width()) {
-                context->Put(row, col++, fill, attr);
-              }
-              row++;
-              sbrow++;
-              col = 0;
-              if (row >= r.height()) break;
-            } else if (col < r.width()) {
-              context->Put(row, col++, c, attr);
-            }
-          }
-        });
-  });
-
-  move(cursor_row, cursor_col);
-#endif
 }
 
 void TerminalCollaborator::ProcessKey(AppEnv* app_env, int key) {
