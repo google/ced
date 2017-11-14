@@ -13,5 +13,16 @@
 // limitations under the License.
 #include "cppfilt.h"
 #include <gtest/gtest.h>
+#include <thread>
 
 TEST(CppFilt, Simple) { EXPECT_EQ(cppfilt("_Z4testv"), "test()"); }
+
+TEST(CppFilt, Threaded) {
+  std::vector<std::thread> threads;
+  for (int i = 0; i < 1000; i++) {
+    threads.emplace_back([]() { EXPECT_EQ(cppfilt("_Z4testv"), "test()"); });
+  }
+  for (auto& t : threads) {
+    t.join();
+  }
+}

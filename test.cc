@@ -22,8 +22,7 @@ class Foo : private A {
 extern void print_int(int n);
 
 namespace FOO {
-
-int test(int x) { return Foo().fib(x) - Foo().fib2(x); }
+int test(int x) { return (int)Foo().fib(x) - Foo().fib2(x); }
 }  // namespace FOO
 
 class Bar {

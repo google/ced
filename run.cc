@@ -15,12 +15,63 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/dir.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <thread>
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "log.h"
 #include "wrap_syscall.h"
+
+#ifdef __APPLE__
+#define FDS_DIR "/dev/fd"
+#else
+#define FDS_DIR "/proc/self/fd"
+#endif
+
+static void CloseFDsAfter(int after) {
+  DIR* d;
+
+  if ((d = opendir(FDS_DIR))) {
+    struct dirent* de;
+
+    while ((de = readdir(d))) {
+      if (de->d_name[0] == '.') continue;
+
+      errno = 0;
+      char* e = NULL;
+      long l = strtol(de->d_name, &e, 10);
+      if (errno != 0 || !e || *e) {
+        closedir(d);
+        throw std::runtime_error(absl::StrCat("Confused: saw error ", errno, " looking at ", FDS_DIR, " file ", de->d_name));
+      }
+
+      auto fd = (int)l;
+
+      if ((long)fd != l) {
+        closedir(d);
+        throw std::runtime_error(absl::StrCat("Confused: ", fd, " != ", l, " looking at ", FDS_DIR, " file ", de->d_name));
+      }
+
+      if (fd <= after) continue;
+
+      if (fd == dirfd(d)) continue;
+
+      if (close(fd) < 0) {
+        int saved_errno;
+
+        saved_errno = errno;
+        closedir(d);
+        errno = saved_errno;
+
+        throw std::runtime_error(absl::StrCat("Confused: close(", fd, ") failed with errno ", errno, " looking at ", FDS_DIR, " file ", de->d_name));
+      }
+    }
+
+    closedir(d);
+  }
+}
 
 RunResult run(const std::string& command, const std::vector<std::string>& args,
               const std::string& input) {
@@ -33,6 +84,10 @@ RunResult run(const std::string& command, const std::vector<std::string>& args,
 
   Log() << "RUN: " << absl::StrCat(command, " ", absl::StrJoin(args, " "));
 
+  std::vector<char*> cargs;
+  cargs.push_back(strdup(command.c_str()));
+  for (auto& arg : args) cargs.push_back(strdup(arg.c_str()));
+  cargs.push_back(nullptr);
   pid_t p = WrapSyscall("fork", [&]() { return fork(); });
   if (p == 0) {
     WrapSyscall("dup2", [&]() { return dup2(pipes[IN][READ], STDIN_FILENO); });
@@ -40,16 +95,8 @@ RunResult run(const std::string& command, const std::vector<std::string>& args,
                 [&]() { return dup2(pipes[OUT][WRITE], STDOUT_FILENO); });
     WrapSyscall("dup2",
                 [&]() { return dup2(pipes[ERR][WRITE], STDERR_FILENO); });
-    for (int i = 0; i < 3; i++) {
-      for (int j = 0; j < 2; j++) {
-        close(pipes[i][j]);
-      }
-    }
-    std::vector<char*> cargs;
-    cargs.push_back(strdup(command.c_str()));
-    for (auto& arg : args) cargs.push_back(strdup(arg.c_str()));
-    cargs.push_back(nullptr);
-    WrapSyscall("execvp", [&]() { return execvp(cargs[0], cargs.data()); });
+    CloseFDsAfter(STDERR_FILENO);
+    execvp(cargs[0], cargs.data());
     abort();
   } else {
     close(pipes[IN][READ]);
@@ -57,9 +104,13 @@ RunResult run(const std::string& command, const std::vector<std::string>& args,
     close(pipes[ERR][WRITE]);
     std::thread wr([&]() {
       if (input.length() > 0) {
-        WrapSyscall("write", [&]() {
-          return write(pipes[IN][WRITE], input.data(), input.length());
-        });
+        const char* buf = input.data();
+        const char* end = buf + input.length();
+        while (buf != end) {
+          buf += WrapSyscall("write", [&]() {
+            return write(pipes[IN][WRITE], buf, end - buf);
+          });
+        }
       }
       close(pipes[IN][WRITE]);
     });
@@ -68,16 +119,19 @@ RunResult run(const std::string& command, const std::vector<std::string>& args,
       int n;
       do {
         n = WrapSyscall("read", [&]() { return read(fd, buf, sizeof(buf)); });
+        Log() << "READ: " << n << " from " << fd;
         out->append(buf, n);
       } while (n > 0);
+      close(fd);
     };
     RunResult result;
     std::thread rdout([&]() { rd(pipes[OUT][READ], &result.out); });
     std::thread rderr([&]() { rd(pipes[ERR][READ], &result.err); });
+    std::thread wait([&]() { waitpid(p, &result.status, 0); });
     wr.join();
     rdout.join();
     rderr.join();
-    waitpid(p, &result.status, 0);
+    wait.join();
     return result;
   }
 }

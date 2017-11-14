@@ -45,6 +45,7 @@ void IOCollaborator::Push(const EditNotification& notification) {
     close(fd);
     throw;
   }
+  close(fd);
   WrapSyscall("rename", [&]() {
     return rename(tmp.filename().c_str(), filename_.c_str());
   });

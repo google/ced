@@ -22,7 +22,7 @@ class NamedTempFile {
     char tpl[1024];
     if (!temp) temp = "/tmp";
     sprintf(tpl, "%s/ced.XXXXXX", temp);
-    WrapSyscall("mkstemp", [&]() { return mkstemp(tpl); });
+    close(WrapSyscall("mkstemp", [&]() { return mkstemp(tpl); }));
     filename_ = tpl;
   }
 
