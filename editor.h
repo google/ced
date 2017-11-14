@@ -66,7 +66,9 @@ class Editor {
 
     template <class T, class A>
     void Put(int row, int col, const T& val, const A& attr) {
-      if (row < 0 || col < 0 || row >= window->height() || col >= window->width()) return;
+      if (row < 0 || col < 0 || row >= window->height() ||
+          col >= window->width())
+        return;
       parent_context->Put(row + ofs_row + window->row(), col + window->column(),
                           val, attr);
     }
@@ -76,13 +78,14 @@ class Editor {
   template <class RC>
   void Render(RC* parent_context) {
     Renderer<EditRenderContext<RC>> renderer;
-    auto container = renderer.AddContainer(LAY_COLUMN).FixSize(
-        parent_context->window->width(), 0*parent_context->window->height());
+    auto container = renderer.AddContainer(LAY_COLUMN)
+                         .FixSize(parent_context->window->width(),
+                                  0 * parent_context->window->height());
     typename Renderer<EditRenderContext<RC>>::ItemRef cursor_row;
     RenderCommon(
         parent_context->window->height(),
-        [&container, &cursor_row, parent_context](LineInfo li,
-                                  const std::vector<CharInfo>& ci) {
+        [&container, &cursor_row, parent_context](
+            LineInfo li, const std::vector<CharInfo>& ci) {
           auto ref =
               container
                   .AddItem(LAY_TOP | LAY_LEFT,
@@ -105,7 +108,8 @@ class Editor {
           }
         });
     renderer.Layout();
-    Log() << "cursor_row_ = " << cursor_row_ << "  layout = " << (cursor_row ? cursor_row.GetRect().row() : 0);
+    Log() << "cursor_row_ = " << cursor_row_
+          << "  layout = " << (cursor_row ? cursor_row.GetRect().row() : 0);
     EditRenderContext<RC> ctx{
         parent_context, parent_context->color, nullptr,
         // out_row = buf_row + ofs

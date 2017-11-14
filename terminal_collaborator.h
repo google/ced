@@ -18,9 +18,9 @@
 #include "absl/time/time.h"
 #include "buffer.h"
 #include "editor.h"
+#include "log.h"
 #include "render.h"
 #include "terminal_color.h"
-#include "log.h"
 
 struct TerminalRenderContext {
   TerminalColor* const color;

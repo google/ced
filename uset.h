@@ -39,7 +39,7 @@ class USet : public CRDT<USet<T>> {
   }
 
   template <class F>
-  void ForEachValue(F&& f) {
+  void ForEachValue(F&& f) const {
     avl_.ForEach([f](ID, const T& value) { f(value); });
   }
 

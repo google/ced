@@ -70,28 +70,44 @@ static const char* SeverityString(Severity sev) {
 }
 
 void TerminalCollaborator::Render(TerminalRenderer::ContainerRef container) {
+  auto ready = [this]() {
+    mu_.AssertHeld();
+    return editor_.HasMostRecentEdit();
+  };
+
   /*
    * edit item
    */
   container
       .AddItem(LAY_FILL,
-               [this](TerminalRenderContext* context) {
-                 auto ready = [this]() {
-                   mu_.AssertHeld();
-                   return editor_.HasMostRecentEdit();
-                 };
-
+               [this, ready](TerminalRenderContext* context) {
                  mu_.LockWhen(absl::Condition(&ready));
-
-                 Log() << "l:" << context->window->column()
-                       << " t:" << context->window->row()
-                       << " w:" << context->window->width()
-                       << " h:" << context->window->height();
                  editor_.Render(context);
-
                  mu_.Unlock();
                })
       .FixSize(80, 0);
+
+  auto side_bar = container.AddContainer(LAY_LEFT, LAY_COLUMN);
+
+  auto diagnostics = side_bar.AddContainer(LAY_TOP, LAY_COLUMN);
+
+  absl::MutexLock lock(&mu_);
+  editor_.CurrentState().diagnostics.ForEachValue(
+      [&](const Diagnostic& diagnostic) {
+        std::string msg = absl::StrCat(diagnostic.index, ": [",
+                                       SeverityString(diagnostic.severity),
+                                       "] ", diagnostic.message);
+        diagnostics
+            .AddItem(LAY_TOP | LAY_LEFT,
+                     [msg](TerminalRenderContext* context) {
+                       Log() << *context->window;
+                       context->Put(0, 0, msg, context->color->Theme(Tag(), 0));
+                     })
+            .FixSize(msg.length(), 1);
+      });
+
+  // fill remaining space
+  diagnostics.AddItem(LAY_FILL, [](TerminalRenderContext* context) {});
 
 #if 0
   container.AddItem(LAY_FILL, [this](TerminalRenderContext* context) {
@@ -103,10 +119,6 @@ void TerminalCollaborator::Render(TerminalRenderer::ContainerRef container) {
     int row = 0;
     state_.diagnostics.ForEachValue([&](const Diagnostic& diagnostic) {
       if (row >= r.height()) return;
-      std::string msg = absl::StrCat(diagnostic.index, ": [",
-                                     SeverityString(diagnostic.severity), "] ",
-                                     diagnostic.message);
-      if (msg.length() > max_length) {
         msg.resize(max_length);
       }
       context->Put(row++, 0, msg, context->color->Theme(Tag(), 0));

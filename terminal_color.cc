@@ -1,6 +1,6 @@
 #include "terminal_color.h"
-#include "log.h"
 #include <math.h>
+#include "log.h"
 
 TerminalColor::TerminalColor(std::unique_ptr<::Theme> theme)
     : theme_(std::move(theme)) {
@@ -22,18 +22,17 @@ TerminalColor::LAB TerminalColor::RGB2LAB(RGB rgb) {
   y = (r * 0.2126f + g * 0.7152f + b * 0.0722f) / 1.00000f;
   z = (r * 0.0193f + g * 0.1192f + b * 0.9505f) / 1.08883f;
 
-  x = (x > 0.008856f) ? powf(x, 1.0f/3.0f) : (7.787f * x) + 16.0f/116.0f;
-  y = (y > 0.008856f) ? powf(y, 1.0f/3.0f) : (7.787f * y) + 16.0f/116.0f;
-  z = (z > 0.008856f) ? powf(z, 1.0f/3.0f) : (7.787f * z) + 16.0f/116.0f;
+  x = (x > 0.008856f) ? powf(x, 1.0f / 3.0f) : (7.787f * x) + 16.0f / 116.0f;
+  y = (y > 0.008856f) ? powf(y, 1.0f / 3.0f) : (7.787f * y) + 16.0f / 116.0f;
+  z = (z > 0.008856f) ? powf(z, 1.0f / 3.0f) : (7.787f * z) + 16.0f / 116.0f;
 
   return LAB((116.0f * y) - 16.0f, 500.0f * (x - y), 200.0f * (y - z));
-
 }
 
 template <int I, class T>
-static T sqdiff(std::tuple<T,T,T> a, std::tuple<T,T,T> b) {
+static T sqdiff(std::tuple<T, T, T> a, std::tuple<T, T, T> b) {
   T d = std::get<I>(a) - std::get<I>(b);
-  return d*d;
+  return d * d;
 }
 
 float TerminalColor::RGBDistance(RGB a, RGB b) {
@@ -56,7 +55,8 @@ int TerminalColor::ColorToIndex(Theme::Color c) {
     Log() << "crrent to " << r << "," << g << "," << b;
     Log() << "COLOR[" << n << "]: " << (int)(c.r * 1000 / 255) << " "
           << (int)(c.g * 1000 / 255) << " " << (int)(c.b * 1000 / 255);
-    Log() << init_color(n, c.r * 1000 / 255, c.g * 1000 / 255, c.b * 1000 / 255);
+    Log() << init_color(n, c.r * 1000 / 255, c.g * 1000 / 255,
+                        c.b * 1000 / 255);
     color_content(n, &r, &g, &b);
     Log() << "set to " << r << "," << g << "," << b;
     color_cache_.insert(std::make_pair(rgb, n));
@@ -64,12 +64,13 @@ int TerminalColor::ColorToIndex(Theme::Color c) {
   } else {
     float best_diff = -1;
     int best_clr = -1;
-    for (int i=0; i<COLORS; i++) {
+    for (int i = 0; i < COLORS; i++) {
       short r, g, b;
       color_content(i, &r, &g, &b);
       RGB sys(r * 255 / 1000, g * 255 / 1000, b * 255 / 1000);
       float diff = RGBDistance(rgb, sys);
-      Log() << "color[" << i << " is " << r << "," << g << "," << b << " ; diff=" << diff;
+      Log() << "color[" << i << " is " << r << "," << g << "," << b
+            << " ; diff=" << diff;
       if (i == 0 || best_diff > diff) {
         best_diff = diff;
         best_clr = i;

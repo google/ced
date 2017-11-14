@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <ostream>
 #include <vector>
 #include "layout.h"
 
@@ -17,6 +18,12 @@ class Renderer {
     lay_scalar row() const { return rect_[1]; }
     lay_scalar width() const { return rect_[2]; }
     lay_scalar height() const { return rect_[3]; }
+
+    friend inline std::ostream& operator<<(std::ostream& out,
+                                           typename Renderer<Context>::Rect r) {
+      return out << "(" << r.column() << "," << r.row() << ")+(" << r.width()
+                 << "," << r.height() << ")";
+    }
 
    private:
     lay_vec4 rect_;

@@ -32,22 +32,22 @@ void Editor::MoveEndOfLine() {
 
 void Editor::MoveDownN(int n) {
   SetSelectMode(false);
-  for (int i=0; i<n; i++) CursorDown();
+  for (int i = 0; i < n; i++) CursorDown();
 }
 
 void Editor::MoveUpN(int n) {
   SetSelectMode(false);
-  for (int i=0; i<n; i++) CursorUp();
+  for (int i = 0; i < n; i++) CursorUp();
 }
 
 void Editor::SelectDownN(int n) {
   SetSelectMode(true);
-  for (int i=0; i<n; i++) CursorDown();
+  for (int i = 0; i < n; i++) CursorDown();
 }
 
 void Editor::SelectUpN(int n) {
   SetSelectMode(true);
-  for (int i=0; i<n; i++) CursorUp();
+  for (int i = 0; i < n; i++) CursorUp();
 }
 
 void Editor::Backspace() {
