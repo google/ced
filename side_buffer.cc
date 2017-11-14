@@ -21,4 +21,5 @@ void SideBuffer::CalcLines() {
       line_ofs.push_back(1 + (it - content.begin()));
     }
   }
+  line_ofs.push_back(content.size());
 }

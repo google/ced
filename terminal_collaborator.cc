@@ -79,7 +79,7 @@ void TerminalCollaborator::Render(TerminalRenderer::ContainerRef container) {
    * edit item
    */
   container
-      .AddItem(LAY_FILL,
+      .AddItem(LAY_LEFT | LAY_VFILL,
                [this, ready](TerminalRenderContext* context) {
                  mu_.LockWhen(absl::Condition(&ready));
                  editor_.Render(context);
@@ -87,9 +87,15 @@ void TerminalCollaborator::Render(TerminalRenderer::ContainerRef container) {
                })
       .FixSize(80, 0);
 
-  auto side_bar = container.AddContainer(LAY_LEFT, LAY_COLUMN);
+  auto side_bar = container.AddContainer(LAY_FILL, LAY_COLUMN);
 
-  auto diagnostics = side_bar.AddContainer(LAY_TOP, LAY_COLUMN);
+  side_bar.AddItem(LAY_FILL, [this, ready](TerminalRenderContext* context) {
+    mu_.LockWhen(absl::Condition(&ready));
+    editor_.RenderSideBar(context);
+    mu_.Unlock();
+  });
+
+  auto diagnostics = side_bar.AddContainer(LAY_TOP | LAY_HFILL, LAY_COLUMN);
 
   absl::MutexLock lock(&mu_);
   editor_.CurrentState().diagnostics.ForEachValue(
@@ -98,16 +104,13 @@ void TerminalCollaborator::Render(TerminalRenderer::ContainerRef container) {
                                        SeverityString(diagnostic.severity),
                                        "] ", diagnostic.message);
         diagnostics
-            .AddItem(LAY_TOP | LAY_LEFT,
+            .AddItem(LAY_TOP | LAY_HFILL,
                      [msg](TerminalRenderContext* context) {
                        Log() << *context->window;
                        context->Put(0, 0, msg, context->color->Theme(Tag(), 0));
                      })
-            .FixSize(msg.length(), 1);
+            .FixSize(0, 1);
       });
-
-  // fill remaining space
-  diagnostics.AddItem(LAY_FILL, [](TerminalRenderContext* context) {});
 
 #if 0
   container.AddItem(LAY_FILL, [this](TerminalRenderContext* context) {

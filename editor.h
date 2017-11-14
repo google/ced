@@ -57,69 +57,6 @@ class Editor {
 
   // rendering
  private:
-  template <class RC>
-  struct EditRenderContext {
-    RC* parent_context;
-    decltype(static_cast<RC*>(nullptr)->color) color;
-    const typename Renderer<EditRenderContext>::Rect* window;
-    int ofs_row;
-
-    template <class T, class A>
-    void Put(int row, int col, const T& val, const A& attr) {
-      if (row < 0 || col < 0 || row >= window->height() ||
-          col >= window->width())
-        return;
-      parent_context->Put(row + ofs_row + window->row(), col + window->column(),
-                          val, attr);
-    }
-  };
-
- public:
-  template <class RC>
-  void Render(RC* parent_context) {
-    Renderer<EditRenderContext<RC>> renderer;
-    auto container = renderer.AddContainer(LAY_COLUMN)
-                         .FixSize(parent_context->window->width(),
-                                  0 * parent_context->window->height());
-    typename Renderer<EditRenderContext<RC>>::ItemRef cursor_row;
-    RenderCommon(
-        parent_context->window->height(),
-        [&container, &cursor_row, parent_context](
-            LineInfo li, const std::vector<CharInfo>& ci) {
-          auto ref =
-              container
-                  .AddItem(LAY_TOP | LAY_LEFT,
-                           [li, ci](EditRenderContext<RC>* ctx) {
-                             int col = 0;
-                             for (const auto& c : ci) {
-                               ctx->Put(0, col++, c.c,
-                                        ctx->color->Theme(c.tag,
-                                                          ThemeFlags(&li, &c)));
-                             }
-                             while (col < ctx->window->width()) {
-                               ctx->Put(0, col++, ' ',
-                                        ctx->color->Theme(
-                                            Tag(), ThemeFlags(&li, nullptr)));
-                             }
-                           })
-                  .FixSize(parent_context->window->width(), 1);
-          if (li.cursor) {
-            cursor_row = ref;
-          }
-        });
-    renderer.Layout();
-    Log() << "cursor_row_ = " << cursor_row_
-          << "  layout = " << (cursor_row ? cursor_row.GetRect().row() : 0);
-    EditRenderContext<RC> ctx{
-        parent_context, parent_context->color, nullptr,
-        // out_row = buf_row + ofs
-        // => cursor_row_ = cursor_row.Rect().row() + ofs
-        // => ofs = cursor_row_ - cursor_row.Rect().row()
-        cursor_row_ - (cursor_row ? cursor_row.GetRect().row() : 0)};
-    renderer.Draw(&ctx);
-  }
-
- private:
   struct CharInfo {
     char c;
     bool selected;
@@ -127,10 +64,24 @@ class Editor {
     Tag tag;
   };
   struct LineInfo {
-    int render_index;
     bool cursor;
   };
 
+  typedef std::function<void(LineInfo, const std::vector<CharInfo>&)>
+      LineCallback;
+
+ public:
+  template <class RC>
+  void Render(RC* parent_context) {
+    RenderThing(&Editor::RenderCommon, parent_context);
+  }
+
+  template <class RC>
+  void RenderSideBar(RC* parent_context) {
+    RenderThing(&Editor::RenderSideBarCommon, parent_context);
+  }
+
+ private:
   static uint32_t ThemeFlags(const LineInfo* li, const CharInfo* ci) {
     uint32_t f = 0;
     if (li->cursor) {
@@ -156,6 +107,65 @@ class Editor {
   void NextRenderMustHaveID(ID id);
   void NextRenderMustNotHaveID(ID id);
 
+  template <class RC>
+  struct EditRenderContext {
+    RC* parent_context;
+    decltype(static_cast<RC*>(nullptr)->color) color;
+    const typename Renderer<EditRenderContext>::Rect* window;
+    int ofs_row;
+
+    template <class T, class A>
+    void Put(int row, int col, const T& val, const A& attr) {
+      if (row < 0 || col < 0 || row >= window->height() ||
+          col >= window->width())
+        return;
+      parent_context->Put(row + ofs_row + window->row(), col + window->column(),
+                          val, attr);
+    }
+  };
+
+  template <class RC>
+  void RenderThing(void (Editor::*thing)(int height, LineCallback),
+                   RC* parent_context) {
+    Renderer<EditRenderContext<RC>> renderer;
+    auto container = renderer.AddContainer(LAY_COLUMN)
+                         .FixSize(parent_context->window->width(), 0);
+    typename Renderer<EditRenderContext<RC>>::ItemRef cursor_row;
+    (this->*thing)(
+        parent_context->window->height(),
+        [&container, &cursor_row, parent_context](
+            LineInfo li, const std::vector<CharInfo>& ci) {
+          auto ref =
+              container
+                  .AddItem(LAY_TOP | LAY_LEFT,
+                           [li, ci](EditRenderContext<RC>* ctx) {
+                             int col = 0;
+                             for (const auto& c : ci) {
+                               ctx->Put(0, col++, c.c,
+                                        ctx->color->Theme(c.tag,
+                                                          ThemeFlags(&li, &c)));
+                             }
+                             while (col < ctx->window->width()) {
+                               ctx->Put(0, col++, ' ',
+                                        ctx->color->Theme(
+                                            Tag(), ThemeFlags(&li, nullptr)));
+                             }
+                           })
+                  .FixSize(parent_context->window->width(), 1);
+          if (li.cursor) {
+            cursor_row = ref;
+          }
+        });
+    renderer.Layout();
+    EditRenderContext<RC> ctx{
+        parent_context, parent_context->color, nullptr,
+        // out_row = buf_row + ofs
+        // => cursor_row_ = cursor_row.Rect().row() + ofs
+        // => ofs = cursor_row_ - cursor_row.Rect().row()
+        cursor_row_ - (cursor_row ? cursor_row.GetRect().row() : 0)};
+    renderer.Draw(&ctx);
+  }
+
   Site* const site_;
   int cursor_row_ = 0;  // cursor row as an offset into the view buffer
   ID cursor_ = String::Begin();
@@ -167,7 +177,6 @@ class Editor {
   std::function<bool(const EditNotification&)> check_most_recent_edit_ =
       [](const EditNotification&) { return true; };
 
-  void RenderCommon(
-      int approx_height,
-      std::function<void(LineInfo, const std::vector<CharInfo>&)>);
+  void RenderCommon(int approx_height, LineCallback callback);
+  void RenderSideBarCommon(int approx_height, LineCallback callback);
 };

@@ -238,7 +238,7 @@ void Editor::RenderCommon(
 
     if (it.is_visible()) {
       if (it.value() == '\n') {
-        LineInfo li{nrow, it.id() == line_end_cr.id()};
+        LineInfo li{it.id() == line_end_cr.id()};
         nrow++;
         ncol = 0;
         add_line(li, ci);
@@ -255,4 +255,26 @@ void Editor::RenderCommon(
     }
     it.MoveNext();
   }
+}
+
+void Editor::RenderSideBarCommon(int window_height, LineCallback callback) {
+  state_.side_buffers.ForEachValue(
+      active_side_buffer_.name, [&](const SideBuffer& buf) {
+        std::vector<CharInfo> ci;
+        for (size_t line = 0; line < buf.line_ofs.size() - 1; line++) {
+          size_t line_beg = buf.line_ofs[line];
+          size_t line_end = buf.line_ofs[line + 1];
+          ci.clear();
+          ci.reserve(line_end - line_beg);
+          for (size_t i = line_beg; i < line_end; i++) {
+            ci.emplace_back(
+                CharInfo{buf.content[i] == '\n' ? ' ' : buf.content[i], false,
+                         false, Tag()});
+          }
+          callback(LineInfo{std::find(active_side_buffer_.lines.begin(),
+                                      active_side_buffer_.lines.end(),
+                                      line) != active_side_buffer_.lines.end()},
+                   ci);
+        }
+      });
 }
