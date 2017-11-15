@@ -34,6 +34,7 @@ class Application {
     auto theme = std::unique_ptr<Theme>(new Theme(Theme::DEFAULT));
     initscr();
     raw();
+    noecho();
     set_escdelay(25);
     start_color();
     color_.reset(new TerminalColor{std::move(theme)});
