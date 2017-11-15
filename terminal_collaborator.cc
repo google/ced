@@ -26,7 +26,8 @@ TerminalCollaborator::TerminalCollaborator(const Buffer* buffer,
     : Collaborator("terminal", absl::Seconds(0)),
       invalidate_(invalidate),
       editor_(site()),
-      recently_used_(false) {}
+      recently_used_(false),
+      state_(State::EDITING) {}
 
 void TerminalCollaborator::Push(const EditNotification& notification) {
   {
@@ -114,72 +115,98 @@ void TerminalCollaborator::Render(TerminalRenderContainers containers) {
       });
 }
 
+template <class EditorType>
+static bool MaybeProcessEditingKey(AppEnv* app_env, int key,
+                                   EditorType* editor) {
+  int fb_rows, fb_cols;
+  getmaxyx(stdscr, fb_rows, fb_cols);
+  switch (key) {
+    case KEY_SLEFT:
+      editor->SelectLeft();
+      break;
+    case KEY_LEFT:
+      editor->MoveLeft();
+      break;
+    case KEY_SRIGHT:
+      editor->SelectRight();
+      break;
+    case KEY_RIGHT:
+      editor->MoveRight();
+      break;
+    case KEY_HOME:
+      editor->MoveStartOfLine();
+      break;
+    case KEY_END:
+      editor->MoveEndOfLine();
+      break;
+    case KEY_PPAGE:
+      editor->MoveUpN(fb_rows);
+      break;
+    case KEY_NPAGE:
+      editor->MoveDownN(fb_rows);
+      break;
+    case KEY_SR:  // shift down on my mac
+      editor->SelectUp();
+      break;
+    case KEY_SF:
+      editor->SelectDown();
+      break;
+    case KEY_UP:
+      editor->MoveUp();
+      break;
+    case KEY_DOWN:
+      editor->MoveDown();
+      break;
+    case 127:
+    case KEY_BACKSPACE:
+      editor->Backspace();
+      break;
+    case ctrl('C'):
+      editor->Copy(app_env);
+      break;
+    case ctrl('X'):
+      editor->Cut(app_env);
+      break;
+    case ctrl('V'):
+      editor->Paste(app_env);
+      break;
+    default:
+      if (key >= 32 && key < 127) {
+        editor->InsChar(key);
+        break;
+      }
+      return false;
+  }
+  return true;
+}
+
 void TerminalCollaborator::ProcessKey(AppEnv* app_env, int key) {
   absl::MutexLock lock(&mu_);
 
   Log() << "TerminalCollaborator::ProcessKey: " << key;
 
-  int fb_rows, fb_cols;
-  getmaxyx(stdscr, fb_rows, fb_cols);
-
   recently_used_ = true;
-  switch (key) {
-    case KEY_SLEFT:
-      editor_.SelectLeft();
-      break;
-    case KEY_LEFT:
-      editor_.MoveLeft();
-      break;
-    case KEY_SRIGHT:
-      editor_.SelectRight();
-      break;
-    case KEY_RIGHT:
-      editor_.MoveRight();
-      break;
-    case KEY_HOME:
-      editor_.MoveStartOfLine();
-      break;
-    case KEY_END:
-      editor_.MoveEndOfLine();
-      break;
-    case KEY_PPAGE:
-      editor_.MoveUpN(fb_rows);
-      break;
-    case KEY_NPAGE:
-      editor_.MoveDownN(fb_rows);
-      break;
-    case KEY_SR:  // shift down on my mac
-      editor_.SelectUp();
-      break;
-    case KEY_SF:
-      editor_.SelectDown();
-      break;
-    case KEY_UP:
-      editor_.MoveUp();
-      break;
-    case KEY_DOWN:
-      editor_.MoveDown();
-      break;
-    case 127:
-    case KEY_BACKSPACE:
-      editor_.Backspace();
-      break;
-    case ctrl('C'):
-      editor_.Copy(app_env);
-      break;
-    case ctrl('X'):
-      editor_.Cut(app_env);
-      break;
-    case ctrl('V'):
-      editor_.Paste(app_env);
-      break;
-    case 10:
-      editor_.InsNewLine();
-      break;
-    default: {
-      if (key >= 32 && key < 127) {
-        editor_.InsChar(key);
+  switch (state_) {
+    case State::EDITING:
+      if (!MaybeProcessEditingKey(app_env, key, &editor_)) {
+        switch (key) {
+          case ctrl('F'):
+            state_ = State::FINDING;
+            break;
+          case 10:
+            editor_.InsNewLine();
+            break;
+        }
       }
-    } break;
+      break;
+    case State::FINDING:
+      if (!MaybeProcessEditingKey(app_env, key, &find_editor_)) {
+        switch (key) {
+          case 10:
+            state_ = State::EDITING;
+            break;
+        }
+      }
+      break;
   }
 }

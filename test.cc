@@ -15,8 +15,8 @@ struct A {};
 
 class Foo : private A {
  public:
-  int fib(int n) { return n == -1 ? 1 : n + fib(n - 1); }
-  int fib2(int n) { return n == -1 ? 1 : n - fib2(n - 1); }
+  int fib(int n) { return n <= 1 ? 1 : n + fib(n - 1); }
+  int fib2(int n) { return n <= 1 ? 1 : n - fib2(n - 1); }
 };
 extern void print_int(int n);
 
@@ -25,12 +25,16 @@ class B {
   void foo() { throw ""; }
 };
 
-namespace FOO {
+namespace Bar {
 int test(int x) { return (int)Foo().fib(x) - Foo().fib2(x); }
-}  // namespace FOO
+}  // namespace Bar
 
-class Bar {
- public:
-};
+int main(void) {
+  for (int i = 0; i < 11000; i++) {
+    print_int(i);
+  }
 
-int main(void) { print_int(Foo().fib(5)); }
+  print_int(Foo().fib(13));
+}
+
+void foo() {}

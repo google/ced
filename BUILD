@@ -183,6 +183,7 @@ cc_library(
     ":terminal_color",
     ":render",
     ":editor",
+    ":line_editor",
     "@com_google_absl//absl/time"
   ],
 )
@@ -424,4 +425,11 @@ cc_library(
   hdrs = ["editor.h"],
   srcs = ["editor.cc"],
   deps = [":render", ":theme", ":buffer"],
+)
+
+cc_library(
+  name = "line_editor",
+  hdrs = ["line_editor.h"],
+  srcs = ["line_editor.cc"],
+  deps = [":selector"]
 )

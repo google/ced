@@ -18,6 +18,7 @@
 #include "absl/time/time.h"
 #include "buffer.h"
 #include "editor.h"
+#include "line_editor.h"
 #include "log.h"
 #include "render.h"
 #include "terminal_color.h"
@@ -74,8 +75,15 @@ class TerminalCollaborator final : public Collaborator {
   void ProcessKey(AppEnv* app_env, int key);
 
  private:
+  enum class State {
+    EDITING,
+    FINDING,
+  };
+
   const std::function<void()> invalidate_;
   absl::Mutex mu_;
   Editor editor_ GUARDED_BY(mu_);
+  LineEditor find_editor_ GUARDED_BY(mu_);
   bool recently_used_ GUARDED_BY(mu_);
+  State state_ GUARDED_BY(mu_);
 };
