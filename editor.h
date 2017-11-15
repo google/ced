@@ -13,12 +13,12 @@
 // limitations under the License.
 #pragma once
 
+#include <numeric>
+#include <string>
 #include "absl/strings/str_join.h"
 #include "buffer.h"
 #include "render.h"
 #include "theme.h"
-
-#include <string>
 
 struct AppEnv {
   std::string clipboard;
@@ -153,7 +153,8 @@ class Editor {
   template <class RC>
   void RenderThing(void (Editor::*thing)(int height, LineCallback),
                    int (Editor::*compute_row_offset)(
-                       int height, const std::vector<int>& rows),
+                       int height, const std::vector<int>& rows,
+                       bool* animating),
                    RC* parent_context) {
     Renderer<EditRenderContext<RC>> renderer;
     auto container = renderer.AddContainer(LAY_COLUMN)
@@ -194,10 +195,8 @@ class Editor {
     }
     EditRenderContext<RC> ctx{
         parent_context, parent_context->color, nullptr,
-        (this->*compute_row_offset)(parent_context->window->height(), row_idx)};
-    Log() << __PRETTY_FUNCTION__ << "\n*** OFS_ROW:" << ctx.ofs_row
-          << " cursor_row_:" << cursor_row_
-          << " row:" << absl::StrJoin(rows.begin(), rows.end(), ",");
+        (this->*compute_row_offset)(parent_context->window->height(), row_idx,
+                                    &parent_context->animating)};
     renderer.Draw(&ctx);
   }
 
@@ -214,21 +213,32 @@ class Editor {
       [](const EditNotification&) { return true; };
 
   void RenderCommon(int window_height, LineCallback callback);
-  int MainRowOfs(int window_height, const std::vector<int>& rows) {
+  int MainRowOfs(int window_height, const std::vector<int>& rows,
+                 bool* animating) {
     // out_row = buf_row + ofs
     // => cursor_row_ = cursor_row.Rect().row() + ofs
     // => ofs = cursor_row_ - cursor_row.Rect().row()
     return cursor_row_ - (rows.empty() ? 0 : rows[0]);
   }
   void RenderSideBarCommon(int window_height, LineCallback callback);
-  int SideBarRowOfs(int window_height, const std::vector<int>& rows) {
-    if (!rows.empty()) {
-      int min_sb_offset = -rows.front();
-      int max_sb_offset = window_height - 1 - rows.back();
-      if (last_sb_offset_ < min_sb_offset) {
-        last_sb_offset_ = min_sb_offset;
-      } else if (last_sb_offset_ > max_sb_offset) {
-        last_sb_offset_ = max_sb_offset;
+  int SideBarRowOfs(int window_height, const std::vector<int>& rows,
+                    bool* animating) {
+int nlines = 0;	  
+state_.side_buffers.ForEachValue(
+			  active_side_buffer_.name, [&](const SideBuffer& buf) {
+			  nlines += buf.line_ofs.size() - 1; });
+	  if (!rows.empty()) {
+		  int ideal_pos =
+          window_height / 2 -  std::accumulate(rows.begin(), rows.end(), 0) / rows.size();
+      if (ideal_pos > 0) ideal_pos = 0;
+      else if (ideal_pos < window_height-1-nlines) ideal_pos = window_height-1-nlines;
+      if (ideal_pos != last_sb_offset_) {
+        int dir = ideal_pos < last_sb_offset_ ? -1 : 1;
+        int mag = abs(ideal_pos - last_sb_offset_) / 5;
+        if (mag < 1) mag = 1;
+	else if (mag > 5) mag = 5;
+        last_sb_offset_ += mag * dir;
+        *animating = true;
       }
     }
     return last_sb_offset_;

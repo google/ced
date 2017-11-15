@@ -65,10 +65,12 @@ class Application {
     bool refresh = true;
     absl::Time last_key_press = absl::Now();
     for (;;) {
+      bool animating = false;
       if (refresh) {
         erase();
-        Render(last_key_press);
+        animating = Render(last_key_press);
       }
+      timeout(animating ? 10 : -1);
       int c = getch();
       Log() << "GOTKEY: " << c;
       last_key_press = absl::Now();
@@ -97,7 +99,7 @@ class Application {
   }
 
  private:
-  void Render(absl::Time last_key_press) {
+  bool Render(absl::Time last_key_press) {
     TerminalRenderer renderer;
     int fb_rows, fb_cols;
     getmaxyx(stdscr, fb_rows, fb_cols);
@@ -109,10 +111,8 @@ class Application {
     };
     terminal_collaborator_->Render(containers);
     renderer.Layout();
-    TerminalRenderContext ctx{color_.get(), nullptr, -1, -1};
+    TerminalRenderContext ctx{color_.get(), nullptr, -1, -1, false};
     renderer.Draw(&ctx);
-
-    Log() << "cursor:: " << ctx.crow << ", " << ctx.ccol;
 
     auto frame_time = absl::Now() - last_key_press;
     std::ostringstream out;
@@ -123,6 +123,8 @@ class Application {
     if (ctx.crow != -1) {
       move(ctx.crow, ctx.ccol);
     }
+
+    return ctx.animating;
   }
 
   absl::Mutex mu_;

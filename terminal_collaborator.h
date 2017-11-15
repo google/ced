@@ -28,6 +28,7 @@ struct TerminalRenderContext {
 
   int crow;
   int ccol;
+  bool animating;
 
   void Put(int row, int col, chtype ch, chtype attr) {
     if (row < 0 || col < 0 || col >= window->width() ||
