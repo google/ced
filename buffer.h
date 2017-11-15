@@ -80,6 +80,7 @@ struct EditState {
   TypeTranslator<UMap<std::string, SideBuffer>> side_buffers;
   TypeTranslator<AnnotationMap<SideBufferRef>> side_buffer_refs;
   TypeTranslator<UMap<ID, Fixit>> fixits;
+  TypeTranslator<USet<std::string>> referenced_files;
 };
 
 template <class T>
@@ -88,6 +89,7 @@ using NotifTrans = T;
 struct EditNotification : public EditState<NotifTrans> {
   bool fully_loaded = false;
   bool shutdown = false;
+  uint64_t referenced_file_version = 0;
 };
 
 template <class T>
@@ -97,6 +99,7 @@ struct EditResponse : public EditState<RspTrans> {
   bool done = false;
   bool become_used = false;
   bool become_loaded = false;
+  bool referenced_file_changed = false;
 };
 
 class Collaborator {

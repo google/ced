@@ -13,6 +13,8 @@
 // limitations under the License.
 #pragma once
 
+#include <map>
+#include "avl.h"
 #include "crdt.h"
 
 template <class T>
@@ -37,6 +39,10 @@ class USet : public CRDT<USet<T>> {
   template <class F>
   void ForEachValue(F&& f) const {
     avl_.ForEach([f](ID, const T& value) { f(value); });
+  }
+
+  bool SameIdentity(USet<T> other) const {
+    return avl_.SameIdentity(other.avl_);
   }
 
  private:

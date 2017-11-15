@@ -18,6 +18,7 @@
 #include "fixit_collaborator.h"
 #include "godbolt_collaborator.h"
 #include "libclang_collaborator.h"
+#include "referenced_file_collaborator.h"
 #include "render.h"
 #include "terminal_collaborator.h"
 #include "terminal_color.h"
@@ -44,6 +45,7 @@ class Application {
     buffer_.MakeCollaborator<LibClangCollaborator>();
     buffer_.MakeCollaborator<GodboltCollaborator>();
     buffer_.MakeCollaborator<FixitCollaborator>();
+    buffer_.MakeCollaborator<ReferencedFileCollaborator>();
   }
 
   ~Application() { endwin(); }

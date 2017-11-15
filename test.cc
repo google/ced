@@ -11,6 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "test.h"
+
 struct A {};
 
 class Foo : private A {

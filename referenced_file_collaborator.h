@@ -13,20 +13,23 @@
 // limitations under the License.
 #pragma once
 
-#include <memory>
 #include "buffer.h"
-#include "diagnostic.h"
+#include "fswatch.h"
 
-class LibClangCollaborator final : public SyncCollaborator {
+class ReferencedFileCollaborator final : public Collaborator {
  public:
-  LibClangCollaborator(const Buffer* buffer);
-  ~LibClangCollaborator();
-
-  EditResponse Edit(const EditNotification& notification) override;
+  ReferencedFileCollaborator(const Buffer* buffer)
+      : Collaborator("reffile", absl::Seconds(0)) {}
+  void Push(const EditNotification& notification) override;
+  EditResponse Pull() override;
 
  private:
-  const Buffer* const buffer_;
-  UMapEditor<ID, Annotation<Tag>> token_editor_;
-  DiagnosticEditor diagnostic_editor_;
-  USetEditor<std::string> ref_editor_;
+  void ChangedFile(bool shutdown_fswatch);
+  void RestartWatch() EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
+  absl::Mutex mu_;
+  USet<std::string> last_ GUARDED_BY(mu_);
+  bool update_ GUARDED_BY(mu_);
+  bool shutdown_ GUARDED_BY(mu_);
+  std::unique_ptr<FSWatcher> fswatch_ GUARDED_BY(mu_);
 };

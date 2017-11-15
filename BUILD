@@ -126,6 +126,7 @@ cc_binary(
     ":libclang_collaborator",
     ":godbolt_collaborator",
     ":fixit_collaborator",
+    ":referenced_file_collaborator",
     ":config",
     ":terminal_color",
     ":render"
@@ -444,4 +445,15 @@ cc_binary(
   name = "fswatch_test",
   srcs = ["fswatch_test.cc"],
   deps = [":fswatch"]
+)
+
+cc_library(
+  name = "referenced_file_collaborator",
+  srcs = ["referenced_file_collaborator.cc"],
+  hdrs = ["referenced_file_collaborator.h"],
+  deps = [
+    ":buffer",
+    ":log",
+    ":fswatch",
+  ]
 )

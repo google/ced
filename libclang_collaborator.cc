@@ -74,7 +74,8 @@ LibClangCollaborator::LibClangCollaborator(const Buffer* buffer)
     : SyncCollaborator("libclang", absl::Seconds(0)),
       buffer_(buffer),
       token_editor_(site()),
-      diagnostic_editor_(site()) {}
+      diagnostic_editor_(site()),
+      ref_editor_(site()) {}
 
 LibClangCollaborator::~LibClangCollaborator() {
   ClangEnv* env = ClangEnv::Get();
@@ -140,7 +141,9 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   }
   Log() << "libclang args: " << absl::StrJoin(cmd_args, " ");
   std::vector<CXUnsavedFile> unsaved_files = env->GetUnsavedFiles();
-  const int options = 0;
+  const int options = env->clang_defaultEditingTranslationUnitOptions() |
+                      CXTranslationUnit_KeepGoing |
+                      CXTranslationUnit_DetailedPreprocessingRecord;
   CXTranslationUnit tu = env->clang_parseTranslationUnit(
       env->index(), filename.c_str(), cmd_args.data(), cmd_args.size(),
       unsaved_files.data(), unsaved_files.size(), options);
@@ -169,6 +172,10 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
     env->clang_disposeTranslationUnit(tu);
     return response;
   }
+
+  /*
+   * SYNTAX HIGHLIGHTING DATA
+   */
 
   CXToken* tokens;
   unsigned numTokens;
@@ -225,7 +232,32 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
 
   env->clang_disposeTokens(tu, tokens, numTokens);
 
-  // fetch diagnostics
+  /*
+   * REFERENCED FILE DISCOVERY
+   */
+
+  ref_editor_.BeginEdit(&response.referenced_files);
+  env->clang_visitChildren(
+      env->clang_getTranslationUnitCursor(tu),
+      +[](CXCursor cursor, CXCursor parent, CXClientData client_data) {
+        ClangEnv* env = ClangEnv::Get();
+        if (env->clang_getCursorKind(cursor) == CXCursor_InclusionDirective) {
+          CXFile file = env->clang_getIncludedFile(cursor);
+          CXString filename = env->clang_getFileName(file);
+          const char* fn = env->clang_getCString(filename);
+          LibClangCollaborator* self =
+              static_cast<LibClangCollaborator*>(client_data);
+          self->ref_editor_.Add(fn);
+          env->clang_disposeString(filename);
+        }
+        return CXChildVisit_Recurse;
+      },
+      this);
+  ref_editor_.Publish();
+
+  /*
+   * DIAGNOSTIC DISPLAY
+   */
   if (notification.fully_loaded) {
     unsigned num_diagnostics = env->clang_getNumDiagnostics(tu);
     Log() << num_diagnostics << " diagnostics";

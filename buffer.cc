@@ -116,11 +116,11 @@ EditNotification Buffer::NextNotification(void* id, const char* name,
 }
 
 static bool HasUpdates(const EditResponse& response) {
-  return response.become_loaded || !response.content.empty() ||
-         !response.token_types.empty() || !response.diagnostics.empty() ||
-         !response.diagnostic_ranges.empty() ||
+  return response.become_loaded || response.referenced_file_changed ||
+         !response.content.empty() || !response.token_types.empty() ||
+         !response.diagnostics.empty() || !response.diagnostic_ranges.empty() ||
          !response.side_buffers.empty() || !response.side_buffer_refs.empty() ||
-         !response.fixits.empty();
+         !response.fixits.empty() || !response.referenced_files.empty();
 }
 
 template <class T>
@@ -169,7 +169,9 @@ void Buffer::SinkResponse(void* id, const char* name,
       IntegrateState(&state.side_buffers, response.side_buffers);
       IntegrateState(&state.side_buffer_refs, response.side_buffer_refs);
       IntegrateState(&state.fixits, response.fixits);
+      IntegrateState(&state.referenced_files, response.referenced_files);
       if (response.become_loaded) state.fully_loaded = true;
+      if (response.referenced_file_changed) state.referenced_file_version++;
     });
   } else {
     Log() << name << " gives an empty update";
