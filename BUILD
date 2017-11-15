@@ -433,3 +433,15 @@ cc_library(
   srcs = ["line_editor.cc"],
   deps = [":selector"]
 )
+
+cc_library(
+  name = "fswatch",
+  hdrs = ["fswatch.h"],
+  srcs = ["fswatch.cc"],
+)
+
+cc_binary(
+  name = "fswatch_test",
+  srcs = ["fswatch_test.cc"],
+  deps = [":fswatch"]
+)
