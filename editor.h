@@ -13,6 +13,7 @@
 // limitations under the License.
 #pragma once
 
+#include "absl/strings/str_join.h"
 #include "buffer.h"
 #include "render.h"
 #include "theme.h"
@@ -86,12 +87,13 @@ class Editor {
  public:
   template <class RC>
   void Render(RC* parent_context) {
-    RenderThing(&Editor::RenderCommon, parent_context);
+    RenderThing(&Editor::RenderCommon, &Editor::MainRowOfs, parent_context);
   }
 
   template <class RC>
   void RenderSideBar(RC* parent_context) {
-    RenderThing(&Editor::RenderSideBarCommon, parent_context);
+    RenderThing(&Editor::RenderSideBarCommon, &Editor::SideBarRowOfs,
+                parent_context);
   }
 
  private:
@@ -150,15 +152,17 @@ class Editor {
 
   template <class RC>
   void RenderThing(void (Editor::*thing)(int height, LineCallback),
+                   int (Editor::*compute_row_offset)(
+                       int height, const std::vector<int>& rows),
                    RC* parent_context) {
     Renderer<EditRenderContext<RC>> renderer;
     auto container = renderer.AddContainer(LAY_COLUMN)
                          .FixSize(parent_context->window->width(), 0);
-    typename Renderer<EditRenderContext<RC>>::ItemRef cursor_row;
+    std::vector<typename Renderer<EditRenderContext<RC>>::ItemRef> rows;
     (this->*thing)(
         parent_context->window->height(),
-        [&container, &cursor_row, parent_context](
-            LineInfo li, const std::vector<CharInfo>& ci) {
+        [&container, &rows, parent_context](LineInfo li,
+                                            const std::vector<CharInfo>& ci) {
           auto ref =
               container
                   .AddItem(LAY_TOP | LAY_LEFT,
@@ -180,16 +184,20 @@ class Editor {
                            })
                   .FixSize(parent_context->window->width(), 1);
           if (li.cursor) {
-            cursor_row = ref;
+            rows.push_back(ref);
           }
         });
     renderer.Layout();
+    std::vector<int> row_idx;
+    for (auto r : rows) {
+      row_idx.push_back(r.GetRect().row());
+    }
     EditRenderContext<RC> ctx{
         parent_context, parent_context->color, nullptr,
-        // out_row = buf_row + ofs
-        // => cursor_row_ = cursor_row.Rect().row() + ofs
-        // => ofs = cursor_row_ - cursor_row.Rect().row()
-        cursor_row_ - (cursor_row ? cursor_row.GetRect().row() : 0)};
+        (this->*compute_row_offset)(parent_context->window->height(), row_idx)};
+    Log() << __PRETTY_FUNCTION__ << "\n*** OFS_ROW:" << ctx.ofs_row
+          << " cursor_row_:" << cursor_row_
+          << " row:" << absl::StrJoin(rows.begin(), rows.end(), ",");
     renderer.Draw(&ctx);
   }
 
@@ -201,9 +209,28 @@ class Editor {
   std::vector<String::CommandPtr> commands_;
   Tag cursor_token_;
   SideBufferRef active_side_buffer_;
+  int last_sb_offset_ = 0;
   std::function<bool(const EditNotification&)> check_most_recent_edit_ =
       [](const EditNotification&) { return true; };
 
-  void RenderCommon(int approx_height, LineCallback callback);
-  void RenderSideBarCommon(int approx_height, LineCallback callback);
+  void RenderCommon(int window_height, LineCallback callback);
+  int MainRowOfs(int window_height, const std::vector<int>& rows) {
+    // out_row = buf_row + ofs
+    // => cursor_row_ = cursor_row.Rect().row() + ofs
+    // => ofs = cursor_row_ - cursor_row.Rect().row()
+    return cursor_row_ - (rows.empty() ? 0 : rows[0]);
+  }
+  void RenderSideBarCommon(int window_height, LineCallback callback);
+  int SideBarRowOfs(int window_height, const std::vector<int>& rows) {
+    if (!rows.empty()) {
+      int min_sb_offset = -rows.front();
+      int max_sb_offset = window_height - 1 - rows.back();
+      if (last_sb_offset_ < min_sb_offset) {
+        last_sb_offset_ = min_sb_offset;
+      } else if (last_sb_offset_ > max_sb_offset) {
+        last_sb_offset_ = max_sb_offset;
+      }
+    }
+    return last_sb_offset_;
+  }
 };
