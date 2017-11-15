@@ -223,20 +223,25 @@ class Editor {
   void RenderSideBarCommon(int window_height, LineCallback callback);
   int SideBarRowOfs(int window_height, const std::vector<int>& rows,
                     bool* animating) {
-int nlines = 0;	  
-state_.side_buffers.ForEachValue(
-			  active_side_buffer_.name, [&](const SideBuffer& buf) {
-			  nlines += buf.line_ofs.size() - 1; });
-	  if (!rows.empty()) {
-		  int ideal_pos =
-          window_height / 2 -  std::accumulate(rows.begin(), rows.end(), 0) / rows.size();
-      if (ideal_pos > 0) ideal_pos = 0;
-      else if (ideal_pos < window_height-1-nlines) ideal_pos = window_height-1-nlines;
+    int nlines = 0;
+    state_.side_buffers.ForEachValue(
+        active_side_buffer_.name,
+        [&](const SideBuffer& buf) { nlines += buf.line_ofs.size() - 1; });
+    if (!rows.empty()) {
+      int ideal_pos =
+          window_height / 2 -
+          std::accumulate(rows.begin(), rows.end(), 0) / rows.size();
+      if (ideal_pos > 0)
+        ideal_pos = 0;
+      else if (ideal_pos < window_height - 1 - nlines)
+        ideal_pos = window_height - 1 - nlines;
       if (ideal_pos != last_sb_offset_) {
         int dir = ideal_pos < last_sb_offset_ ? -1 : 1;
         int mag = abs(ideal_pos - last_sb_offset_) / 5;
-        if (mag < 1) mag = 1;
-	else if (mag > 5) mag = 5;
+        if (mag < 1)
+          mag = 1;
+        else if (mag > 5)
+          mag = 5;
         last_sb_offset_ += mag * dir;
         *animating = true;
       }
