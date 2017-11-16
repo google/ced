@@ -30,10 +30,9 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   response.done = notification.shutdown;
   if (response.done) return response;
   if (!notification.fully_loaded) return response;
+  if (!content_latch_.IsNewContent(notification)) return response;
   auto str = notification.content;
   auto text = str.Render();
-  if (text == last_compiled_) return response;
-  last_compiled_ = text;
   NamedTempFile tmpf;
   std::vector<std::string> args;
   auto cmd =
@@ -44,10 +43,9 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   }
 
   Log() << "objdump: " << tmpf.filename();
-  auto dump = run(
-      OBJDUMP_BIN,
-      {"-d", "-l", "-M", "intel", "-C", "--no-show-raw-insn", tmpf.filename()},
-      "");
+  auto dump = run(OBJDUMP_BIN, {"-d", "-l", "-M", "intel", "-C",
+                                "--no-show-raw-insn", tmpf.filename()},
+                  "");
 
   AsmParseResult parsed_asm = AsmParse(dump.out);
 

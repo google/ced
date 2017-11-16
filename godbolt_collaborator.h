@@ -14,12 +14,14 @@
 #pragma once
 
 #include "buffer.h"
+#include "content_latch.h"
 
 class GodboltCollaborator final : public SyncCollaborator {
  public:
   GodboltCollaborator(const Buffer* buffer)
       : SyncCollaborator("godbolt", absl::Seconds(0)),
         buffer_(buffer),
+        content_latch_(buffer),
         side_buffer_editor_(site()),
         side_buffer_ref_editor_(site()) {}
 
@@ -27,7 +29,7 @@ class GodboltCollaborator final : public SyncCollaborator {
 
  private:
   const Buffer* const buffer_;
+  ContentLatch content_latch_;
   UMapEditor<std::string, SideBuffer> side_buffer_editor_;
   UMapEditor<ID, Annotation<SideBufferRef>> side_buffer_ref_editor_;
-  std::string last_compiled_;
 };

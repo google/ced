@@ -151,7 +151,7 @@ cc_library(
 cc_library(
   name = "buffer",
   srcs = ["buffer.cc", "io_collaborator.cc", "diagnostic.cc"],
-  hdrs = ["buffer.h", "io_collaborator.h", "diagnostic.h"],
+  hdrs = ["buffer.h", "io_collaborator.h", "diagnostic.h", "content_latch.h"],
   deps = [
     ":woot",
     ":umap",

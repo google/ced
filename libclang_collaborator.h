@@ -15,6 +15,7 @@
 
 #include <memory>
 #include "buffer.h"
+#include "content_latch.h"
 #include "diagnostic.h"
 
 class LibClangCollaborator final : public SyncCollaborator {
@@ -26,6 +27,7 @@ class LibClangCollaborator final : public SyncCollaborator {
 
  private:
   const Buffer* const buffer_;
+  ContentLatch content_latch_;
   UMapEditor<ID, Annotation<Tag>> token_editor_;
   DiagnosticEditor diagnostic_editor_;
   USetEditor<std::string> ref_editor_;

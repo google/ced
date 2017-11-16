@@ -73,6 +73,7 @@ class ClangEnv : public LibClang {
 LibClangCollaborator::LibClangCollaborator(const Buffer* buffer)
     : SyncCollaborator("libclang", absl::Seconds(0)),
       buffer_(buffer),
+      content_latch_(true),
       token_editor_(site()),
       diagnostic_editor_(site()),
       ref_editor_(site()) {}
@@ -117,6 +118,10 @@ static Severity DiagnosticSeverity(CXDiagnosticSeverity sev) {
 
 EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   EditResponse response;
+  if (!content_latch_.IsNewContent(notification)) {
+    return response;
+  }
+
   auto filename = buffer_->filename();
 
   ClangEnv* env = ClangEnv::Get();
