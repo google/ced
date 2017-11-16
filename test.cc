@@ -13,7 +13,12 @@
 
 #include "test.h"
 
-struct A {};
+struct A {
+  double a;
+  double b;
+  char c;
+  int x;
+};
 
 class Foo : private A {
  public:
@@ -24,11 +29,13 @@ extern void print_int(int n);
 
 class B {
  public:
-  void foo() { throw ""; }
+  void foo() { throw 0; }
 };
 
 namespace Bar {
-int test(int x) { return (int)Foo().fib(x) - Foo().fib2(x); }
+int test(int x) {
+  return (int)Foo().fib(x) - Foo().fib2(x) == 0 ? 1 : (B().foo(), 0);
+}
 }  // namespace Bar
 
 int main(void) {
