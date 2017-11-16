@@ -15,14 +15,14 @@
 
 struct A {
   double a;
+  double b;
   int i : 1;
   int j : 1;
   int k : 1;
   int l : 2;
   int m : 2;
-  double b;
   char c;
-  int y;
+  short y;
   int x;
 };
 

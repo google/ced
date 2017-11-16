@@ -41,6 +41,11 @@ class USet : public CRDT<USet<T>> {
     avl_.ForEach([f](ID, const T& value) { f(value); });
   }
 
+  template <class F>
+  void ForEach(F&& f) const {
+    avl_.ForEach(std::forward<F>(f));
+  }
+
   bool SameIdentity(USet<T> other) const {
     return avl_.SameIdentity(other.avl_);
   }

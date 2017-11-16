@@ -46,13 +46,29 @@ struct Diagnostic {
 };
 
 struct Fixit {
+  enum class Type {
+    AUTOSUGGEST,
+    COMPILE_FIX,
+    TIDY_FIX,
+  };
+
+  Type type;
+  ID diagnostic;
   size_t index;
   ID begin;
   ID end;
   std::string replacement;
 
   bool operator<(const Fixit& other) const {
-    if (index < other.index) {
+    if (type < other.type) {
+      return true;
+    } else if (type > other.type) {
+      return false;
+    } else if (diagnostic < other.diagnostic) {
+      return true;
+    } else if (diagnostic > other.diagnostic) {
+      return false;
+    } else if (index < other.index) {
       return true;
     } else if (index > other.index) {
       return false;
@@ -78,7 +94,7 @@ class DiagnosticEditor {
                                     const std::string& message);
   DiagnosticEditor& AddRange(ID ofs_begin, ID ofs_end);
   DiagnosticEditor& AddPoint(ID ofs);
-  DiagnosticEditor& StartFixit();
+  DiagnosticEditor& StartFixit(Fixit::Type type);
   DiagnosticEditor& AddReplacement(ID del_begin, ID del_end,
                                    const std::string& replacement);
 

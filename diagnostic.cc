@@ -25,6 +25,7 @@ struct ReplacementData {
 };
 
 struct FixitData {
+  Fixit::Type type;
   std::vector<ReplacementData> replacements;
 };
 
@@ -52,7 +53,7 @@ struct DiagnosticEditor::Impl {
 
   USetEditor<Diagnostic> diagnostic_editor;
   UMapEditor<ID, Annotation<ID>> range_editor;
-  UMapEditor<ID, Fixit> fixit_editor;
+  USetEditor<Fixit> fixit_editor;
 };
 
 DiagnosticEditor::DiagnosticEditor(Site* site) : impl_(new Impl(site)) {}
@@ -77,8 +78,9 @@ DiagnosticEditor& DiagnosticEditor::AddPoint(ID point) {
   return *this;
 }
 
-DiagnosticEditor& DiagnosticEditor::StartFixit() {
+DiagnosticEditor& DiagnosticEditor::StartFixit(Fixit::Type type) {
   impl_->new_diags.back().fixits.emplace_back();
+  impl_->new_diags.back().fixits.back().type = type;
   return *this;
 }
 
@@ -116,9 +118,8 @@ void DiagnosticEditor::Publish(const String& content, EditResponse* response) {
       idx++;
       for (const auto& replacement : fixit.replacements) {
         ID id = impl_->fixit_editor.Add(
-            diag.diag_id,
-            Fixit{idx, replacement.range.first, replacement.range.second,
-                  replacement.new_text});
+            Fixit{fixit.type, diag.diag_id, idx, replacement.range.first,
+                  replacement.range.second, replacement.new_text});
         Log() << "PUBLISH FIXIT: " << absl::StrJoin(id, ":");
       }
     }

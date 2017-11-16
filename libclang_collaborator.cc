@@ -327,8 +327,9 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
         env->clang_getFileLocation(end, &file, &line, &col, &offset_end);
         if (file &&
             filename == env->clang_getCString(env->clang_getFileName(file))) {
-          diagnostic_editor_.StartFixit().AddReplacement(
-              ids[offset_start], ids[offset_end], env->clang_getCString(repl));
+          diagnostic_editor_.StartFixit(Fixit::Type::COMPILE_FIX)
+              .AddReplacement(ids[offset_start], ids[offset_end],
+                              env->clang_getCString(repl));
         }
       }
 

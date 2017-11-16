@@ -79,7 +79,7 @@ struct EditState {
   TypeTranslator<AnnotationMap<ID>> diagnostic_ranges;
   TypeTranslator<UMap<std::string, SideBuffer>> side_buffers;
   TypeTranslator<AnnotationMap<SideBufferRef>> side_buffer_refs;
-  TypeTranslator<UMap<ID, Fixit>> fixits;
+  TypeTranslator<USet<Fixit>> fixits;
   TypeTranslator<UMap<ID, std::string>> gutter_notes;
   TypeTranslator<USet<std::string>> referenced_files;
 };
