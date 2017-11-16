@@ -294,7 +294,9 @@ int Editor::RenderSideBarCommon(int window_height, LineCallback callback) {
         if (last_line > first_line + 4 * window_height) {
           last_line = first_line + 4 * window_height;
         }
-        Log() << "last_sb_offset_=" << last_sb_offset_ << " first_line=" << first_line << " last_line=" << last_line << " line_ofs.size()=" << buf.line_ofs.size();
+        Log() << "last_sb_offset_=" << last_sb_offset_
+              << " first_line=" << first_line << " last_line=" << last_line
+              << " line_ofs.size()=" << buf.line_ofs.size();
         for (size_t line = first_line; line < last_line; line++) {
           size_t line_beg = buf.line_ofs[line];
           size_t line_end = buf.line_ofs[line + 1];
@@ -314,4 +316,3 @@ int Editor::RenderSideBarCommon(int window_height, LineCallback callback) {
       });
   return first_line;
 }
-
