@@ -147,6 +147,7 @@ int main(int argc, char** argv) {
   try {
     Application(argv[1]).Run();
   } catch (std::exception& e) {
+    Log() << "FATAL ERROR: " << e.what();
     fprintf(stderr, "ERROR: %s", e.what());
     _exit(1);
   }
