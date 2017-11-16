@@ -79,6 +79,7 @@ class Editor {
   };
   struct LineInfo {
     bool cursor;
+    std::string gutter_annotation;
   };
 
   typedef std::function<void(LineInfo, const std::vector<CharInfo>&)>
@@ -164,26 +165,40 @@ class Editor {
         parent_context->window->height(),
         [&container, &rows, parent_context](LineInfo li,
                                             const std::vector<CharInfo>& ci) {
-          auto ref =
-              container
-                  .AddItem(LAY_TOP | LAY_LEFT,
-                           [li, ci](EditRenderContext<RC>* ctx) {
-                             int col = 0;
-                             for (const auto& c : ci) {
-                               if (c.cursor) {
-                                 ctx->Move(0, col);
-                               }
-                               ctx->Put(0, col++, c.c,
-                                        ctx->color->Theme(c.tag,
-                                                          ThemeFlags(&li, &c)));
-                             }
-                             while (col < ctx->window->width()) {
-                               ctx->Put(0, col++, ' ',
-                                        ctx->color->Theme(
-                                            Tag(), ThemeFlags(&li, nullptr)));
-                             }
-                           })
+          auto line_container =
+              container.AddContainer(LAY_TOP | LAY_LEFT, LAY_ROW)
                   .FixSize(parent_context->window->width(), 1);
+          auto ref = line_container
+                         .AddItem(LAY_TOP | LAY_LEFT,
+                                  [li, ci](EditRenderContext<RC>* ctx) {
+                                    int col = 0;
+                                    for (const auto& c : ci) {
+                                      if (c.cursor) {
+                                        ctx->Move(0, col);
+                                      }
+                                      ctx->Put(0, col++, c.c,
+                                               ctx->color->Theme(
+                                                   c.tag, ThemeFlags(&li, &c)));
+                                    }
+                                  })
+                         .FixSize(ci.size(), 1);
+          line_container.AddItem(LAY_FILL, [li](EditRenderContext<RC>* ctx) {
+            for (int i = 0; i < ctx->window->width(); i++) {
+              ctx->Put(0, i, ' ',
+                       ctx->color->Theme(Tag(), ThemeFlags(&li, nullptr)));
+            }
+          });
+          if (!li.gutter_annotation.empty()) {
+            line_container
+                .AddItem(LAY_RIGHT,
+                         [li](EditRenderContext<RC>* ctx) {
+                           ctx->Put(
+                               0, 0, li.gutter_annotation,
+                               ctx->color->Theme(Tag().Push("comment.gutter"),
+                                                 ThemeFlags(&li, nullptr)));
+                         })
+                .FixSize(li.gutter_annotation.length(), 1);
+          }
           if (li.cursor) {
             rows.push_back(ref);
           }

@@ -31,4 +31,5 @@ class LibClangCollaborator final : public SyncCollaborator {
   UMapEditor<ID, Annotation<Tag>> token_editor_;
   DiagnosticEditor diagnostic_editor_;
   USetEditor<std::string> ref_editor_;
+  UMapEditor<ID, std::string> gutter_notes_editor_;
 };

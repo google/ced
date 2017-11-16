@@ -76,7 +76,8 @@ LibClangCollaborator::LibClangCollaborator(const Buffer* buffer)
       content_latch_(true),
       token_editor_(site()),
       diagnostic_editor_(site()),
-      ref_editor_(site()) {}
+      ref_editor_(site()),
+      gutter_notes_editor_(site()) {}
 
 LibClangCollaborator::~LibClangCollaborator() {
   ClangEnv* env = ClangEnv::Get();
@@ -216,6 +217,9 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
     }
   };
 
+  std::map<unsigned, long long> ofs_annotation;
+  gutter_notes_editor_.BeginEdit(&response.gutter_notes);
+
   for (unsigned i = 0; i < numTokens; i++) {
     CXToken token = tokens[i];
     CXCursor cursor = tok_cursors[i];
@@ -226,6 +230,21 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
     CXFile file;
     unsigned line, col, offset_start, offset_end;
     env->clang_getFileLocation(start, &file, &line, &col, &offset_start);
+
+    if (ofs_annotation.find(line) == ofs_annotation.end()) {
+      long long ofs = env->clang_Cursor_getOffsetOfField(cursor);
+      if (ofs >= 0) {
+        ofs_annotation[line] = ofs;
+        if (ofs % 8 == 0) {
+          gutter_notes_editor_.Add(ids[offset_start],
+                                   absl::StrCat("@", ofs / 8));
+        } else {
+          gutter_notes_editor_.Add(ids[offset_start],
+                                   absl::StrCat("@", ofs / 8, ".", ofs % 8));
+        }
+      }
+    }
+
     env->clang_getFileLocation(end, &file, &line, &col, &offset_end);
 
     token_editor_.Add(
@@ -236,6 +255,7 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   }
 
   env->clang_disposeTokens(tu, tokens, numTokens);
+  gutter_notes_editor_.Publish();
 
   /*
    * REFERENCED FILE DISCOVERY

@@ -15,8 +15,12 @@
 
 struct A {
   double a;
+  int i : 1;
+  int j : 1;
+  int k : 1;
   double b;
   char c;
+  int y;
   int x;
 };
 

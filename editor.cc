@@ -235,6 +235,7 @@ void Editor::RenderCommon(
   auto last_was_cursor = [&]() {
     return String::Iterator(state_.content, it.id()).Prev().id() == cursor_;
   };
+  std::vector<std::string> gutter_annotations;
   while (it.id() != line_fw.id()) {
     t_token.Enter(it.id());
     t_diagnostic.Enter(it.id());
@@ -251,10 +252,15 @@ void Editor::RenderCommon(
         active_side_buffer_.lines.clear();
       }
     }
+    state_.gutter_notes.ForEachValue(it.id(), [&](const std::string& note) {
+      gutter_annotations.push_back(note);
+    });
 
     if (it.is_visible()) {
       if (it.value() == '\n') {
-        LineInfo li{it.id() == line_end_cr.id()};
+        LineInfo li{it.id() == line_end_cr.id(),
+                    absl::StrJoin(gutter_annotations, ",")};
+        gutter_annotations.clear();
         ci.emplace_back(CharInfo{' ', false, last_was_cursor(), Tag()});
         nrow++;
         ncol = 0;
@@ -290,7 +296,8 @@ void Editor::RenderSideBarCommon(int window_height, LineCallback callback) {
           }
           callback(LineInfo{std::find(active_side_buffer_.lines.begin(),
                                       active_side_buffer_.lines.end(),
-                                      line) != active_side_buffer_.lines.end()},
+                                      line) != active_side_buffer_.lines.end(),
+                            std::string()},
                    ci);
         }
       });
