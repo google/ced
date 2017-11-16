@@ -444,7 +444,8 @@ cc_library(
 cc_binary(
   name = "fswatch_test",
   srcs = ["fswatch_test.cc"],
-  deps = [":fswatch"]
+  deps = [":fswatch"],
+  linkopts = ["-lpthread"]
 )
 
 cc_library(
