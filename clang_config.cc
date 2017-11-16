@@ -31,7 +31,8 @@
 #define PLAT_LIB_SFX ".so"
 #endif
 
-Config<std::string> clang_version("project/clang-version");
+static Config<std::string> clang_version("project.clang-version");
+static ConfigMap<std::string, std::string> clang_location("clang.location");
 
 static std::vector<absl::string_view> Path() {
   const char* path = getenv("PATH");
@@ -48,7 +49,7 @@ static bool Exists(const std::string& path) {
 std::string ClangToolPath(const std::string& tool_name) {
   auto version = clang_version.get();
   if (!version.empty()) {
-    auto path = Config<std::string>(absl::StrCat("clang/", version)).get();
+    auto path = clang_location.get(version);
     if (!path.empty()) {
       auto cmd = absl::StrCat(path, "/bin/", tool_name);
       if (Exists(cmd)) return cmd;
@@ -70,7 +71,7 @@ std::string ClangLibPath(const std::string& lib_base) {
   auto lib_name = absl::StrCat(PLAT_LIB_PFX, lib_base, PLAT_LIB_SFX);
   auto version = clang_version.get();
   if (!version.empty()) {
-    auto path = Config<std::string>(absl::StrCat("clang/", version)).get();
+    auto path = clang_location.get(version);
     if (!path.empty()) {
       auto lib = absl::StrCat(path, "/lib/", lib_name);
       if (Exists(lib)) return lib;

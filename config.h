@@ -75,3 +75,34 @@ class Config<std::string> final : public ConfigWatcher {
     value_ = node.Scalar();
   }
 };
+
+template <class K, class V>
+class Config<std::map<K, V>> final : public ConfigWatcher {
+ public:
+  Config(const std::string& path, const V& def = V()) : def_(def) {
+    RegisterWatcher(path);
+  }
+
+  const V& get(const K& k) {
+    absl::MutexLock lock(&mu_);
+    auto it = value_.find(k);
+    if (it == value_.end()) return def_;
+    return it->second;
+  }
+
+ private:
+  mutable absl::Mutex mu_;
+  const V def_;
+  std::map<K, V> value_ GUARDED_BY(mu_);
+
+  void Set(YAML::Node node) {
+    absl::MutexLock lock(&mu_);
+    value_.clear();
+    for (const auto& kv : node) {
+      value_[kv.first.as<K>()] = kv.second.as<V>();
+    }
+  }
+};
+
+template <class K, class V>
+using ConfigMap = Config<std::map<K, V>>;

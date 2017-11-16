@@ -56,7 +56,7 @@ class ConfigRegistry {
 
   void SetWatcher(ConfigWatcher* watcher, const std::string& path)
       EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    auto p = absl::StrSplit(path, '/');
+    auto p = absl::StrSplit(path, '.');
     for (auto it = configs_.crbegin(); it != configs_.crend(); ++it) {
       std::vector<YAML::Node> nstk;
       nstk.push_back(*it);
@@ -64,8 +64,8 @@ class ConfigRegistry {
         std::string child_str(child.data(), child.length());
         nstk.push_back(nstk.back()[child_str]);
       }
-      if (nstk.back().IsScalar()) {
-        Log() << "CONFIG: " << path << " --> " << nstk.back().Scalar();
+      if (nstk.back()) {
+        Log() << "CONFIG: " << path << " --> " << nstk.back();
         watcher->Set(nstk.back());
         return;
       }
