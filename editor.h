@@ -152,16 +152,16 @@ class Editor {
   };
 
   template <class RC>
-  void RenderThing(void (Editor::*thing)(int height, LineCallback),
+  void RenderThing(int (Editor::*thing)(int height, LineCallback),
                    int (Editor::*compute_row_offset)(
-                       int height, const std::vector<int>& rows,
-                       bool* animating),
+                       int height, int first_drawn,
+                       const std::vector<int>& rows, bool* animating),
                    RC* parent_context) {
     Renderer<EditRenderContext<RC>> renderer;
     auto container = renderer.AddContainer(LAY_COLUMN)
                          .FixSize(parent_context->window->width(), 0);
     std::vector<typename Renderer<EditRenderContext<RC>>::ItemRef> rows;
-    (this->*thing)(
+    int first_drawn = (this->*thing)(
         parent_context->window->height(),
         [&container, &rows, parent_context](LineInfo li,
                                             const std::vector<CharInfo>& ci) {
@@ -208,10 +208,10 @@ class Editor {
     for (auto r : rows) {
       row_idx.push_back(r.GetRect().row());
     }
-    EditRenderContext<RC> ctx{
-        parent_context, parent_context->color, nullptr,
-        (this->*compute_row_offset)(parent_context->window->height(), row_idx,
-                                    &parent_context->animating)};
+    EditRenderContext<RC> ctx{parent_context, parent_context->color, nullptr,
+                              (this->*compute_row_offset)(
+                                  parent_context->window->height(), first_drawn,
+                                  row_idx, &parent_context->animating)};
     renderer.Draw(&ctx);
   }
 
@@ -227,25 +227,26 @@ class Editor {
   std::function<bool(const EditNotification&)> check_most_recent_edit_ =
       [](const EditNotification&) { return true; };
 
-  void RenderCommon(int window_height, LineCallback callback);
-  int MainRowOfs(int window_height, const std::vector<int>& rows,
-                 bool* animating) {
+  int RenderCommon(int window_height, LineCallback callback);
+  int MainRowOfs(int window_height, int first_draw_ignored,
+                 const std::vector<int>& rows, bool* animating) {
     // out_row = buf_row + ofs
     // => cursor_row_ = cursor_row.Rect().row() + ofs
     // => ofs = cursor_row_ - cursor_row.Rect().row()
     return cursor_row_ - (rows.empty() ? 0 : rows[0]);
   }
-  void RenderSideBarCommon(int window_height, LineCallback callback);
-  int SideBarRowOfs(int window_height, const std::vector<int>& rows,
-                    bool* animating) {
+  int RenderSideBarCommon(int window_height, LineCallback callback);
+  int SideBarRowOfs(int window_height, int first_drawn,
+                    const std::vector<int>& rows_ignored, bool* animating) {
     int nlines = 0;
     state_.side_buffers.ForEachValue(
         active_side_buffer_.name,
         [&](const SideBuffer& buf) { nlines += buf.line_ofs.size() - 1; });
-    if (!rows.empty()) {
-      int ideal_pos =
-          window_height / 2 -
-          std::accumulate(rows.begin(), rows.end(), 0) / rows.size();
+    std::vector<int> lines = active_side_buffer_.lines;
+    int ideal_pos = -1;
+    if (!lines.empty()) {
+      ideal_pos = window_height / 2 -
+                  std::accumulate(lines.begin(), lines.end(), 0) / lines.size();
       if (ideal_pos > 0)
         ideal_pos = 0;
       else if (ideal_pos < window_height - 1 - nlines)
@@ -261,6 +262,11 @@ class Editor {
         *animating = true;
       }
     }
-    return last_sb_offset_;
+    Log() << "nlines:" << nlines << " last_sb_offset:" << last_sb_offset_
+          << " lines:" << absl::StrJoin(lines, ",") << " ideal:" << ideal_pos
+          << " first_drawn:" << first_drawn
+          << " window_height:" << window_height
+          << " return_ofs:" << last_sb_offset_ + first_drawn;
+    return last_sb_offset_ + first_drawn;
   }
 };

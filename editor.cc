@@ -206,7 +206,7 @@ void Editor::NextRenderMustNotHaveID(ID id) {
   };
 }
 
-void Editor::RenderCommon(
+int Editor::RenderCommon(
     int window_height,
     std::function<void(LineInfo, const std::vector<CharInfo>&)> add_line) {
   if (cursor_row_ < 0) {
@@ -278,13 +278,23 @@ void Editor::RenderCommon(
     }
     it.MoveNext();
   }
+  return -1;
 }
 
-void Editor::RenderSideBarCommon(int window_height, LineCallback callback) {
+int Editor::RenderSideBarCommon(int window_height, LineCallback callback) {
+  int first_line = 0;
   state_.side_buffers.ForEachValue(
       active_side_buffer_.name, [&](const SideBuffer& buf) {
         std::vector<CharInfo> ci;
-        for (size_t line = 0; line < buf.line_ofs.size() - 1; line++) {
+        first_line = 0;
+        int last_line = buf.line_ofs.size() - 1;
+        if (first_line < last_sb_offset_ - 2 * window_height) {
+          first_line = last_sb_offset_ - 2 * window_height;
+        }
+        if (last_line > last_sb_offset_ + 2 * window_height) {
+          last_line = last_sb_offset_ + 2 * window_height;
+        }
+        for (size_t line = first_line; line < last_line; line++) {
           size_t line_beg = buf.line_ofs[line];
           size_t line_end = buf.line_ofs[line + 1];
           ci.clear();
@@ -301,4 +311,5 @@ void Editor::RenderSideBarCommon(int window_height, LineCallback callback) {
                    ci);
         }
       });
+  return first_line;
 }
