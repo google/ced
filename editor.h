@@ -26,7 +26,7 @@ struct AppEnv {
 
 class Editor {
  public:
-  Editor(Site* site) : site_(site) {}
+  Editor(Site* site) : site_(site), cursor_editor_(site) {}
 
   // state management
   void UpdateState(const EditNotification& state) { state_ = state; }
@@ -43,6 +43,9 @@ class Editor {
     r.done = state_.shutdown;
     r.become_used = !commands_.empty();
     commands_.swap(r.content);
+    cursor_editor_.BeginEdit(&r.cursors);
+    cursor_editor_.Add(cursor_);
+    cursor_editor_.Publish();
     assert(commands_.empty());
     return r;
   }
@@ -224,6 +227,7 @@ class Editor {
   Tag cursor_token_;
   SideBufferRef active_side_buffer_;
   int last_sb_offset_ = 0;
+  USetEditor<ID> cursor_editor_;
   std::function<bool(const EditNotification&)> check_most_recent_edit_ =
       [](const EditNotification&) { return true; };
 

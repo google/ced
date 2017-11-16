@@ -28,8 +28,10 @@ class LibClangCollaborator final : public SyncCollaborator {
  private:
   const Buffer* const buffer_;
   ContentLatch content_latch_;
+  USet<ID> last_cursors_;
   UMapEditor<ID, Annotation<Tag>> token_editor_;
   DiagnosticEditor diagnostic_editor_;
   USetEditor<std::string> ref_editor_;
   UMapEditor<ID, std::string> gutter_notes_editor_;
+  USetEditor<Fixit> autocomplete_editor_;
 };

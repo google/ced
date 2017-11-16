@@ -77,7 +77,8 @@ LibClangCollaborator::LibClangCollaborator(const Buffer* buffer)
       token_editor_(site()),
       diagnostic_editor_(site()),
       ref_editor_(site()),
-      gutter_notes_editor_(site()) {}
+      gutter_notes_editor_(site()),
+      autocomplete_editor_(site()) {}
 
 LibClangCollaborator::~LibClangCollaborator() {
   ClangEnv* env = ClangEnv::Get();
@@ -117,11 +118,66 @@ static Severity DiagnosticSeverity(CXDiagnosticSeverity sev) {
   return Severity::UNSET;
 }
 
+static bool IsPunctuation(char c) {
+  switch (c) {
+    case '\n':
+    case '(':
+    case ')':
+    case '{':
+    case '}':
+    case '[':
+    case ']':
+    case '<':
+    case '>':
+    case '|':
+    case '&':
+    case '?':
+    case '/':
+    case ',':
+    case '.':
+    case '=':
+    case '+':
+    case '-':
+    case '*':
+    case '^':
+    case '%':
+    case '#':
+    case '!':
+    case '~':
+    case '"':
+    case '\t':
+    case ' ':
+      return true;
+    default:
+      return false;
+  }
+}
+
 EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   EditResponse response;
-  if (!content_latch_.IsNewContent(notification)) {
+
+  bool content_changed = content_latch_.IsNewContent(notification);
+  bool cursors_changed = !last_cursors_.SameIdentity(notification.cursors);
+
+  if (!content_changed && !cursors_changed) {
     return response;
   }
+
+  last_cursors_ = notification.cursors;
+
+  struct AutoCompleteCursor {
+    int offset = -1;
+    int line = -1;
+    int column = -1;
+    std::set<ID> cursor_ids;
+  };
+
+  std::map<ID, AutoCompleteCursor> autocomplete_ids;
+  notification.cursors.ForEach([&](ID cursor_id, ID id) {
+    String::Iterator it(notification.content, id);
+    while (!it.is_begin() && !IsPunctuation(it.value())) it.MovePrev();
+    autocomplete_ids[it.id()].cursor_ids.insert(cursor_id);
+  });
 
   auto filename = buffer_->filename();
 
@@ -131,7 +187,21 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   std::vector<ID> ids;
   String::Iterator it(notification.content, String::Begin());
   it.MoveNext();
+  int line = 1;
+  int col = 1;
   while (!it.is_end()) {
+    auto sit = autocomplete_ids.find(it.id());
+    if (sit != autocomplete_ids.end()) {
+      sit->second.offset = ids.size();
+      sit->second.line = line;
+      sit->second.column = col;
+    }
+    if (it.value() == '\n') {
+      line++;
+      col = 0;
+    } else {
+      col++;
+    }
     str += it.value();
     ids.push_back(it.id());
     it.MoveNext();
@@ -283,6 +353,7 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   /*
    * DIAGNOSTIC DISPLAY
    */
+
   if (notification.fully_loaded) {
     unsigned num_diagnostics = env->clang_getNumDiagnostics(tu);
     Log() << num_diagnostics << " diagnostics";
@@ -336,6 +407,35 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
       env->clang_disposeString(message);
       env->clang_disposeDiagnostic(diag);
     }
+  }
+
+  /*
+   * autocomplete suggestions
+   */
+
+  for (auto sit = autocomplete_ids.begin(); sit != autocomplete_ids.end();
+       ++sit) {
+    auto results = env->clang_codeCompleteAt(
+        tu, filename.c_str(), sit->second.line, sit->second.column,
+        unsaved_files.data(), unsaved_files.size(),
+        env->clang_defaultCodeCompleteOptions());
+    Log() << "CHECK COMPLETIONS @ (" << sit->second.line << ":"
+          << sit->second.column << ") gets " << results->NumResults
+          << " results";
+    for (unsigned i = 0; i < results->NumResults; i++) {
+      const auto& str = results->Results[i].CompletionString;
+      for (unsigned j = 0; j < env->clang_getNumCompletionChunks(str); ++j) {
+        if (env->clang_getCompletionChunkKind(str, j) !=
+            CXCompletionChunk_TypedText) {
+          continue;
+        }
+
+        CXString out = env->clang_getCompletionChunkText(str, j);
+        const char* txt = env->clang_getCString(out);
+        Log() << "COMPLETION: " << txt;
+      }
+    }
+    env->clang_disposeCodeCompleteResults(results);
   }
 
   env->clang_disposeTranslationUnit(tu);

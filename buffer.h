@@ -82,6 +82,7 @@ struct EditState {
   TypeTranslator<USet<Fixit>> fixits;
   TypeTranslator<UMap<ID, std::string>> gutter_notes;
   TypeTranslator<USet<std::string>> referenced_files;
+  TypeTranslator<USet<ID>> cursors;
 };
 
 template <class T>
