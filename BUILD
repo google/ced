@@ -458,3 +458,9 @@ cc_library(
     ":fswatch",
   ]
 )
+
+cc_binary(
+  name = "bm_editor",
+  srcs = ["bm_editor.cc"],
+  deps = [":editor", "@benchmark//:benchmark"]
+)

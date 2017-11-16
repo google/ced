@@ -138,3 +138,28 @@ cc_library(
 )
   """
 )
+
+
+new_git_repository(
+    name = "benchmark",
+    commit="0c3ec998c4cc6b7bba7226a3b35a7917613b3802",
+    remote="https://github.com/google/benchmark.git",
+    build_file_content="""
+cc_library(
+    name = "benchmark",
+    srcs = glob(["src/*.cc"]),
+    hdrs = glob(["include/**/*.h", "src/*.h"]),
+    includes = [
+        "include", "."
+    ],
+    copts = [
+        "-DHAVE_POSIX_REGEX"
+    ],
+    linkstatic = 1,
+    visibility = [
+        "//visibility:public",
+    ],
+)
+    """
+)
+
