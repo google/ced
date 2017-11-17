@@ -105,19 +105,23 @@ void TerminalCollaborator::Render(TerminalRenderContainers containers) {
       containers.ext_status.AddContainer(LAY_TOP | LAY_HFILL, LAY_COLUMN);
 
   absl::MutexLock lock(&mu_);
-  editor_.CurrentState().diagnostics.ForEachValue(
-      [&](const Diagnostic& diagnostic) {
-        std::string msg = absl::StrCat(diagnostic.index, ": [",
-                                       SeverityString(diagnostic.severity),
-                                       "] ", diagnostic.message);
-        diagnostics
-            .AddItem(LAY_TOP | LAY_HFILL,
-                     [msg](TerminalRenderContext* context) {
-                       Log() << *context->window;
-                       context->Put(0, 0, msg, context->color->Theme(Tag(), 0));
-                     })
-            .FixSize(0, 1);
-      });
+  int num_diagnostics = 0;
+  editor_.CurrentState().diagnostics.ForEachValue([&](
+      const Diagnostic& diagnostic) {
+    if (num_diagnostics < 10) {
+      std::string msg = absl::StrCat(diagnostic.index, ": [",
+                                     SeverityString(diagnostic.severity), "] ",
+                                     diagnostic.message);
+      diagnostics
+          .AddItem(LAY_TOP | LAY_HFILL,
+                   [msg](TerminalRenderContext* context) {
+                     Log() << *context->window;
+                     context->Put(0, 0, msg, context->color->Theme(Tag(), 0));
+                   })
+          .FixSize(0, 1);
+      num_diagnostics++;
+    }
+  });
 }
 
 template <class EditorType>

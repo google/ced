@@ -338,12 +338,14 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
         ClangEnv* env = ClangEnv::Get();
         if (env->clang_getCursorKind(cursor) == CXCursor_InclusionDirective) {
           CXFile file = env->clang_getIncludedFile(cursor);
-          CXString filename = env->clang_getFileName(file);
-          const char* fn = env->clang_getCString(filename);
-          LibClangCollaborator* self =
-              static_cast<LibClangCollaborator*>(client_data);
-          self->ref_editor_.Add(fn);
-          env->clang_disposeString(filename);
+          if (file) {
+            CXString filename = env->clang_getFileName(file);
+            const char* fn = env->clang_getCString(filename);
+            LibClangCollaborator* self =
+                static_cast<LibClangCollaborator*>(client_data);
+            self->ref_editor_.Add(fn);
+            env->clang_disposeString(filename);
+          }
         }
         return CXChildVisit_Recurse;
       },

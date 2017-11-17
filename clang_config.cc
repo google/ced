@@ -89,12 +89,8 @@ std::string ClangLibPath(const std::string& lib_base) {
       absl::StrCat("Clang lib '", lib_name, "' not found"));
 }
 
-void ClangCompileArgs(const std::string& filename,
-                      std::vector<std::string>* args) {
-  args->push_back("-x");
-  args->push_back("c++");
-  args->push_back("-std=c++11");
-
+static void ExtractIncludePathsFromTool(const std::string& toolname,
+                                        std::vector<std::string>* args) {
   /*
 #include <...> search starts here:
  /usr/local/google/home/ctiller/clang+llvm-4.0.0-x86_64-linux-gnu-ubuntu-14.04/bin/../include/c++/v1
@@ -109,12 +105,11 @@ End of search list.
   RE2 r_end(R"(End of search list\..*)");
   bool started = false;
   std::string ent;
-  for (auto line : absl::StrSplit(
-           run(ClangToolPath("clang"),
-               {"-std=c++11", "-stdlib=libc++", "-v", "-E", "-x", "c++", "-"},
-               "")
-               .err,
-           '\n')) {
+  for (auto line : absl::StrSplit(run(toolname, {"-std=c++11", "-stdlib=libc++",
+                                                 "-v", "-E", "-x", "c++", "-"},
+                                      "")
+                                      .err,
+                                  '\n')) {
     re2::StringPiece spline(line.data(), line.length());
     Log() << "CLANGARGLINE: " << line;
     if (!started && RE2::FullMatch(spline, r_start)) {
@@ -126,6 +121,24 @@ End of search list.
       started = false;
     }
   }
+}
+
+void ClangCompileArgs(const std::string& filename,
+                      std::vector<std::string>* args) {
+  args->push_back("-x");
+  args->push_back("c++");
+  args->push_back("-std=c++11");
+
+#ifdef __APPLE__
+  for (auto path : Path()) {
+    auto cmd = absl::StrCat(path, "/clang");
+    if (Exists(cmd) && cmd != ClangToolPath("clang")) {
+      ExtractIncludePathsFromTool(cmd, args);
+    }
+  }
+#endif
+
+  ExtractIncludePathsFromTool(ClangToolPath("clang"), args);
 
   char cwd[MAXPATHLEN];
   getcwd(cwd, sizeof(cwd));

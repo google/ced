@@ -124,7 +124,6 @@ RunResult run(const std::string& command, const std::vector<std::string>& args,
       int n;
       do {
         n = WrapSyscall("read", [&]() { return read(fd, buf, sizeof(buf)); });
-        Log() << "READ: " << n << " from " << fd;
         out->append(buf, n);
       } while (n > 0);
       close(fd);
