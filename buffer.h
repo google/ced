@@ -108,46 +108,60 @@ void IntegrateResponse(const EditResponse& response, EditNotification* state);
 
 class Collaborator {
  public:
-  const char* name() const { return name_; }
-  absl::Duration push_delay() const { return push_delay_; }
+  virtual ~Collaborator(){};
 
-  virtual void Push(const EditNotification& notification) = 0;
-  virtual EditResponse Pull() = 0;
+  const char* name() const { return name_; }
+  absl::Duration push_delay_from_idle() const { return push_delay_from_idle_; }
+  absl::Duration push_delay_from_start() const { return push_delay_from_start_; }
 
   Site* site() { return &site_; }
 
+  void MarkRequest() { last_request_ = absl::Now(); }
+  void MarkResponse() { last_response_ = absl::Now(); }
+  void MarkChange() { last_change_ = absl::Now(); }
+
+  const absl::Time& last_response() const { return last_response_; }
+  const absl::Time& last_request() const { return last_request_; }
+  const absl::Time& last_change() const { return last_change_; }
+
  protected:
-  Collaborator(const char* name, absl::Duration push_delay)
-      : name_(name), push_delay_(push_delay) {}
+  Collaborator(const char* name, absl::Duration push_delay_from_idle, absl::Duration push_delay_from_start)
+      : name_(name), push_delay_from_idle_(push_delay_from_idle), push_delay_from_start_(push_delay_from_start) {}
 
  private:
   const char* const name_;
-  const absl::Duration push_delay_;
+  const absl::Duration push_delay_from_idle_;
+  const absl::Duration push_delay_from_start_;
+  absl::Time last_response_ = absl::Now();
+  absl::Time last_request_ = absl::Now();
+  absl::Time last_change_ = absl::Now();
+  absl::Duration last_notify_ = absl::Seconds(0);
   Site site_;
 };
 
 typedef std::unique_ptr<Collaborator> CollaboratorPtr;
 
-// a collaborator that only makes edits in response to edits
-class SyncCollaborator {
+class AsyncCollaborator : public Collaborator {
  public:
-  const char* name() const { return name_; }
-  absl::Duration push_delay() const { return push_delay_; }
-
-  virtual EditResponse Edit(const EditNotification& notification) = 0;
-
-  Site* site() { return &site_; }
+  virtual void Push(const EditNotification& notification) = 0;
+  virtual EditResponse Pull() = 0;
 
  protected:
-  SyncCollaborator(const char* name, absl::Duration push_delay)
-      : name_(name), push_delay_(push_delay) {}
-
- private:
-  const char* const name_;
-  const absl::Duration push_delay_;
-  Site site_;
+  AsyncCollaborator(const char* name, absl::Duration push_delay_from_idle, absl::Duration push_delay_from_start)
+      : Collaborator(name, push_delay_from_idle, push_delay_from_start) {}
 };
 
+// a collaborator that only makes edits in response to edits
+class SyncCollaborator : public Collaborator {
+ public:
+  virtual EditResponse Edit(const EditNotification& notification) = 0;
+
+ protected:
+  SyncCollaborator(const char* name, absl::Duration push_delay_from_idle, absl::Duration push_delay_from_start)
+      : Collaborator(name, push_delay_from_idle, push_delay_from_start) {}
+};
+
+typedef std::unique_ptr<AsyncCollaborator> AsyncCollaboratorPtr;
 typedef std::unique_ptr<SyncCollaborator> SyncCollaboratorPtr;
 
 class Buffer {
@@ -167,31 +181,31 @@ class Buffer {
 
   const std::string& filename() const { return filename_; }
 
+  std::vector<std::string> ProfileData() const;
+
  private:
-  void AddCollaborator(CollaboratorPtr&& collaborator);
+  void AddCollaborator(AsyncCollaboratorPtr&& collaborator);
   void AddCollaborator(SyncCollaboratorPtr&& collaborator);
 
-  EditNotification NextNotification(void* id, const char* name,
-                                    uint64_t* last_processed,
-                                    absl::Duration push_delay);
-  void SinkResponse(void* id, const char* name, const EditResponse& response);
+  EditNotification NextNotification(Collaborator* collaborator,
+                                    uint64_t* last_processed);
+  void SinkResponse(Collaborator* collaborator, const EditResponse& response);
 
-  void RunPush(Collaborator* collaborator);
-  void RunPull(Collaborator* collaborator);
+  void RunPush(AsyncCollaborator* collaborator);
+  void RunPull(AsyncCollaborator* collaborator);
   void RunSync(SyncCollaborator* collaborator);
 
-  void UpdateState(bool become_used,
+  void UpdateState(Collaborator* collaborator, bool become_used,
                    std::function<void(EditNotification& new_state)>);
 
-  absl::Mutex mu_;
+mutable  absl::Mutex mu_;
   uint64_t version_ GUARDED_BY(mu_);
-  std::set<void*> declared_no_edit_collaborators_ GUARDED_BY(mu_);
-  std::set<void*> done_collaborators_ GUARDED_BY(mu_);
+  std::set<Collaborator*> declared_no_edit_collaborators_ GUARDED_BY(mu_);
+  std::set<Collaborator*> done_collaborators_ GUARDED_BY(mu_);
   bool updating_ GUARDED_BY(mu_);
   absl::Time last_used_ GUARDED_BY(mu_);
   const std::string filename_ GUARDED_BY(mu_);
   EditNotification state_ GUARDED_BY(mu_);
   std::vector<CollaboratorPtr> collaborators_ GUARDED_BY(mu_);
-  std::vector<SyncCollaboratorPtr> sync_collaborators_ GUARDED_BY(mu_);
   std::vector<std::thread> collaborator_threads_ GUARDED_BY(mu_);
 };

@@ -65,7 +65,7 @@ struct TerminalRenderContainers {
   TerminalRenderer::ContainerRef status;
 };
 
-class TerminalCollaborator final : public Collaborator {
+class TerminalCollaborator final : public AsyncCollaborator {
  public:
   TerminalCollaborator(const Buffer* buffer, std::function<void()> invalidate);
   void Push(const EditNotification& notification) override;
@@ -80,6 +80,7 @@ class TerminalCollaborator final : public Collaborator {
     FINDING,
   };
 
+  const Buffer* const buffer_;
   const std::function<void()> invalidate_;
   absl::Mutex mu_;
   Editor editor_ GUARDED_BY(mu_);

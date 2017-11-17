@@ -71,7 +71,7 @@ class ClangEnv : public LibClang {
 }  // namespace
 
 LibClangCollaborator::LibClangCollaborator(const Buffer* buffer)
-    : SyncCollaborator("libclang", absl::Seconds(0)),
+    : SyncCollaborator("libclang", absl::Seconds(0), absl::Milliseconds(1)),
       buffer_(buffer),
       content_latch_(true),
       token_editor_(site()),

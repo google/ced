@@ -15,7 +15,7 @@
 
 #include "buffer.h"
 
-class IOCollaborator final : public Collaborator {
+class IOCollaborator final : public AsyncCollaborator {
  public:
   IOCollaborator(const Buffer* buffer);
   void Push(const EditNotification& notification) override;

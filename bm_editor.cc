@@ -95,7 +95,8 @@ static void BM_EditorRenderSideBar(benchmark::State& state) {
                                             sb);
   AnnotationMap<SideBufferRef>::MakeInsert(
       &r.side_buffer_refs, &site, String::Begin(),
-      Annotation<SideBufferRef>(String::End(), SideBufferRef{"disasm", {1, 2, 3, 4, 5, 6}}));
+      Annotation<SideBufferRef>(String::End(),
+                                SideBufferRef{"disasm", {1, 2, 3, 4, 5, 6}}));
   IntegrateResponse(r, &n);
   editor.UpdateState(n);
 

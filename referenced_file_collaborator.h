@@ -16,10 +16,10 @@
 #include "buffer.h"
 #include "fswatch.h"
 
-class ReferencedFileCollaborator final : public Collaborator {
+class ReferencedFileCollaborator final : public AsyncCollaborator {
  public:
   ReferencedFileCollaborator(const Buffer* buffer)
-      : Collaborator("reffile", absl::Seconds(0)) {}
+      : AsyncCollaborator("reffile", absl::Seconds(0), absl::Milliseconds(100)) {}
   void Push(const EditNotification& notification) override;
   EditResponse Pull() override;
 

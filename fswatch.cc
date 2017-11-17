@@ -102,7 +102,7 @@ bool RunWatch(int pipe_read, const std::vector<std::string>& interest_set) {
   }
   cleanup.Add([=]() { close(inotify_fd); });
   for (const auto& path : interest_set) {
-    int r = inotify_add_watch(inotify_fd, path.c_str(), IN_ALL_EVENTS);
+    int r = inotify_add_watch(inotify_fd, path.c_str(), IN_MODIFY);
     if (r == -1) {
       fprintf(stderr, "inotify_add_watch %s failed\n", path.c_str());
       return false;

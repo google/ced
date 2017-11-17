@@ -19,7 +19,7 @@
 class GodboltCollaborator final : public SyncCollaborator {
  public:
   GodboltCollaborator(const Buffer* buffer)
-      : SyncCollaborator("godbolt", absl::Seconds(0)),
+      : SyncCollaborator("godbolt", absl::Seconds(0), absl::Milliseconds(300)),
         buffer_(buffer),
         content_latch_(buffer),
         side_buffer_editor_(site()),

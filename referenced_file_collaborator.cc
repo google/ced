@@ -21,6 +21,7 @@ void ReferencedFileCollaborator::Push(const EditNotification& notification) {
     shutdown_ = true;
   }
   if (!last_.SameIdentity(notification.referenced_files)) {
+  Log() << "CHANGED FILE SET";
     last_ = notification.referenced_files;
     RestartWatch();
   }
@@ -41,6 +42,7 @@ EditResponse ReferencedFileCollaborator::Pull() {
 }
 
 void ReferencedFileCollaborator::ChangedFile(bool shutdown_fswatch) {
+Log() << "REF:WATCHED CHANGED" << shutdown_fswatch;
   absl::MutexLock lock(&mu_);
   update_ = true;
   if (!shutdown_fswatch) {
@@ -54,6 +56,7 @@ void ReferencedFileCollaborator::RestartWatch() {
       [&interest_set](const std::string& s) { interest_set.insert(s); });
   std::vector<std::string> interest_vec;
   for (const auto& s : interest_set) {
+    Log() << "INTEREST SET:" << s;
     interest_vec.push_back(s);
   }
   fswatch_.reset(new FSWatcher(
