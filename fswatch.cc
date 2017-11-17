@@ -25,7 +25,7 @@ class Cleanup {
  private:
   std::vector<std::function<void()>> fns_;
 };
-}
+}  // namespace
 
 #ifdef __APPLE__
 #include <fcntl.h>
@@ -86,12 +86,12 @@ bool RunWatch(int pipe_read, const std::vector<std::string>& interest_set) {
   }
   return true;
 }
-}
-#else // assume linux
-#include <unistd.h>
-#include <sys/inotify.h>
+}  // namespace
+#else  // assume linux
 #include <limits.h>
 #include <poll.h>
+#include <sys/inotify.h>
+#include <unistd.h>
 
 bool RunWatch(int pipe_read, const std::vector<std::string>& interest_set) {
   int inotify_fd = inotify_init();
@@ -100,7 +100,7 @@ bool RunWatch(int pipe_read, const std::vector<std::string>& interest_set) {
     fprintf(stderr, "Failed to create inotify fd\n");
     return false;
   }
-  cleanup.Add([=](){close(inotify_fd);});
+  cleanup.Add([=]() { close(inotify_fd); });
   for (const auto& path : interest_set) {
     int r = inotify_add_watch(inotify_fd, path.c_str(), IN_ALL_EVENTS);
     if (r == -1) {
@@ -108,11 +108,11 @@ bool RunWatch(int pipe_read, const std::vector<std::string>& interest_set) {
       return false;
     }
   }
-  struct pollfd poll_fds[]= {
-    {inotify_fd, POLLIN, 0},
-        {pipe_read, POLLIN, 0},
+  struct pollfd poll_fds[] = {
+      {inotify_fd, POLLIN, 0},
+      {pipe_read, POLLIN, 0},
   };
-  poll(poll_fds, sizeof(poll_fds)/sizeof(*poll_fds), -1);
+  poll(poll_fds, sizeof(poll_fds) / sizeof(*poll_fds), -1);
   return poll_fds[1].revents == 0;
 }
 #endif

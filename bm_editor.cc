@@ -36,6 +36,15 @@ struct MockContext {
   void Put(int row, int col, const std::string& s, int attr) { (*puts)++; }
 };
 
+static std::string GenLines(const std::string& base, int n) {
+  std::string out;
+  for (int i = 0; i < n; i++) {
+    out.append(base);
+    out += '\n';
+  }
+  return out;
+}
+
 static void BM_EditorRender(benchmark::State& state) {
   Site site;
   Editor editor(&site);
@@ -43,12 +52,67 @@ static void BM_EditorRender(benchmark::State& state) {
   int moves = 0;
   int putc = 0;
   int puts = 0;
+  Renderer<MockContext>::Rect win(lay_vec4{0, 0, 200, 100});
+
+  EditNotification n;
+  EditResponse r;
+  String::MakeRawInsert(&r.content, &site,
+                        "int foo(int i) {\n" +
+                            GenLines("i += 123456789;", state.range(0)) + "}\n",
+                        String::Begin(), String::End());
+  IntegrateResponse(r, &n);
+  editor.UpdateState(n);
 
   for (auto _ : state) {
-    MockContext ctx{nullptr, &color, false, &moves, &putc, &puts};
+    MockContext ctx{&win, &color, false, &moves, &putc, &puts};
     editor.Render(&ctx);
   }
+
+  state.counters["moves"] = moves;
+  state.counters["putc"] = putc;
+  state.counters["puts"] = puts;
 }
-BENCHMARK(BM_EditorRender);
+BENCHMARK(BM_EditorRender)->Range(1, 32768);
+
+static void BM_EditorRenderSideBar(benchmark::State& state) {
+  Site site;
+  Editor editor(&site);
+  MockColor color;
+  int moves = 0;
+  int putc = 0;
+  int puts = 0;
+  Renderer<MockContext>::Rect win(lay_vec4{0, 0, 200, 100});
+
+  EditResponse r;
+  EditNotification n;
+  SideBuffer sb;
+  for (auto c : GenLines("i += 123456789;", state.range(0))) {
+    sb.content.push_back(c);
+    sb.tokens.push_back(Tag());
+  }
+  sb.CalcLines();
+  UMap<std::string, SideBuffer>::MakeInsert(&r.side_buffers, &site, "disasm",
+                                            sb);
+  AnnotationMap<SideBufferRef>::MakeInsert(
+      &r.side_buffer_refs, &site, String::Begin(),
+      Annotation<SideBufferRef>(String::End(), SideBufferRef{"disasm", {1, 2, 3, 4, 5, 6}}));
+  IntegrateResponse(r, &n);
+  editor.UpdateState(n);
+
+  {
+    MockContext ctx{&win, &color, false, &moves, &putc, &puts};
+    editor.Render(&ctx);
+  }
+
+  for (auto _ : state) {
+    MockContext ctx{&win, &color, false, &moves, &putc, &puts};
+    editor.RenderSideBar(&ctx);
+  }
+
+  state.counters["moves"] = moves;
+  state.counters["putc"] = putc;
+  state.counters["puts"] = puts;
+}
+BENCHMARK(BM_EditorRenderSideBar)->Range(1, 32768);
 
 BENCHMARK_MAIN()

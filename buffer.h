@@ -104,6 +104,8 @@ struct EditResponse : public EditState<RspTrans> {
   bool referenced_file_changed = false;
 };
 
+void IntegrateResponse(const EditResponse& response, EditNotification* state);
+
 class Collaborator {
  public:
   const char* name() const { return name_; }

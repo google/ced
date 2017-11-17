@@ -131,6 +131,21 @@ static void IntegrateState(T* state, const typename T::CommandBuf& commands) {
   }
 }
 
+void IntegrateResponse(const EditResponse& response, EditNotification* state) {
+  IntegrateState(&state->content, response.content);
+  IntegrateState(&state->token_types, response.token_types);
+  IntegrateState(&state->diagnostics, response.diagnostics);
+  IntegrateState(&state->diagnostic_ranges, response.diagnostic_ranges);
+  IntegrateState(&state->side_buffers, response.side_buffers);
+  IntegrateState(&state->side_buffer_refs, response.side_buffer_refs);
+  IntegrateState(&state->fixits, response.fixits);
+  IntegrateState(&state->referenced_files, response.referenced_files);
+  IntegrateState(&state->gutter_notes, response.gutter_notes);
+  IntegrateState(&state->cursors, response.cursors);
+  if (response.become_loaded) state->fully_loaded = true;
+  if (response.referenced_file_changed) state->referenced_file_version++;
+}
+
 void Buffer::UpdateState(bool become_used,
                          std::function<void(EditNotification& state)> f) {
   auto updatable = [this]() {
@@ -163,18 +178,7 @@ void Buffer::SinkResponse(void* id, const char* name,
   if (HasUpdates(response)) {
     UpdateState(response.become_used, [&](EditNotification& state) {
       Log() << name << " integrating";
-      IntegrateState(&state.content, response.content);
-      IntegrateState(&state.token_types, response.token_types);
-      IntegrateState(&state.diagnostics, response.diagnostics);
-      IntegrateState(&state.diagnostic_ranges, response.diagnostic_ranges);
-      IntegrateState(&state.side_buffers, response.side_buffers);
-      IntegrateState(&state.side_buffer_refs, response.side_buffer_refs);
-      IntegrateState(&state.fixits, response.fixits);
-      IntegrateState(&state.referenced_files, response.referenced_files);
-      IntegrateState(&state.gutter_notes, response.gutter_notes);
-      IntegrateState(&state.cursors, response.cursors);
-      if (response.become_loaded) state.fully_loaded = true;
-      if (response.referenced_file_changed) state.referenced_file_version++;
+      IntegrateResponse(response, &state);
     });
   } else {
     Log() << name << " gives an empty update";

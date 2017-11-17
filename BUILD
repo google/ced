@@ -462,5 +462,6 @@ cc_library(
 cc_binary(
   name = "bm_editor",
   srcs = ["bm_editor.cc"],
-  deps = [":editor", "@benchmark//:benchmark"]
+  deps = [":editor", "@benchmark//:benchmark"],
+  linkopts = ["-lpthread"]
 )

@@ -40,7 +40,8 @@ class ConfigRegistry {
   ConfigRegistry() {
     const char* home = getenv("HOME");
     std::vector<std::string> cfg_paths{
-        absl::StrCat(home, "/.config/ced/config.yaml"), ".ced",
+        absl::StrCat(home, "/.config/ced/config.yaml"),
+        ".ced",
     };
     for (auto c : cfg_paths) {
       LoadConfig(c);

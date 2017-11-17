@@ -13,10 +13,9 @@
 // limitations under the License.
 #include "run.h"
 #include <string.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 #include <sys/dir.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <thread>
 #include "absl/strings/str_cat.h"
@@ -44,14 +43,18 @@ static void CloseFDsAfter(int after) {
       long l = strtol(de->d_name, &e, 10);
       if (errno != 0 || !e || *e) {
         closedir(d);
-        throw std::runtime_error(absl::StrCat("Confused: saw error ", errno, " looking at ", FDS_DIR, " file ", de->d_name));
+        throw std::runtime_error(absl::StrCat("Confused: saw error ", errno,
+                                              " looking at ", FDS_DIR, " file ",
+                                              de->d_name));
       }
 
       auto fd = (int)l;
 
       if ((long)fd != l) {
         closedir(d);
-        throw std::runtime_error(absl::StrCat("Confused: ", fd, " != ", l, " looking at ", FDS_DIR, " file ", de->d_name));
+        throw std::runtime_error(absl::StrCat("Confused: ", fd, " != ", l,
+                                              " looking at ", FDS_DIR, " file ",
+                                              de->d_name));
       }
 
       if (fd <= after) continue;
@@ -65,7 +68,9 @@ static void CloseFDsAfter(int after) {
         closedir(d);
         errno = saved_errno;
 
-        throw std::runtime_error(absl::StrCat("Confused: close(", fd, ") failed with errno ", errno, " looking at ", FDS_DIR, " file ", de->d_name));
+        throw std::runtime_error(
+            absl::StrCat("Confused: close(", fd, ") failed with errno ", errno,
+                         " looking at ", FDS_DIR, " file ", de->d_name));
       }
     }
 
