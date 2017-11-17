@@ -25,7 +25,6 @@
 #include "re2/re2.h"
 #include "read.h"
 #include "run.h"
-#include "src/json.hpp"
 
 #define PLAT_LIB_PFX "lib"
 #if defined(__APPLE__)
@@ -131,32 +130,8 @@ End of search list.
 void ClangCompileArgs(const std::string& filename,
                       std::vector<std::string>* args) {
   if (CompilationDatabase* db = Project::GetAspect<CompilationDatabase>()) {
-    auto j = nlohmann::json::parse(Read(db->CompileCommandsFile()));
-    for (const auto& child : j) {
-      if (child["file"] == filename) {
-        std::string command = child["command"];
-        std::string directory = child["directory"];
-        bool skip_arg = true;
-        for (auto arg_view : absl::StrSplit(command, " ")) {
-          if (skip_arg) {
-            skip_arg = false;
-            continue;
-          }
-          if (arg_view == "-c" || arg_view == "-o") {
-            skip_arg = true;
-            continue;
-          }
-          std::string arg(arg_view.data(), arg_view.length());
-          if (arg.length() && arg[0] != '/' && arg[0] != '-') {
-            auto as_if_under_dir = absl::StrCat(directory, "/", arg);
-            if (Exists(as_if_under_dir)) {
-              arg = as_if_under_dir;
-            }
-          }
-          args->emplace_back(std::move(arg));
-        }
-        return;
-      }
+    if (db->ClangCompileArgs(filename, args)) {
+      return;
     }
   }
 

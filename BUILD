@@ -294,7 +294,6 @@ cc_library(
   deps = [
       '@com_googlesource_code_re2//:re2',
       '@com_google_absl//absl/strings',
-      '@json//:json',
       ':compilation_database_h',
       ':config',
       ':read',
@@ -374,6 +373,13 @@ cc_library(
 cc_library(
   name = 'compilation_database_h',
   hdrs = ['compilation_database.h'],
+  srcs = ['compilation_database.cc'],
+  deps = [
+      '@json//:json',
+      "@com_google_absl//absl/synchronization",
+      "@com_google_absl//absl/strings",
+      ":read",
+  ]
 )
 
 cc_library(
