@@ -16,5 +16,11 @@
 
 int main(void) {
   std::cerr << Project::GetAspect<ProjectRoot>()->Path() << "\n";
+
+  std::cerr << "Project files:";
+  Project::ForEachAspect<ConfigFile>(
+      [](ConfigFile* f) { std::cerr << " " << f->Config(); });
+  std::cerr << "\n";
+
   return 0;
 }

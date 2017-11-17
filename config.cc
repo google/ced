@@ -16,6 +16,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "log.h"
+#include "project.h"
 #include "yaml-cpp/yaml.h"
 
 class ConfigRegistry {
@@ -41,11 +42,12 @@ class ConfigRegistry {
     const char* home = getenv("HOME");
     std::vector<std::string> cfg_paths{
         absl::StrCat(home, "/.config/ced/config.yaml"),
-        ".ced",
     };
     for (auto c : cfg_paths) {
       LoadConfig(c);
     }
+    Project::ForEachAspect<ConfigFile>(
+        [this](ConfigFile* a) { LoadConfig(a->Config()); });
     for (auto it = configs_.crbegin(); it != configs_.crend(); ++it) {
       Log() << *it;
     }

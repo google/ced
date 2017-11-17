@@ -29,6 +29,11 @@ class ProjectRoot {
   virtual std::string Path() const = 0;
 };
 
+class ConfigFile {
+ public:
+  virtual std::string Config() const = 0;
+};
+
 class Project {
  public:
   static Project& Get() {
@@ -37,7 +42,7 @@ class Project {
   }
 
   static void RegisterAspectFactory(
-      std::function<ProjectAspectPtr(const std::string& path)>);
+      std::function<ProjectAspectPtr(const std::string& path)>, int priority);
 
   template <class T>
   T* aspect() {
@@ -53,21 +58,29 @@ class Project {
     return Get().aspect<T>();
   }
 
+  template <class T>
+  static void ForEachAspect(std::function<void(T*)> f) {
+    for (const auto& pa : Get().aspects_) {
+      T* pt = dynamic_cast<T*>(pa.get());
+      if (pt != nullptr) f(pt);
+    }
+  }
+
  private:
   Project();
 
   std::vector<ProjectAspectPtr> aspects_;
 };
 
-#define IMPL_PROJECT_ASPECT(name, path_arg)                       \
-  namespace {                                                     \
-  class name##_impl {                                             \
-   public:                                                        \
-    static std::unique_ptr<ProjectAspect> Construct(              \
-        const std::string& path_arg);                             \
-    name##_impl() { Project::RegisterAspectFactory(&Construct); } \
-  };                                                              \
-  name##_impl impl;                                               \
-  }                                                               \
-  std::unique_ptr<ProjectAspect> name##_impl::Construct(          \
+#define IMPL_PROJECT_ASPECT(name, path_arg, priority)                         \
+  namespace {                                                                 \
+  class name##_impl {                                                         \
+   public:                                                                    \
+    static std::unique_ptr<ProjectAspect> Construct(                          \
+        const std::string& path_arg);                                         \
+    name##_impl() { Project::RegisterAspectFactory(&Construct, (priority)); } \
+  };                                                                          \
+  name##_impl impl;                                                           \
+  }                                                                           \
+  std::unique_ptr<ProjectAspect> name##_impl::Construct(                      \
       const std::string& path_arg)

@@ -11,7 +11,7 @@ class BazelProject final : public ProjectAspect, public ProjectRoot {
   std::string root_;
 };
 
-IMPL_PROJECT_ASPECT(Bazel, path) {
+IMPL_PROJECT_ASPECT(Bazel, path, 0) {
   FILE* f = fopen(absl::StrCat(path, "/WORKSPACE").c_str(), "r");
   if (!f) return nullptr;
   fclose(f);

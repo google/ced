@@ -18,11 +18,14 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
+#include "compilation_database.h"
 #include "config.h"
 #include "log.h"
+#include "project.h"
 #include "re2/re2.h"
 #include "read.h"
 #include "run.h"
+#include "src/json.hpp"
 
 #define PLAT_LIB_PFX "lib"
 #if defined(__APPLE__)
@@ -33,6 +36,8 @@
 
 static Config<std::string> clang_version("project.clang-version");
 static ConfigMap<std::string, std::string> clang_location("clang.location");
+static Config<std::string> compile_commands_regen(
+    "project.compile-commands-regen");
 
 static std::vector<absl::string_view> Path() {
   const char* path = getenv("PATH");
@@ -125,6 +130,36 @@ End of search list.
 
 void ClangCompileArgs(const std::string& filename,
                       std::vector<std::string>* args) {
+  if (CompilationDatabase* db = Project::GetAspect<CompilationDatabase>()) {
+    auto j = nlohmann::json::parse(Read(db->CompileCommandsFile()));
+    for (const auto& child : j) {
+      if (child["file"] == filename) {
+        std::string command = child["command"];
+        std::string directory = child["directory"];
+        bool skip_arg = true;
+        for (auto arg_view : absl::StrSplit(command, " ")) {
+          if (skip_arg) {
+            skip_arg = false;
+            continue;
+          }
+          if (arg_view == "-c" || arg_view == "-o") {
+            skip_arg = true;
+            continue;
+          }
+          std::string arg(arg_view.data(), arg_view.length());
+          if (arg.length() && arg[0] != '/' && arg[0] != '-') {
+            auto as_if_under_dir = absl::StrCat(directory, "/", arg);
+            if (Exists(as_if_under_dir)) {
+              arg = as_if_under_dir;
+            }
+          }
+          args->emplace_back(std::move(arg));
+        }
+        return;
+      }
+    }
+  }
+
   args->push_back("-x");
   args->push_back("c++");
   args->push_back("-std=c++11");

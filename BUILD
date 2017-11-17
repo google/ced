@@ -13,6 +13,14 @@
 # limitations under the License.
 
 load('//:rules.bzl', 'file2lib')
+load("@compiledb//:aspects.bzl", "compilation_database")
+
+compilation_database(
+    name = "compilation_database",
+    targets = [
+        "//:ced",
+    ],
+)
 
 config_setting(
     name = "linux_x86_64",
@@ -120,6 +128,7 @@ cc_binary(
   linkstatic = 1,
   srcs = ["main.cc"],
   deps = [
+    ":standard_project_types",
     ":buffer",
     ":terminal_collaborator",
     ":clang_format_collaborator",
@@ -129,7 +138,7 @@ cc_binary(
     ":referenced_file_collaborator",
     ":config",
     ":terminal_color",
-    ":render"
+    ":render",
   ],
   linkopts = ["-lcurses", "-lpthread", "-ldl"]
 )
@@ -274,6 +283,7 @@ cc_library(
     '@com_google_absl//absl/synchronization',
     '@com_google_absl//absl/strings',
     ":log",
+    ':project',
   ],
 )
 
@@ -284,9 +294,12 @@ cc_library(
   deps = [
       '@com_googlesource_code_re2//:re2',
       '@com_google_absl//absl/strings',
+      '@json//:json',
+      ':compilation_database_h',
       ':config',
       ':read',
       ':run',
+      ':project'
   ],
 )
 
@@ -359,9 +372,30 @@ cc_library(
 )
 
 cc_library(
+  name = 'compilation_database_h',
+  hdrs = ['compilation_database.h'],
+)
+
+cc_library(
+  name = 'clang_project',
+  srcs = ['clang_project.cc'],
+  alwayslink = 1,
+  deps = [':project', 'compilation_database_h']
+)
+
+cc_library(
+  name = 'ced_project',
+  srcs = ['ced_project.cc'],
+  alwayslink = 1,
+  deps = [':project']
+)
+
+cc_library(
   name = 'standard_project_types',
   deps = [
     'bazel_project',
+    'clang_project',
+    'ced_project',
   ]
 )
 

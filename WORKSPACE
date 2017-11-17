@@ -139,7 +139,6 @@ cc_library(
   """
 )
 
-
 new_git_repository(
     name = "benchmark",
     commit="0c3ec998c4cc6b7bba7226a3b35a7917613b3802",
@@ -163,3 +162,28 @@ cc_library(
     """
 )
 
+new_http_archive(
+  name = "compiledb",
+  urls = ['https://github.com/grailbio/bazel-compilation-database/archive/0.2.tar.gz'],
+  strip_prefix = 'bazel-compilation-database-0.2',
+  build_file_content = """
+filegroup(
+  name="aspects",
+  srcs=["aspects.bzl"],
+  visibility=["//visibility:public"],
+)
+  """
+)
+
+new_http_archive(
+  name = "json",
+  urls = ['https://github.com/nlohmann/json/archive/v2.1.1.tar.gz'],
+  strip_prefix = 'json-2.1.1',
+  build_file_content = """
+cc_library(
+  name = "json",
+  hdrs = ['src/json.hpp'],
+  visibility = ['//visibility:public'],
+)
+  """
+)

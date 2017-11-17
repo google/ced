@@ -28,20 +28,25 @@ class AspectRegistry {
     return registry;
   }
 
-  void Register(std::function<ProjectAspectPtr(const std::string& path)> f) {
-    fs_.push_back(f);
+  void Register(std::function<ProjectAspectPtr(const std::string& path)> f,
+                int priority) {
+    fs_[-priority].push_back(f);
   }
 
   void ConstructInto(const std::string& path,
                      std::vector<ProjectAspectPtr>* v) {
-    for (auto fn : fs_) {
-      auto p = fn(path);
-      if (p) v->emplace_back(std::move(p));
+    for (const auto& pfs : fs_) {
+      for (auto fn : pfs.second) {
+        auto p = fn(path);
+        if (p) v->emplace_back(std::move(p));
+      }
     }
   }
 
  private:
-  std::vector<std::function<ProjectAspectPtr(const std::string& path)>> fs_;
+  std::map<int, std::vector<
+                    std::function<ProjectAspectPtr(const std::string& path)>>>
+      fs_;
 };
 
 class SafeBackupAspect final : public ProjectAspect, public ProjectRoot {
@@ -57,8 +62,8 @@ class SafeBackupAspect final : public ProjectAspect, public ProjectRoot {
 }  // namespace
 
 void Project::RegisterAspectFactory(
-    std::function<ProjectAspectPtr(const std::string&)> f) {
-  AspectRegistry::Get().Register(f);
+    std::function<ProjectAspectPtr(const std::string&)> f, int priority) {
+  AspectRegistry::Get().Register(f, priority);
 }
 
 Project::Project() {

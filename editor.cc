@@ -96,7 +96,8 @@ void Editor::SelectUpN(int n) {
 void Editor::Backspace() {
   SetSelectMode(false);
   state_.content.MakeRemove(&unpublished_commands_, cursor_);
-  String::Iterator it(state_.content, cursor_);
+  String::Iterator;
+  it(state_.content, cursor_);
   it.MovePrev();
   cursor_ = it.id();
 }
