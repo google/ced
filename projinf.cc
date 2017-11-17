@@ -11,9 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include <iostream>
 #include "project.h"
 
 int main(void) {
-  Project project;
+  std::cerr << Project::GetAspect<ProjectRoot>()->Path() << "\n";
   return 0;
 }

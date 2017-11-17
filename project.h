@@ -13,12 +13,61 @@
 // limitations under the License.
 #pragma once
 
+#include <functional>
+#include <memory>
 #include <string>
+#include <vector>
+
+class ProjectAspect {
+ public:
+  virtual ~ProjectAspect() {}
+};
+typedef std::unique_ptr<ProjectAspect> ProjectAspectPtr;
+
+class ProjectRoot {
+ public:
+  virtual std::string Path() const = 0;
+};
 
 class Project {
  public:
-  Project();
+  static Project& Get() {
+    static Project project;
+    return project;
+  }
+
+  static void RegisterAspectFactory(
+      std::function<ProjectAspectPtr(const std::string& path)>);
+
+  template <class T>
+  T* aspect() {
+    for (const auto& pa : aspects_) {
+      T* pt = dynamic_cast<T*>(pa.get());
+      if (pt != nullptr) return pt;
+    }
+    return nullptr;
+  }
+
+  template <class T>
+  static T* GetAspect() {
+    return Get().aspect<T>();
+  }
 
  private:
-  std::string root_;
+  Project();
+
+  std::vector<ProjectAspectPtr> aspects_;
 };
+
+#define IMPL_PROJECT_ASPECT(name, path_arg)                       \
+  namespace {                                                     \
+  class name##_impl {                                             \
+   public:                                                        \
+    static std::unique_ptr<ProjectAspect> Construct(              \
+        const std::string& path_arg);                             \
+    name##_impl() { Project::RegisterAspectFactory(&Construct); } \
+  };                                                              \
+  name##_impl impl;                                               \
+  }                                                               \
+  std::unique_ptr<ProjectAspect> name##_impl::Construct(          \
+      const std::string& path_arg)

@@ -351,10 +351,24 @@ cc_library(
   deps = ["@com_google_absl//absl/strings"]
 )
 
+cc_library(
+  name = 'bazel_project',
+  srcs = ['bazel_project.cc'],
+  alwayslink = 1,
+  deps = [':project']
+)
+
+cc_library(
+  name = 'standard_project_types',
+  deps = [
+    'bazel_project',
+  ]
+)
+
 cc_binary(
   name = "projinf",
   srcs = ["projinf.cc"],
-  deps = [":project"],
+  deps = [":project", ":standard_project_types"],
 )
 
 cc_library(

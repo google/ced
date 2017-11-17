@@ -20,29 +20,46 @@
 #include "absl/strings/str_split.h"
 
 namespace {
-struct InterestingFile {
-  std::string name;
-  bool is_file;
-  int project_score;
+
+class AspectRegistry {
+ public:
+  static AspectRegistry& Get() {
+    static AspectRegistry registry;
+    return registry;
+  }
+
+  void Register(std::function<ProjectAspectPtr(const std::string& path)> f) {
+    fs_.push_back(f);
+  }
+
+  void ConstructInto(const std::string& path,
+                     std::vector<ProjectAspectPtr>* v) {
+    for (auto fn : fs_) {
+      auto p = fn(path);
+      if (p) v->emplace_back(std::move(p));
+    }
+  }
+
+ private:
+  std::vector<std::function<ProjectAspectPtr(const std::string& path)>> fs_;
 };
 
-struct WhatsThere {
-  bool bazel_workspace;
-  bool bazel_build;
-  bool git;
-  bool ced;
-  bool gitignore;
-  bool clang_format;
-  bool license;
-  bool readme;
-  bool code_of_conduct;
-  bool makefile;
-  bool github;
-  bool vscode;
-  bool clang_complete;
-  bool travis;
+class SafeBackupAspect final : public ProjectAspect, public ProjectRoot {
+ public:
+  SafeBackupAspect(const std::string& cwd) : cwd_(cwd) {}
+
+  std::string Path() const override { return cwd_; }
+
+ private:
+  std::string cwd_;
 };
+
 }  // namespace
+
+void Project::RegisterAspectFactory(
+    std::function<ProjectAspectPtr(const std::string&)> f) {
+  AspectRegistry::Get().Register(f);
+}
 
 Project::Project() {
   // some path above this one is the root of the project... let's try to figure
@@ -51,11 +68,11 @@ Project::Project() {
   if (nullptr == getcwd(cwd, sizeof(cwd))) {
     throw std::runtime_error("Couldn't get cwd");
   }
-  std::cerr << cwd << "\n";
   std::vector<absl::string_view> segments = absl::StrSplit(cwd, '/');
   while (!segments.empty()) {
     auto path = absl::StrJoin(segments, "/");
-    std::cerr << path << "\n";
+    AspectRegistry::Get().ConstructInto(path, &aspects_);
     segments.pop_back();
   }
+  aspects_.emplace_back(new SafeBackupAspect(cwd));
 }
