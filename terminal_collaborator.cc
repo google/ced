@@ -23,7 +23,8 @@ constexpr char ctrl(char c) { return c & 0x1f; }
 
 TerminalCollaborator::TerminalCollaborator(const Buffer* buffer,
                                            std::function<void()> invalidate)
-    : AsyncCollaborator("terminal", absl::Seconds(0), absl::Milliseconds(6)), buffer_(buffer),
+    : AsyncCollaborator("terminal", absl::Seconds(0), absl::Milliseconds(5)),
+      buffer_(buffer),
       invalidate_(invalidate),
       editor_(site()),
       recently_used_(false),
@@ -71,37 +72,33 @@ static const char* SeverityString(Severity sev) {
 }
 
 void TerminalCollaborator::Render(TerminalRenderContainers containers) {
-  auto ready = [this]() {
-    mu_.AssertHeld();
-    return editor_.HasMostRecentEdit();
-  };
-
   /*
    * edit item
    */
   containers.main
       .AddItem(LAY_LEFT | LAY_VFILL,
-               [this, ready](TerminalRenderContext* context) {
-                 mu_.LockWhen(absl::Condition(&ready));
+               [this](TerminalRenderContext* context) {
+                 absl::MutexLock lock(&mu_);
                  editor_.Render(context);
-                 mu_.Unlock();
                })
       .FixSize(80, 0);
 
   auto side_bar = containers.main.AddContainer(LAY_FILL, LAY_COLUMN);
 
   std::vector<std::string> profile = buffer_->ProfileData();
-  side_bar.AddItem(LAY_TOP | LAY_HFILL, [this, profile](TerminalRenderContext* context) {
-    int row = 0;
-    for (const auto& s : profile) {
-      context->Put(row++, 0, s, context->color->Theme(Tag(), 0));
-    }
-  }).FixSize(0, profile.size());
+  side_bar
+      .AddItem(LAY_TOP | LAY_HFILL,
+               [this, profile](TerminalRenderContext* context) {
+                 int row = 0;
+                 for (const auto& s : profile) {
+                   context->Put(row++, 0, s, context->color->Theme(Tag(), 0));
+                 }
+               })
+      .FixSize(0, profile.size());
 
-  side_bar.AddItem(LAY_FILL, [this, ready](TerminalRenderContext* context) {
-    mu_.LockWhen(absl::Condition(&ready));
+  side_bar.AddItem(LAY_FILL, [this](TerminalRenderContext* context) {
+    absl::MutexLock lock(&mu_);
     editor_.RenderSideBar(context);
-    mu_.Unlock();
   });
 
   auto diagnostics =

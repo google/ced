@@ -46,7 +46,7 @@ int test(int x) {
 
 int main(void) {
   for (int i = 0; i < 11000; i++) {
-    print_int(i);
+    print_int(i * 2);
   }
 
   print_int(Foo().fib(13));

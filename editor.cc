@@ -13,6 +13,36 @@
 // limitations under the License.
 #include "editor.h"
 
+EditResponse Editor::MakeResponse() {
+  EditResponse r;
+  r.done = state_.shutdown;
+  r.become_used = !unpublished_commands_.empty();
+  for (auto& cmd : unpublished_commands_) {
+    state_.content = state_.content.Integrate(cmd);
+    r.content.emplace_back(cmd->Clone());
+    unacknowledged_commands_.emplace_back(std::move(cmd));
+  }
+  unpublished_commands_.clear();
+  cursor_editor_.BeginEdit(&r.cursors);
+  cursor_editor_.Add(cursor_);
+  cursor_editor_.Publish();
+  assert(unpublished_commands_.empty());
+  return r;
+}
+
+void Editor::UpdateState(const EditNotification& state) {
+  state_ = state;
+  std::vector<String::CommandPtr> new_commands;
+  for (auto& cmd : unacknowledged_commands_) {
+    String s2 = state_.content.Integrate(cmd);
+    if (!s2.SameIdentity(state_.content)) {
+      new_commands.emplace_back(std::move(cmd));
+      state_.content = s2;
+    }
+  }
+  new_commands.swap(unacknowledged_commands_);
+}
+
 void Editor::SelectLeft() {
   SetSelectMode(true);
   CursorLeft();
@@ -65,8 +95,7 @@ void Editor::SelectUpN(int n) {
 
 void Editor::Backspace() {
   SetSelectMode(false);
-  NextRenderMustNotHaveID(cursor_);
-  state_.content.MakeRemove(&commands_, cursor_);
+  state_.content.MakeRemove(&unpublished_commands_, cursor_);
   String::Iterator it(state_.content, cursor_);
   it.MovePrev();
   cursor_ = it.id();
@@ -91,17 +120,16 @@ void Editor::Paste(AppEnv* env) {
     DeleteSelection();
     SetSelectMode(false);
   }
-  cursor_ =
-      state_.content.MakeInsert(&commands_, site_, env->clipboard, cursor_);
-  NextRenderMustHaveID(cursor_);
+  cursor_ = state_.content.MakeInsert(&unpublished_commands_, site_,
+                                      env->clipboard, cursor_);
 }
 
 void Editor::InsChar(char c) {
   DeleteSelection();
   SetSelectMode(false);
-  cursor_ = state_.content.MakeInsert(&commands_, site_, c, cursor_);
+  cursor_ =
+      state_.content.MakeInsert(&unpublished_commands_, site_, c, cursor_);
   cursor_row_ += (c == '\n');
-  NextRenderMustHaveID(cursor_);
 }
 
 void Editor::SetSelectMode(bool sel) {
@@ -114,8 +142,7 @@ void Editor::SetSelectMode(bool sel) {
 
 void Editor::DeleteSelection() {
   if (!SelectMode()) return;
-  NextRenderMustNotHaveID(cursor_);
-  state_.content.MakeRemove(&commands_, cursor_, selection_anchor_);
+  state_.content.MakeRemove(&unpublished_commands_, cursor_, selection_anchor_);
   String::Iterator it(state_.content, cursor_);
   it.MovePrev();
   cursor_ = it.id();
@@ -192,18 +219,6 @@ void Editor::CursorEndOfLine() {
                 .AsIterator()
                 .Prev()
                 .id();
-}
-
-void Editor::NextRenderMustHaveID(ID id) {
-  check_most_recent_edit_ = [id](const EditNotification& state) {
-    return state.content.Has(id);
-  };
-}
-
-void Editor::NextRenderMustNotHaveID(ID id) {
-  check_most_recent_edit_ = [id](const EditNotification& state) {
-    return !String::AllIterator(state.content, id).is_visible();
-  };
 }
 
 int Editor::RenderCommon(

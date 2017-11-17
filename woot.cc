@@ -36,6 +36,7 @@ String String::IntegrateRemove(ID id) const {
 }
 
 String String::IntegrateInsert(ID id, char c, ID after, ID before) const {
+  if (avl_.Lookup(id)) return *this;
   const CharInfo* caft = avl_.Lookup(after);
   const CharInfo* cbef = avl_.Lookup(before);
   assert(caft != nullptr);

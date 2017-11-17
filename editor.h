@@ -29,26 +29,12 @@ class Editor {
   Editor(Site* site) : site_(site), cursor_editor_(site) {}
 
   // state management
-  void UpdateState(const EditNotification& state) { state_ = state; }
+  void UpdateState(const EditNotification& state);
   const EditNotification& CurrentState() { return state_; }
-
-  bool HasMostRecentEdit() {
-    return state_.shutdown || check_most_recent_edit_(state_);
+  bool HasCommands() {
+    return state_.shutdown || !unpublished_commands_.empty();
   }
-
-  bool HasCommands() { return state_.shutdown || !commands_.empty(); }
-
-  EditResponse MakeResponse() {
-    EditResponse r;
-    r.done = state_.shutdown;
-    r.become_used = !commands_.empty();
-    commands_.swap(r.content);
-    cursor_editor_.BeginEdit(&r.cursors);
-    cursor_editor_.Add(cursor_);
-    cursor_editor_.Publish();
-    assert(commands_.empty());
-    return r;
-  }
+  EditResponse MakeResponse();
 
   // editor commands
   void SelectLeft();
@@ -122,9 +108,6 @@ class Editor {
   void SetSelectMode(bool sel);
   bool SelectMode() const { return selection_anchor_ != ID(); }
   void DeleteSelection();
-
-  void NextRenderMustHaveID(ID id);
-  void NextRenderMustNotHaveID(ID id);
 
   template <class RC>
   struct EditRenderContext {
@@ -223,13 +206,12 @@ class Editor {
   ID cursor_ = String::Begin();
   ID selection_anchor_ = ID();
   EditNotification state_;
-  std::vector<String::CommandPtr> commands_;
+  std::vector<String::CommandPtr> unpublished_commands_;
+  std::vector<String::CommandPtr> unacknowledged_commands_;
   Tag cursor_token_;
   SideBufferRef active_side_buffer_;
   int last_sb_offset_ = 0;
   USetEditor<ID> cursor_editor_;
-  std::function<bool(const EditNotification&)> check_most_recent_edit_ =
-      [](const EditNotification&) { return true; };
 
   int RenderCommon(int window_height, LineCallback callback);
   int MainRowOfs(int window_height, int first_draw_ignored,
