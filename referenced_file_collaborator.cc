@@ -21,7 +21,7 @@ void ReferencedFileCollaborator::Push(const EditNotification& notification) {
     shutdown_ = true;
   }
   if (!last_.SameIdentity(notification.referenced_files)) {
-  Log() << "CHANGED FILE SET";
+    Log() << "CHANGED FILE SET";
     last_ = notification.referenced_files;
     RestartWatch();
   }
@@ -42,7 +42,7 @@ EditResponse ReferencedFileCollaborator::Pull() {
 }
 
 void ReferencedFileCollaborator::ChangedFile(bool shutdown_fswatch) {
-Log() << "REF:WATCHED CHANGED" << shutdown_fswatch;
+  Log() << "REF:WATCHED CHANGED" << shutdown_fswatch;
   absl::MutexLock lock(&mu_);
   update_ = true;
   if (!shutdown_fswatch) {

@@ -16,6 +16,10 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sstream>
+#include <vector>
+#include "absl/strings/str_cat.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "wrap_syscall.h"
 
 class Log : public std::ostringstream {
@@ -59,3 +63,31 @@ class Log : public std::ostringstream {
     ;         \
   else        \
     Log()
+
+class LogTimer {
+ public:
+  LogTimer(const char* pfx) : start_(absl::Now()), pfx_(pfx) {}
+
+  void Mark(const char* ent) {
+    marks_.push_back(std::make_pair(ent, absl::Now()));
+  }
+
+  ~LogTimer() {
+    auto end = absl::Now();
+    std::string report;
+    absl::StrAppend(&report, "Completed ", pfx_, " in ",
+                    absl::FormatDuration(end - start_));
+    auto last = start_;
+    for (const auto& m : marks_) {
+      absl::StrAppend(&report, "\n  ", m.first, " in ",
+                      absl::FormatDuration(m.second - last));
+      last = m.second;
+    }
+    Log() << report;
+  }
+
+ private:
+  absl::Time start_;
+  const char* const pfx_;
+  std::vector<std::pair<const char*, absl::Time>> marks_;
+};

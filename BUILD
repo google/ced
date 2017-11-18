@@ -265,7 +265,7 @@ cc_library(
   name = "log",
   srcs = ["log.cc"],
   hdrs = ["log.h"],
-  deps = [":wrap_syscall"]
+  deps = [":wrap_syscall", '@com_google_absl//absl/strings',"@com_google_absl//absl/time"]
 )
 
 cc_test(

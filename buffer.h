@@ -112,7 +112,9 @@ class Collaborator {
 
   const char* name() const { return name_; }
   absl::Duration push_delay_from_idle() const { return push_delay_from_idle_; }
-  absl::Duration push_delay_from_start() const { return push_delay_from_start_; }
+  absl::Duration push_delay_from_start() const {
+    return push_delay_from_start_;
+  }
 
   Site* site() { return &site_; }
 
@@ -125,8 +127,11 @@ class Collaborator {
   const absl::Time& last_change() const { return last_change_; }
 
  protected:
-  Collaborator(const char* name, absl::Duration push_delay_from_idle, absl::Duration push_delay_from_start)
-      : name_(name), push_delay_from_idle_(push_delay_from_idle), push_delay_from_start_(push_delay_from_start) {}
+  Collaborator(const char* name, absl::Duration push_delay_from_idle,
+               absl::Duration push_delay_from_start)
+      : name_(name),
+        push_delay_from_idle_(push_delay_from_idle),
+        push_delay_from_start_(push_delay_from_start) {}
 
  private:
   const char* const name_;
@@ -147,7 +152,8 @@ class AsyncCollaborator : public Collaborator {
   virtual EditResponse Pull() = 0;
 
  protected:
-  AsyncCollaborator(const char* name, absl::Duration push_delay_from_idle, absl::Duration push_delay_from_start)
+  AsyncCollaborator(const char* name, absl::Duration push_delay_from_idle,
+                    absl::Duration push_delay_from_start)
       : Collaborator(name, push_delay_from_idle, push_delay_from_start) {}
 };
 
@@ -157,7 +163,8 @@ class SyncCollaborator : public Collaborator {
   virtual EditResponse Edit(const EditNotification& notification) = 0;
 
  protected:
-  SyncCollaborator(const char* name, absl::Duration push_delay_from_idle, absl::Duration push_delay_from_start)
+  SyncCollaborator(const char* name, absl::Duration push_delay_from_idle,
+                   absl::Duration push_delay_from_start)
       : Collaborator(name, push_delay_from_idle, push_delay_from_start) {}
 };
 
@@ -198,7 +205,7 @@ class Buffer {
   void UpdateState(Collaborator* collaborator, bool become_used,
                    std::function<void(EditNotification& new_state)>);
 
-mutable  absl::Mutex mu_;
+  mutable absl::Mutex mu_;
   uint64_t version_ GUARDED_BY(mu_);
   std::set<Collaborator*> declared_no_edit_collaborators_ GUARDED_BY(mu_);
   std::set<Collaborator*> done_collaborators_ GUARDED_BY(mu_);

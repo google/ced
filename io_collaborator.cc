@@ -20,7 +20,7 @@
 #include "wrap_syscall.h"
 
 IOCollaborator::IOCollaborator(const Buffer* buffer)
-    : AsyncCollaborator("io", absl::Milliseconds(100),absl::Milliseconds(500)),
+    : AsyncCollaborator("io", absl::Milliseconds(100), absl::Milliseconds(500)),
       filename_(buffer->filename()),
       last_char_id_(String::Begin()) {
   fd_ = WrapSyscall("open",

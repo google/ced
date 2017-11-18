@@ -62,8 +62,8 @@ bool RunWatch(int pipe_read, const std::vector<std::string>& interest_set) {
     cleanup.Add([=]() { close(efd); });
 
     /* Set up a list of events to monitor. */
-    unsigned vnode_events = NOTE_DELETE | NOTE_WRITE | NOTE_EXTEND |
-                            NOTE_ATTRIB | NOTE_LINK | NOTE_RENAME | NOTE_REVOKE;
+    unsigned vnode_events =
+        NOTE_DELETE | NOTE_WRITE | NOTE_EXTEND | NOTE_RENAME | NOTE_REVOKE;
     EV_SET(&events_to_monitor[i], event_fds[i], EVFILT_VNODE, EV_ADD | EV_CLEAR,
            vnode_events, 0, nullptr);
   }

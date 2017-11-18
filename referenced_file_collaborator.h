@@ -19,7 +19,8 @@
 class ReferencedFileCollaborator final : public AsyncCollaborator {
  public:
   ReferencedFileCollaborator(const Buffer* buffer)
-      : AsyncCollaborator("reffile", absl::Seconds(0), absl::Milliseconds(100)) {}
+      : AsyncCollaborator("reffile", absl::Seconds(0),
+                          absl::Milliseconds(100)) {}
   void Push(const EditNotification& notification) override;
   EditResponse Pull() override;
 

@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "buffer.h"
+#include "absl/strings/str_cat.h"
 #include "io_collaborator.h"
 #include "log.h"
-#include "absl/strings/str_cat.h"
 
 Buffer::Buffer(const std::string& filename)
     : version_(0),
@@ -25,7 +25,8 @@ Buffer::Buffer(const std::string& filename)
 }
 
 Buffer::~Buffer() {
-  UpdateState(nullptr, false, [](EditNotification& state) { state.shutdown = true; });
+  UpdateState(nullptr, false,
+              [](EditNotification& state) { state.shutdown = true; });
 
   for (auto& t : collaborator_threads_) {
     t.join();
@@ -95,10 +96,14 @@ EditNotification Buffer::NextNotification(Collaborator* collaborator,
         last_used_at_start = last_used_;
         absl::Duration idle_time = absl::Now() - last_used_;
         absl::Duration time_from_change = absl::Now() - first_saw_change;
-        Log() << collaborator->name() << " idle_time: " << idle_time << " time_from_change: " << time_from_change;
+        Log() << collaborator->name() << " idle_time: " << idle_time
+              << " time_from_change: " << time_from_change;
         if (*last_processed != 0 &&
-            mu_.AwaitWithTimeout(absl::Condition(&state_.shutdown),
-                                 std::max(collaborator->push_delay_from_idle() - idle_time, collaborator->push_delay_from_start() - time_from_change))) {
+            mu_.AwaitWithTimeout(
+                absl::Condition(&state_.shutdown),
+                std::max(collaborator->push_delay_from_idle() - idle_time,
+                         collaborator->push_delay_from_start() -
+                             time_from_change))) {
           break;
         }
       } while (last_used_ != last_used_at_start && !state_.shutdown);
@@ -184,10 +189,11 @@ void Buffer::SinkResponse(Collaborator* collaborator,
   }
 
   if (HasUpdates(response)) {
-    UpdateState(collaborator, response.become_used, [&](EditNotification& state) {
-      Log() << collaborator->name() << " integrating";
-      IntegrateResponse(response, &state);
-    });
+    UpdateState(collaborator, response.become_used,
+                [&](EditNotification& state) {
+                  Log() << collaborator->name() << " integrating";
+                  IntegrateResponse(response, &state);
+                });
   } else {
     Log() << collaborator->name() << " gives an empty update";
     absl::MutexLock lock(&mu_);
@@ -242,10 +248,12 @@ std::vector<std::string> Buffer::ProfileData() const {
   std::vector<std::string> out;
   for (const auto& c : collaborators_) {
     out.emplace_back(absl::StrCat(c->name(), ":"));
-    out.emplace_back(absl::StrCat("  chg:",  absl::FormatTime(c->last_change())));
-    out.emplace_back(absl::StrCat("  rsp:", absl::FormatTime(c->last_response())));
-    out.emplace_back(absl::StrCat("  req:", absl::FormatTime(c->last_request())));
+    out.emplace_back(
+        absl::StrCat("  chg:", absl::FormatTime(c->last_change())));
+    out.emplace_back(
+        absl::StrCat("  rsp:", absl::FormatTime(c->last_response())));
+    out.emplace_back(
+        absl::StrCat("  req:", absl::FormatTime(c->last_request())));
   }
   return out;
 }
-

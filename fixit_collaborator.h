@@ -18,7 +18,8 @@
 class FixitCollaborator final : public SyncCollaborator {
  public:
   FixitCollaborator(const Buffer* buffer)
-      : SyncCollaborator("fixit", absl::Milliseconds(1500), absl::Milliseconds(100)) {}
+      : SyncCollaborator("fixit", absl::Milliseconds(1500),
+                         absl::Milliseconds(100)) {}
 
   EditResponse Edit(const EditNotification& notification) override;
 };

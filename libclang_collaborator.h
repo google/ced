@@ -28,6 +28,7 @@ class LibClangCollaborator final : public SyncCollaborator {
  private:
   const Buffer* const buffer_;
   ContentLatch content_latch_;
+  void* tu_ = nullptr;
   USet<ID> last_cursors_;
   UMapEditor<ID, Annotation<Tag>> token_editor_;
   DiagnosticEditor diagnostic_editor_;
