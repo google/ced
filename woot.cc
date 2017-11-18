@@ -13,7 +13,7 @@
 // limitations under the License.
 #include "woot.h"
 
-std::atomic<uint64_t> Site::id_gen_;
+std::atomic<uint16_t> Site::id_gen_{1};
 Site String::root_site_;
 ID String::begin_id_ = root_site_.GenerateID();
 ID String::end_id_ = root_site_.GenerateID();

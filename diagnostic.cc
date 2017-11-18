@@ -120,7 +120,7 @@ void DiagnosticEditor::Publish(const String& content, EditResponse* response) {
         ID id = impl_->fixit_editor.Add(
             Fixit{fixit.type, diag.diag_id, idx, replacement.range.first,
                   replacement.range.second, replacement.new_text});
-        Log() << "PUBLISH FIXIT: " << absl::StrJoin(id, ":");
+        Log() << "PUBLISH FIXIT: " << id;
       }
     }
   }
