@@ -187,3 +187,9 @@ cc_library(
 )
   """
 )
+
+http_archive(
+  name = "com_google_protobuf",
+  urls = ['https://github.com/google/protobuf/releases/download/v3.5.0/protobuf-all-3.5.0.tar.gz'],
+  strip_prefix = "protobuf-3.5.0"
+)

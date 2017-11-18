@@ -1,0 +1,69 @@
+// Copyright 2017 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+message TagSet {
+  repeated string tags = 1;
+};
+
+message Diagnostic {
+  enum Severity {
+    UNSET = 0;
+    IGNORED = 1;
+    NOTE = 2;
+    WARNING = 3;
+    ERROR = 4;
+    FATAL = 5;
+  };
+  Severity severity = 1;
+  string message = 2;
+};
+
+message Fixit {
+  enum Type {
+    UNSET = 0;
+    AUTOSUGGEST = 1;
+    COMPILE_FIX = 2;
+    TIDY_FIX = 3;
+  };
+  Type type = 1;
+  uint64 diagnostic = 2;
+  string replacement = 3;
+};
+
+message SizeAnnotation {
+  enum Type {
+    UNSET = 0;
+    OFFSET_INTO_PARENT = 1;
+    SIZEOF_SELF = 2;
+  };
+  Type type = 1;
+  uint64 size = 2;
+};
+
+message BufferRef {
+  uint64 buffer = 1;
+  repeated int32 lines = 2;
+};
+
+message Annotation {
+  oneof annotation {
+    TagSet tags = 1;
+    Diagnostic diagnostic = 2;
+    Fixit fixit = 3;
+    SizeAnnotation size = 4;
+    BufferRef buffer_ref = 5;
+  }
+};

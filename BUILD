@@ -14,6 +14,7 @@
 
 load('//:rules.bzl', 'file2lib')
 load("@compiledb//:aspects.bzl", "compilation_database")
+load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
 
 compilation_database(
     name = "compilation_database",
@@ -518,4 +519,11 @@ cc_binary(
   srcs = ["bm_editor.cc"],
   deps = [":editor", "@benchmark//:benchmark"],
   linkopts = ["-lpthread"]
+)
+
+cc_proto_library(
+  name = "annotation",
+  srcs = ["annotation.proto"],
+  protoc = "@com_google_protobuf//:protoc",
+  default_runtime = "@com_google_protobuf//:protobuf",
 )
