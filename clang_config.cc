@@ -109,12 +109,11 @@ End of search list.
   RE2 r_end(R"(End of search list\..*)");
   bool started = false;
   std::string ent;
-  for (auto line : absl::StrSplit(
-           run(toolname,
-               {"-std=c++11", "-stdlib=libc++", "-v", "-E", "-x", "c++", "-"},
-               "")
-               .err,
-           '\n')) {
+  for (auto line : absl::StrSplit(run(toolname, {"-std=c++11", "-stdlib=libc++",
+                                                 "-v", "-E", "-x", "c++", "-"},
+                                      "")
+                                      .err,
+                                  '\n')) {
     re2::StringPiece spline(line.data(), line.length());
     Log() << "CLANGARGLINE: " << line;
     if (!started && RE2::FullMatch(spline, r_start)) {
@@ -173,11 +172,11 @@ std::string ClangCompileCommand(const std::string& filename,
                                 const std::string& src_file,
                                 const std::string& dst_file,
                                 std::vector<std::string>* args) {
+  ClangCompileArgs(filename, args);
+
   args->push_back("-g");
   args->push_back("-O2");
   args->push_back("-DNDEBUG");
-
-  ClangCompileArgs(filename, args);
 
   args->push_back("-c");
   args->push_back("-o");

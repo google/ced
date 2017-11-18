@@ -303,11 +303,11 @@ int Editor::RenderSideBarCommon(int window_height, LineCallback callback) {
         std::vector<CharInfo> ci;
         first_line = 0;
         int last_line = buf.line_ofs.size() - 1;
-        if (first_line < last_sb_offset_ - 2 * window_height) {
-          first_line = last_sb_offset_ - 2 * window_height;
+        if (first_line < -window_height - last_sb_offset_) {
+          first_line = -window_height - last_sb_offset_;
         }
-        if (last_line > first_line + 4 * window_height) {
-          last_line = first_line + 4 * window_height;
+        if (last_line > first_line + 2 * window_height) {
+          last_line = first_line + 2 * window_height;
         }
         Log() << "last_sb_offset_=" << last_sb_offset_
               << " first_line=" << first_line << " last_line=" << last_line

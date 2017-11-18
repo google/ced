@@ -239,11 +239,8 @@ class Editor {
         ideal_pos = window_height - 1 - nlines;
       if (ideal_pos != last_sb_offset_) {
         int dir = ideal_pos < last_sb_offset_ ? -1 : 1;
-        int mag = abs(ideal_pos - last_sb_offset_) / 5;
-        if (mag < 1)
-          mag = 1;
-        else if (mag > 5)
-          mag = 5;
+        int mag = abs(ideal_pos - last_sb_offset_) / 10;
+        if (mag < 1) mag = 1;
         last_sb_offset_ += mag * dir;
         *animating = true;
       }
