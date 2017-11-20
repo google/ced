@@ -13,6 +13,7 @@
 // limitations under the License.
 #pragma once
 
+#include <unordered_set>
 #include "buffer.h"
 #include "fswatch.h"
 
@@ -29,7 +30,7 @@ class ReferencedFileCollaborator final : public AsyncCollaborator {
   void RestartWatch() EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   absl::Mutex mu_;
-  USet<std::string> last_ GUARDED_BY(mu_);
+  std::unordered_set<std::string> last_ GUARDED_BY(mu_);
   bool update_ GUARDED_BY(mu_);
   bool shutdown_ GUARDED_BY(mu_);
   std::unique_ptr<FSWatcher> fswatch_ GUARDED_BY(mu_);

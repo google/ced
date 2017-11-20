@@ -16,7 +16,6 @@
 #include "absl/strings/str_join.h"
 #include "clang-c/Index.h"
 #include "clang_config.h"
-#include "diagnostic.h"
 #include "libclang/libclang.h"
 #include "log.h"
 #include "selector.h"
@@ -74,11 +73,7 @@ LibClangCollaborator::LibClangCollaborator(const Buffer* buffer)
     : SyncCollaborator("libclang", absl::Seconds(0), absl::Milliseconds(1)),
       buffer_(buffer),
       content_latch_(true),
-      token_editor_(site()),
-      diagnostic_editor_(site()),
-      ref_editor_(site()),
-      gutter_notes_editor_(site()),
-      autocomplete_editor_(site()) {}
+      ed_(site()) {}
 
 LibClangCollaborator::~LibClangCollaborator() {
   ClangEnv* env = ClangEnv::Get();
@@ -106,20 +101,20 @@ static const std::map<CXCursorKind, std::string> tok_cursor_rules = {
     {CXCursor_BinaryOperator, "keyword.operator.binary.c++"},
     {CXCursor_UnaryOperator, "keyword.operator.unary.c++"}};
 
-static Severity DiagnosticSeverity(CXDiagnosticSeverity sev) {
+static Diagnostic::Severity DiagnosticSeverity(CXDiagnosticSeverity sev) {
   switch (sev) {
     case CXDiagnostic_Ignored:
-      return Severity::IGNORED;
+      return Diagnostic::IGNORED;
     case CXDiagnostic_Note:
-      return Severity::NOTE;
+      return Diagnostic::NOTE;
     case CXDiagnostic_Warning:
-      return Severity::WARNING;
+      return Diagnostic::WARNING;
     case CXDiagnostic_Error:
-      return Severity::ERROR;
+      return Diagnostic::ERROR;
     case CXDiagnostic_Fatal:
-      return Severity::FATAL;
+      return Diagnostic::FATAL;
   }
-  return Severity::UNSET;
+  return Diagnostic::UNSET;
 }
 
 static bool IsPunctuation(char c) {
@@ -163,27 +158,10 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   EditResponse response;
 
   bool content_changed = content_latch_.IsNewContent(notification);
-  bool cursors_changed = !last_cursors_.SameIdentity(notification.cursors);
 
-  if (!content_changed && !cursors_changed) {
+  if (!content_changed) {
     return response;
   }
-
-  last_cursors_ = notification.cursors;
-
-  struct AutoCompleteCursor {
-    int offset = -1;
-    int line = -1;
-    int column = -1;
-    std::set<ID> cursor_ids;
-  };
-
-  std::map<ID, AutoCompleteCursor> autocomplete_ids;
-  notification.cursors.ForEach([&](ID cursor_id, ID id) {
-    String::Iterator it(notification.content, id);
-    while (!it.is_begin() && !IsPunctuation(it.value())) it.MovePrev();
-    autocomplete_ids[it.id()].cursor_ids.insert(cursor_id);
-  });
 
   auto filename = buffer_->filename();
 
@@ -191,17 +169,11 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
 
   std::string str;
   std::vector<ID> ids;
-  String::Iterator it(notification.content, String::Begin());
+  AnnotatedString::Iterator it(notification.content, AnnotatedString::Begin());
   it.MoveNext();
   int line = 1;
   int col = 1;
   while (!it.is_end()) {
-    auto sit = autocomplete_ids.find(it.id());
-    if (sit != autocomplete_ids.end()) {
-      sit->second.offset = ids.size();
-      sit->second.line = line;
-      sit->second.column = col;
-    }
     if (it.value() == '\n') {
       line++;
       col = 0;
@@ -246,238 +218,209 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
     content_changed = true;
   }
 
-  if (content_changed) {
-    if (0 != env->clang_reparseTranslationUnit(
-                 tu, unsaved_files.size(), unsaved_files.data(),
-                 env->clang_defaultReparseOptions(tu))) {
-      Log() << "failed reparse";
-      return response;
-    }
-
-    tmr.Mark("reparse");
-
-    CXFile file = env->clang_getFile(tu, filename.c_str());
-
-    // get top/last location of the file
-    CXSourceLocation topLoc = env->clang_getLocationForOffset(tu, file, 0);
-    CXSourceLocation lastLoc =
-        env->clang_getLocationForOffset(tu, file, str.length());
-    if (env->clang_equalLocations(topLoc, env->clang_getNullLocation()) ||
-        env->clang_equalLocations(lastLoc, env->clang_getNullLocation())) {
-      Log() << "cannot retrieve location";
-      env->clang_disposeTranslationUnit(tu);
-      return response;
-    }
-
-    // make a range from locations
-    CXSourceRange range = env->clang_getRange(topLoc, lastLoc);
-    if (env->clang_Range_isNull(range)) {
-      Log() << "cannot retrieve range";
-      env->clang_disposeTranslationUnit(tu);
-      return response;
-    }
-
-    /*
-     * SYNTAX HIGHLIGHTING DATA
-     */
-
-    CXToken* tokens;
-    unsigned numTokens;
-    env->clang_tokenize(tu, range, &tokens, &numTokens);
-    std::unique_ptr<CXCursor[]> tok_cursors(new CXCursor[numTokens]);
-    env->clang_annotateTokens(tu, tokens, numTokens, tok_cursors.get());
-
-    token_editor_.BeginEdit(&response.token_types);
-
-    std::function<Tag(Tag, CXCursor)> f_add = [&f_add, env](Tag t,
-                                                            CXCursor cursor) {
-      if (!env->clang_Cursor_isNull(cursor)) {
-        t = f_add(t, env->clang_getCursorLexicalParent(cursor));
-      }
-      CXCursorKind kind = env->clang_getCursorKind(cursor);
-      auto it = tok_cursor_rules.find(kind);
-      if (it != tok_cursor_rules.end()) {
-        t = t.Push(it->second);
-      }
-      t = t.Push(absl::StrCat(
-          "LIBCLANG-",
-          env->clang_getCString(env->clang_getCursorKindSpelling(kind))));
-      return t;
-    };
-    std::function<Tag(Tag, CXToken)> f_tidy = [env](Tag t, CXToken token) {
-      switch (env->clang_getTokenKind(token)) {
-        case CXToken_Keyword:
-          return t.Push("keyword.c++");
-        case CXToken_Comment:
-          return t.Push("comment.c++");
-        default:
-          return t;
-      }
-    };
-
-    std::map<unsigned, long long> ofs_annotation;
-    gutter_notes_editor_.BeginEdit(&response.gutter_notes);
-
-    for (unsigned i = 0; i < numTokens; i++) {
-      CXToken token = tokens[i];
-      CXCursor cursor = tok_cursors[i];
-      CXSourceRange extent = env->clang_getTokenExtent(tu, token);
-      CXSourceLocation start = env->clang_getRangeStart(extent);
-      CXSourceLocation end = env->clang_getRangeEnd(extent);
-
-      CXFile file;
-      unsigned line, col, offset_start, offset_end;
-      env->clang_getFileLocation(start, &file, &line, &col, &offset_start);
-
-      if (ofs_annotation.find(line) == ofs_annotation.end()) {
-        long long ofs = env->clang_Cursor_getOffsetOfField(cursor);
-        if (ofs >= 0) {
-          ofs_annotation[line] = ofs;
-          if (ofs % 8 == 0) {
-            gutter_notes_editor_.Add(ids[offset_start],
-                                     absl::StrCat("@", ofs / 8));
-          } else {
-            gutter_notes_editor_.Add(ids[offset_start],
-                                     absl::StrCat("@", ofs / 8, ".", ofs % 8));
-          }
-        }
-      }
-
-      env->clang_getFileLocation(end, &file, &line, &col, &offset_end);
-
-      token_editor_.Add(
-          ids[offset_start],
-          Annotation<Tag>(
-              ids[offset_end],
-              f_tidy(f_add(Tag().Push("source.c++"), cursor), token)));
-    }
-
-    env->clang_disposeTokens(tu, tokens, numTokens);
-    gutter_notes_editor_.Publish();
-
-    tmr.Mark("syntax-highlighting");
-
-    /*
-     * REFERENCED FILE DISCOVERY
-     */
-
-    ref_editor_.BeginEdit(&response.referenced_files);
-    env->clang_visitChildren(
-        env->clang_getTranslationUnitCursor(tu),
-        +[](CXCursor cursor, CXCursor parent, CXClientData client_data) {
-          ClangEnv* env = ClangEnv::Get();
-          if (env->clang_getCursorKind(cursor) == CXCursor_InclusionDirective) {
-            CXFile file = env->clang_getIncludedFile(cursor);
-            if (file) {
-              CXString filename = env->clang_getFileName(file);
-              const char* fn = env->clang_getCString(filename);
-              LibClangCollaborator* self =
-                  static_cast<LibClangCollaborator*>(client_data);
-              self->ref_editor_.Add(fn);
-              env->clang_disposeString(filename);
-            }
-          }
-          return CXChildVisit_Recurse;
-        },
-        this);
-    ref_editor_.Publish();
-
-    tmr.Mark("referenced-files");
-
-    /*
-     * DIAGNOSTIC DISPLAY
-     */
-
-    if (notification.fully_loaded) {
-      unsigned num_diagnostics = env->clang_getNumDiagnostics(tu);
-      Log() << num_diagnostics << " diagnostics";
-      for (unsigned i = 0; i < num_diagnostics; i++) {
-        CXDiagnostic diag = env->clang_getDiagnostic(tu, i);
-        CXString message = env->clang_formatDiagnostic(diag, 0);
-        diagnostic_editor_.StartDiagnostic(
-            DiagnosticSeverity(env->clang_getDiagnosticSeverity(diag)),
-            env->clang_getCString(message));
-        unsigned num_ranges = env->clang_getDiagnosticNumRanges(diag);
-        for (size_t j = 0; j < num_ranges; j++) {
-          CXSourceRange extent = env->clang_getDiagnosticRange(diag, j);
-          CXSourceLocation start = env->clang_getRangeStart(extent);
-          CXSourceLocation end = env->clang_getRangeEnd(extent);
-          CXFile file;
-          unsigned line, col, offset_start, offset_end;
-          env->clang_getFileLocation(start, &file, &line, &col, &offset_start);
-          env->clang_getFileLocation(end, &file, &line, &col, &offset_end);
-          if (file &&
-              filename == env->clang_getCString(env->clang_getFileName(file))) {
-            diagnostic_editor_.AddRange(ids[offset_start], ids[offset_end]);
-          }
-        }
-        CXFile file;
-        unsigned line, col, offset;
-        CXSourceLocation loc = env->clang_getDiagnosticLocation(diag);
-        env->clang_getFileLocation(loc, &file, &line, &col, &offset);
-        if (file &&
-            filename == env->clang_getCString(env->clang_getFileName(file))) {
-          diagnostic_editor_.AddPoint(ids[offset]);
-        }
-        unsigned num_fixits = env->clang_getDiagnosticNumFixIts(diag);
-        Log() << "num_fixits:" << num_fixits;
-        for (unsigned j = 0; j < num_fixits; j++) {
-          CXSourceRange extent;
-          CXString repl = env->clang_getDiagnosticFixIt(diag, j, &extent);
-          CXSourceLocation start = env->clang_getRangeStart(extent);
-          CXSourceLocation end = env->clang_getRangeEnd(extent);
-          CXFile file;
-          unsigned line, col, offset_start, offset_end;
-          env->clang_getFileLocation(start, &file, &line, &col, &offset_start);
-          env->clang_getFileLocation(end, &file, &line, &col, &offset_end);
-          if (file &&
-              filename == env->clang_getCString(env->clang_getFileName(file))) {
-            diagnostic_editor_.StartFixit(Fixit::Type::COMPILE_FIX)
-                .AddReplacement(ids[offset_start], ids[offset_end],
-                                env->clang_getCString(repl));
-          }
-        }
-
-        env->clang_disposeString(message);
-        env->clang_disposeDiagnostic(diag);
-      }
-    }
-    token_editor_.Publish();
-    diagnostic_editor_.Publish(notification.content, &response);
-
-    tmr.Mark("diagnostics");
-  }  // content_changed
-
-  /*
-   * autocomplete suggestions
-   */
-
-  for (auto sit = autocomplete_ids.begin(); sit != autocomplete_ids.end();
-       ++sit) {
-    auto results = env->clang_codeCompleteAt(
-        tu, filename.c_str(), sit->second.line, sit->second.column,
-        unsaved_files.data(), unsaved_files.size(),
-        env->clang_defaultCodeCompleteOptions());
-    Log() << "CHECK COMPLETIONS @ (" << sit->second.line << ":"
-          << sit->second.column << ") gets " << results->NumResults
-          << " results";
-    for (unsigned i = 0; i < results->NumResults; i++) {
-      const auto& str = results->Results[i].CompletionString;
-      for (unsigned j = 0; j < env->clang_getNumCompletionChunks(str); ++j) {
-        if (env->clang_getCompletionChunkKind(str, j) !=
-            CXCompletionChunk_TypedText) {
-          continue;
-        }
-
-        CXString out = env->clang_getCompletionChunkText(str, j);
-        const char* txt = env->clang_getCString(out);
-        Log() << "COMPLETION: " << txt;
-      }
-    }
-    env->clang_disposeCodeCompleteResults(results);
+  if (0 !=
+      env->clang_reparseTranslationUnit(tu, unsaved_files.size(),
+                                        unsaved_files.data(),
+                                        env->clang_defaultReparseOptions(tu))) {
+    Log() << "failed reparse";
+    return response;
   }
 
-  tmr.Mark("autocomplete");
+  tmr.Mark("reparse");
+
+  AnnotationEditor::ScopedEdit edit(&ed_, &response.content_updates);
+
+  CXFile file = env->clang_getFile(tu, filename.c_str());
+
+  // get top/last location of the file
+  CXSourceLocation topLoc = env->clang_getLocationForOffset(tu, file, 0);
+  CXSourceLocation lastLoc =
+      env->clang_getLocationForOffset(tu, file, str.length());
+  if (env->clang_equalLocations(topLoc, env->clang_getNullLocation()) ||
+      env->clang_equalLocations(lastLoc, env->clang_getNullLocation())) {
+    Log() << "cannot retrieve location";
+    env->clang_disposeTranslationUnit(tu);
+    return response;
+  }
+
+  // make a range from locations
+  CXSourceRange range = env->clang_getRange(topLoc, lastLoc);
+  if (env->clang_Range_isNull(range)) {
+    Log() << "cannot retrieve range";
+    env->clang_disposeTranslationUnit(tu);
+    return response;
+  }
+
+  /*
+   * SYNTAX HIGHLIGHTING DATA
+   */
+
+  CXToken* tokens;
+  unsigned numTokens;
+  env->clang_tokenize(tu, range, &tokens, &numTokens);
+  std::unique_ptr<CXCursor[]> tok_cursors(new CXCursor[numTokens]);
+  env->clang_annotateTokens(tu, tokens, numTokens, tok_cursors.get());
+
+  std::function<void(TagSet*, CXCursor)> f_add = [&f_add, env](
+      TagSet* t, CXCursor cursor) {
+    if (!env->clang_Cursor_isNull(cursor)) {
+      f_add(t, env->clang_getCursorLexicalParent(cursor));
+    }
+    CXCursorKind kind = env->clang_getCursorKind(cursor);
+    auto it = tok_cursor_rules.find(kind);
+    if (it != tok_cursor_rules.end()) {
+      t->add_tags(it->second);
+    }
+    t->add_tags(absl::StrCat(
+        "LIBCLANG-",
+        env->clang_getCString(env->clang_getCursorKindSpelling(kind))));
+  };
+  std::function<void(TagSet*, CXToken)> f_tidy = [env](TagSet* t,
+                                                       CXToken token) {
+    switch (env->clang_getTokenKind(token)) {
+      case CXToken_Keyword:
+        t->add_tags("keyword.c++");
+        break;
+      case CXToken_Comment:
+        t->add_tags("comment.c++");
+        break;
+      default:
+        break;
+    }
+  };
+
+  std::map<unsigned, long long> ofs_annotation;
+
+  for (unsigned i = 0; i < numTokens; i++) {
+    CXToken token = tokens[i];
+    CXCursor cursor = tok_cursors[i];
+    CXSourceRange extent = env->clang_getTokenExtent(tu, token);
+    CXSourceLocation start = env->clang_getRangeStart(extent);
+    CXSourceLocation end = env->clang_getRangeEnd(extent);
+
+    CXFile file;
+    unsigned line, col, offset_start, offset_end;
+    env->clang_getFileLocation(start, &file, &line, &col, &offset_start);
+    env->clang_getFileLocation(end, &file, &line, &col, &offset_end);
+
+    if (ofs_annotation.find(line) == ofs_annotation.end()) {
+      long long ofs = env->clang_Cursor_getOffsetOfField(cursor);
+      if (ofs >= 0) {
+        ofs_annotation[line] = ofs;
+        Attribute attr;
+        SizeAnnotation* ann = attr.mutable_size();
+        ann->set_type(SizeAnnotation::OFFSET_INTO_PARENT);
+        ann->set_size(ofs / 8);
+        ann->set_bits(ofs % 8);
+        ed_.Mark(ids[offset_start], ids[offset_end], attr);
+      }
+    }
+
+    Attribute attr;
+    TagSet* ts = attr.mutable_tags();
+    ts->add_tags("source.c++");
+    f_add(ts, cursor);
+    f_tidy(ts, token);
+    ed_.Mark(ids[offset_start], ids[offset_end], attr);
+  }
+
+  env->clang_disposeTokens(tu, tokens, numTokens);
+
+  tmr.Mark("syntax-highlighting");
+
+  /*
+   * REFERENCED FILE DISCOVERY
+   */
+
+  env->clang_visitChildren(
+      env->clang_getTranslationUnitCursor(tu),
+      +[](CXCursor cursor, CXCursor parent, CXClientData client_data) {
+        ClangEnv* env = ClangEnv::Get();
+        if (env->clang_getCursorKind(cursor) == CXCursor_InclusionDirective) {
+          CXFile file = env->clang_getIncludedFile(cursor);
+          if (file) {
+            CXString filename = env->clang_getFileName(file);
+            const char* fn = env->clang_getCString(filename);
+            LibClangCollaborator* self =
+                static_cast<LibClangCollaborator*>(client_data);
+            Attribute attr;
+            attr.mutable_dependency()->set_filename(fn);
+            self->ed_.AttrID(attr);
+            env->clang_disposeString(filename);
+          }
+        }
+        return CXChildVisit_Recurse;
+      },
+      this);
+
+  tmr.Mark("referenced-files");
+
+  /*
+   * DIAGNOSTIC DISPLAY
+   */
+
+  if (notification.fully_loaded) {
+    unsigned num_diagnostics = env->clang_getNumDiagnostics(tu);
+    Log() << num_diagnostics << " diagnostics";
+    for (unsigned i = 0; i < num_diagnostics; i++) {
+      CXDiagnostic cxdiag = env->clang_getDiagnostic(tu, i);
+      CXString message = env->clang_formatDiagnostic(cxdiag, 0);
+      Attribute diag_attr;
+      Diagnostic* diag = diag_attr.mutable_diagnostic();
+      diag->set_severity(
+          DiagnosticSeverity(env->clang_getDiagnosticSeverity(cxdiag)));
+      diag->set_message(env->clang_getCString(message));
+      ID diag_id = ed_.AttrID(diag_attr);
+      unsigned num_ranges = env->clang_getDiagnosticNumRanges(cxdiag);
+      for (size_t j = 0; j < num_ranges; j++) {
+        CXSourceRange extent = env->clang_getDiagnosticRange(cxdiag, j);
+        CXSourceLocation start = env->clang_getRangeStart(extent);
+        CXSourceLocation end = env->clang_getRangeEnd(extent);
+        CXFile file;
+        unsigned line, col, offset_start, offset_end;
+        env->clang_getFileLocation(start, &file, &line, &col, &offset_start);
+        env->clang_getFileLocation(end, &file, &line, &col, &offset_end);
+        if (file &&
+            filename == env->clang_getCString(env->clang_getFileName(file))) {
+          ed_.Mark(ids[offset_start], ids[offset_end], diag_id);
+        }
+      }
+      CXFile file;
+      unsigned line, col, offset;
+      CXSourceLocation loc = env->clang_getDiagnosticLocation(cxdiag);
+      env->clang_getFileLocation(loc, &file, &line, &col, &offset);
+      if (file &&
+          filename == env->clang_getCString(env->clang_getFileName(file))) {
+        // diagnostic_editor_.AddPoint(ids[offset]);
+      }
+      unsigned num_fixits = env->clang_getDiagnosticNumFixIts(cxdiag);
+      Log() << "num_fixits:" << num_fixits;
+      for (unsigned j = 0; j < num_fixits; j++) {
+        CXSourceRange extent;
+        CXString repl = env->clang_getDiagnosticFixIt(cxdiag, j, &extent);
+        CXSourceLocation start = env->clang_getRangeStart(extent);
+        CXSourceLocation end = env->clang_getRangeEnd(extent);
+        CXFile file;
+        unsigned line, col, offset_start, offset_end;
+        env->clang_getFileLocation(start, &file, &line, &col, &offset_start);
+        env->clang_getFileLocation(end, &file, &line, &col, &offset_end);
+        if (file &&
+            filename == env->clang_getCString(env->clang_getFileName(file))) {
+          Attribute fix_attr;
+          Fixit* fix = fix_attr.mutable_fixit();
+          fix->set_type(Fixit::COMPILE_FIX);
+          fix->set_diagnostic(diag_id.id);
+          fix->set_replacement(env->clang_getCString(repl));
+          ed_.Mark(ids[offset_start], ids[offset_end], fix_attr);
+        }
+      }
+
+      env->clang_disposeString(message);
+      env->clang_disposeDiagnostic(cxdiag);
+    }
+  }
+
+  tmr.Mark("diagnostics");
 
   return response;
 }

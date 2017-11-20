@@ -22,7 +22,7 @@
 IOCollaborator::IOCollaborator(const Buffer* buffer)
     : AsyncCollaborator("io", absl::Milliseconds(100), absl::Milliseconds(500)),
       filename_(buffer->filename()),
-      last_char_id_(String::Begin()) {
+      last_char_id_(AnnotatedString::Begin()) {
   fd_ = WrapSyscall("open",
                     [this]() { return open(filename_.c_str(), O_RDONLY); });
   struct stat st;
@@ -33,7 +33,7 @@ IOCollaborator::IOCollaborator(const Buffer* buffer)
 void IOCollaborator::Push(const EditNotification& notification) {
   if (!notification.fully_loaded) return;
   absl::MutexLock lock(&mu_);
-  if (last_saved_.SameIdentity(notification.content)) return;
+  if (last_saved_.SameContentIdentity(notification.content)) return;
   NamedTempFile tmp;
   int fd = WrapSyscall("open", [&]() {
     return open(tmp.filename().c_str(), O_WRONLY | O_CREAT, attributes_);
@@ -68,8 +68,9 @@ EditResponse IOCollaborator::Pull() {
 
   absl::MutexLock lock(&mu_);
 
-  last_char_id_ = String::MakeRawInsert(&r.content, site(), std::string(buf, n),
-                                        last_char_id_, String::End());
+  last_char_id_ = AnnotatedString::MakeRawInsert(
+      &r.content_updates, site(), std::string(buf, n), last_char_id_,
+      AnnotatedString::End());
 
   return r;
 }

@@ -22,14 +22,12 @@ class GodboltCollaborator final : public SyncCollaborator {
       : SyncCollaborator("godbolt", absl::Seconds(0), absl::Milliseconds(300)),
         buffer_(buffer),
         content_latch_(buffer),
-        side_buffer_editor_(site()),
-        side_buffer_ref_editor_(site()) {}
+        ed_(site()) {}
 
   EditResponse Edit(const EditNotification& notification) override;
 
  private:
   const Buffer* const buffer_;
   ContentLatch content_latch_;
-  UMapEditor<std::string, SideBuffer> side_buffer_editor_;
-  UMapEditor<ID, Annotation<SideBufferRef>> side_buffer_ref_editor_;
+  AnnotationEditor ed_;
 };

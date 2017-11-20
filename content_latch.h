@@ -22,7 +22,7 @@ class ContentLatch {
       : consumes_dependents_(consumes_dependents) {}
 
   bool IsNewContent(const EditNotification& notification) {
-    if (notification.content.SameIdentity(last_str_)) {
+    if (notification.content.SameContentIdentity(last_str_)) {
       if (!consumes_dependents_) {
         return false;
       } else if (last_deps_ == notification.referenced_file_version) {
@@ -36,6 +36,6 @@ class ContentLatch {
 
  private:
   const bool consumes_dependents_;
-  String last_str_;
+  AnnotatedString last_str_;
   uint64_t last_deps_ = 0;
 };

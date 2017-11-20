@@ -27,5 +27,5 @@ class IOCollaborator final : public AsyncCollaborator {
   int attributes_;
   int fd_;
   ID last_char_id_ GUARDED_BY(mu_);
-  String last_saved_ GUARDED_BY(mu_);
+  AnnotatedString last_saved_ GUARDED_BY(mu_);
 };

@@ -51,6 +51,7 @@ message SizeAnnotation {
   };
   Type type = 1;
   uint64 size = 2;
+  uint32 bits = 3;
 };
 
 message BufferRef {

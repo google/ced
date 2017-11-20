@@ -94,36 +94,6 @@ cc_library(
   hdrs = ["list.h"]
 )
 
-cc_library(
-  name = "crdt",
-  hdrs = ["crdt.h"],
-)
-
-cc_library(
-  name = "woot",
-  hdrs = ["woot.h"],
-  srcs = ["woot.cc"],
-  deps = [":avl", ":crdt"]
-)
-
-cc_library(
-  name = "umap",
-  hdrs = ["umap.h"],
-  deps = [":avl", ":crdt", ":log"]
-)
-
-cc_library(
-  name = "uset",
-  hdrs = ["uset.h"],
-  deps = [":avl", ":crdt"]
-)
-
-cc_test(
-  name = "woot_test",
-  srcs = ["woot_test.cc"],
-  deps = [":woot", "@com_google_googletest//:gtest_main"]
-)
-
 cc_binary(
   name = "ced",
   linkstatic = 1,
@@ -152,24 +122,14 @@ cc_library(
 )
 
 cc_library(
-  name = "side_buffer",
-  hdrs = ["side_buffer.h"],
-  srcs = ["side_buffer.cc"],
-  deps = [":selector"],
-)
-
-cc_library(
   name = "buffer",
-  srcs = ["buffer.cc", "io_collaborator.cc", "diagnostic.cc"],
-  hdrs = ["buffer.h", "io_collaborator.h", "diagnostic.h", "content_latch.h"],
+  srcs = ["buffer.cc", "io_collaborator.cc"],
+  hdrs = ["buffer.h", "io_collaborator.h", "content_latch.h"],
   deps = [
-    ":woot",
-    ":umap",
-    ":uset",
+    ":annotated_string",
     ":log",
     ":wrap_syscall",
     ":selector",
-    ":side_buffer",
     ":temp_file",
     "@com_google_absl//absl/synchronization",
     "@com_google_absl//absl/strings",

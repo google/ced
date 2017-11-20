@@ -14,15 +14,21 @@
 
 #include "referenced_file_collaborator.h"
 #include <unordered_set>
+#include "log.h"
 
 void ReferencedFileCollaborator::Push(const EditNotification& notification) {
   absl::MutexLock lock(&mu_);
   if (notification.shutdown) {
     shutdown_ = true;
   }
-  if (!last_.SameIdentity(notification.referenced_files)) {
+  std::unordered_set<std::string> referenced;
+  notification.content.ForEachAttribute([&](ID id, const Attribute& attr) {
+    if (attr.data_case() != Attribute::kDependency) return;
+    referenced.insert(attr.dependency().filename());
+  });
+  if (referenced != last_) {
     Log() << "CHANGED FILE SET";
-    last_ = notification.referenced_files;
+    last_.swap(referenced);
     RestartWatch();
   }
 }
@@ -51,11 +57,8 @@ void ReferencedFileCollaborator::ChangedFile(bool shutdown_fswatch) {
 }
 
 void ReferencedFileCollaborator::RestartWatch() {
-  std::unordered_set<std::string> interest_set;
-  last_.ForEachValue(
-      [&interest_set](const std::string& s) { interest_set.insert(s); });
   std::vector<std::string> interest_vec;
-  for (const auto& s : interest_set) {
+  for (const auto& s : last_) {
     Log() << "INTEREST SET:" << s;
     interest_vec.push_back(s);
   }

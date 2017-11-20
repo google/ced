@@ -58,7 +58,7 @@ EditResponse ClangFormatCollaborator::Edit(
   }
 
   int n = 0;
-  String::Iterator it(str, String::Begin());
+  AnnotatedString::Iterator it(str, AnnotatedString::Begin());
   it.MoveNext();
   for (auto r : replacements) {
     Log() << "REPLACE: " << r.offset << "+" << r.length << " with '" << r.text
@@ -66,23 +66,13 @@ EditResponse ClangFormatCollaborator::Edit(
     for (; n < r.offset; n++) {
       it.MoveNext();
     }
-    auto refresh_it = [&]() {
-      ID curid = it.id();
-      str = str.Integrate(response.content.back());
-      it = String::Iterator(str, curid);
-    };
     for (int i = 0; i < r.length; i++) {
       auto del = it.id();
       it.MoveNext();
       n++;
-      str.MakeRemove(&response.content, del);
-      refresh_it();
+      str.MakeDelete(&response.content_updates, del);
     }
-    auto after = it.Prev().id();
-    for (const char* p = r.text; *p; ++p) {
-      after = str.MakeInsert(&response.content, site(), *p, after);
-      refresh_it();
-    }
+    str.MakeInsert(&response.content_updates, site(), r.text, it.Prev().id());
   }
 
   return response;

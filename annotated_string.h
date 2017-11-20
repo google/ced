@@ -83,12 +83,37 @@ class AnnotatedString {
   }
 
   static void MakeDelete(CommandSet* commands, ID id);
+  static void MakeDelete(CommandSet* commands, ID beg, ID end);
+  static void MakeDelDecl(CommandSet* commands, ID id);
+  static void MakeDelMark(CommandSet* commands, ID id);
   static ID MakeDecl(CommandSet* commands, Site* site,
                      const Attribute& attribute);
   static ID MakeMark(CommandSet* commands, Site* site,
                      const Annotation& annotation);
 
   AnnotatedString Integrate(const CommandSet& commands) const;
+
+  std::string Render() const;
+
+  bool SameContentIdentity(const AnnotatedString& other) const {
+    return chars_.SameIdentity(other.chars_);
+  }
+
+  // F(ID annid, ID begin, ID end, const Attribute& attr)
+  template <class F>
+  void ForEachAnnotation(F&& f) const {
+    annotations_.ForEach([f, this](ID id, const Annotation& ann) {
+      const Attribute* attr = attributes_.Lookup(ann.attribute());
+      if (attr == nullptr) return;
+      f(id, ann.begin(), ann.end(), *attr);
+    });
+  }
+
+  // F(ID attrid, const Attribute& attr)
+  template <class F>
+  void ForEachAttribute(F&& f) const {
+    attributes_.ForEach(f);
+  }
 
  private:
   void IntegrateInsert(ID id, const InsertCommand& cmd);
@@ -225,4 +250,39 @@ class AnnotatedString {
     const AnnotatedString* str_;
     ID id_;
   };
+};
+
+class AnnotationEditor {
+ public:
+  AnnotationEditor(Site* site) : site_(site) {}
+  void BeginEdit(CommandSet* commands) { commands_ = commands; }
+  void EndEdit();
+
+  class ScopedEdit {
+   public:
+    ScopedEdit(AnnotationEditor* editor, CommandSet* commands)
+        : editor_(editor) {
+      editor_->BeginEdit(commands);
+    }
+    ~ScopedEdit() { editor_->EndEdit(); }
+
+   private:
+    AnnotationEditor* const editor_;
+  };
+
+  ID AttrID(const Attribute& attr);
+  ID Mark(const Annotation& anno);
+  ID Mark(ID beg, ID end, ID attr);
+  ID Mark(ID beg, ID end, const Attribute& attr) {
+    return Mark(beg, end, AttrID(attr));
+  }
+
+ private:
+  typedef std::unordered_map<std::string, ID> ValToID;
+  Site* const site_;
+  CommandSet* commands_ = nullptr;
+  ValToID last_attr2id_;
+  ValToID new_attr2id_;
+  ValToID last_ann2id_;
+  ValToID new_ann2id_;
 };

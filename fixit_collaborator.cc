@@ -13,17 +13,21 @@
 // limitations under the License.
 #include "fixit_collaborator.h"
 #include "absl/strings/str_join.h"
+#include "log.h"
 
 EditResponse FixitCollaborator::Edit(const EditNotification& notification) {
   EditResponse response;
-  notification.fixits.ForEach([&](ID fixit_id, const Fixit& fixit) {
-    if (fixit.type != Fixit::Type::COMPILE_FIX) return;
-    Log() << "CONSUME FIXIT: " << fixit_id;
-    notification.fixits.MakeRemove(&response.fixits, fixit_id);
-    notification.content.MakeRemove(&response.content, fixit.begin, fixit.end);
-    notification.content.MakeInsert(
-        &response.content, site(), fixit.replacement,
-        String::Iterator(notification.content, fixit.begin).Prev().id());
-  });
+  notification.content.ForEachAnnotation(
+      [&](ID annid, ID beg, ID end, const Attribute& attr) {
+        if (attr.data_case() != Attribute::kFixit) return;
+        const Fixit& fixit = attr.fixit();
+        if (fixit.type() != Fixit::COMPILE_FIX) return;
+        Log() << "CONSUME FIXIT: " << annid.id;
+        AnnotatedString::MakeDelMark(&response.content_updates, annid);
+        notification.content.MakeDelete(&response.content_updates, beg, end);
+        notification.content.MakeInsert(
+            &response.content_updates, site(), fixit.replacement(),
+            AnnotatedString::Iterator(notification.content, beg).Prev().id());
+      });
   return response;
 }

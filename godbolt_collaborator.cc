@@ -50,8 +50,13 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   Log() << dump.out;
   AsmParseResult parsed_asm = AsmParse(dump.out);
 
-  side_buffer_ref_editor_.BeginEdit(&response.side_buffer_refs);
-  String::LineIterator line_it(notification.content, String::Begin());
+  AnnotationEditor::ScopedEdit edit(&ed_, &response.content_updates);
+  Attribute side_buf;
+  side_buf.mutable_buffer()->set_contents(parsed_asm.body);
+  ID side_buf_id = ed_.AttrID(side_buf);
+
+  AnnotatedString::LineIterator line_it(notification.content,
+                                        AnnotatedString::Begin());
   int line_idx = 0;
   for (const auto& m : parsed_asm.src_to_asm_line) {
     Log() << "line_idx=" << line_idx << " m.first=" << m.first;
@@ -59,21 +64,14 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
       line_it.MoveNext();
       line_idx++;
     }
-    side_buffer_ref_editor_.Add(
-        line_it.id(),
-        Annotation<SideBufferRef>(line_it.Next().id(),
-                                  SideBufferRef{"disasm", m.second}));
+    Attribute sb_ref;
+    BufferRef* ref = sb_ref.mutable_buffer_ref();
+    ref->set_buffer(side_buf_id.id);
+    for (auto l : m.second) {
+      ref->add_lines(l);
+    }
+    ed_.Mark(line_it.id(), line_it.Next().id(), sb_ref);
   }
-  side_buffer_ref_editor_.Publish();
-
-  side_buffer_editor_.BeginEdit(&response.side_buffers);
-  SideBuffer buf;
-  buf.content.insert(buf.content.end(), parsed_asm.body.begin(),
-                     parsed_asm.body.end());
-  buf.tokens.resize(buf.content.size());
-  buf.CalcLines();
-  side_buffer_editor_.Add("disasm", std::move(buf));
-  side_buffer_editor_.Publish();
 
   return response;
 }

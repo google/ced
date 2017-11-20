@@ -42,6 +42,18 @@ void AnnotatedString::MakeDelete(CommandSet* commands, ID id) {
   cmd->mutable_delete_();
 }
 
+void AnnotatedString::MakeDelMark(CommandSet* commands, ID id) {
+  auto cmd = commands->add_commands();
+  cmd->set_id(id.id);
+  cmd->mutable_del_mark();
+}
+
+void AnnotatedString::MakeDelDecl(CommandSet* commands, ID id) {
+  auto cmd = commands->add_commands();
+  cmd->set_id(id.id);
+  cmd->mutable_del_decl();
+}
+
 ID AnnotatedString::MakeDecl(CommandSet* commands, Site* site,
                              const Attribute& attribute) {
   auto cmd = commands->add_commands();
@@ -219,4 +231,69 @@ void AnnotatedString::IntegrateDelMark(ID id) {
     loc = ci->next;
   }
   annotations_ = annotations_.Remove(id);
+}
+
+std::string AnnotatedString::Render() const {
+  std::string r;
+  ID loc = Begin();
+  while (loc != End()) {
+    const CharInfo* ci = chars_.Lookup(loc);
+    if (ci->visible) {
+      r += ci->chr;
+    }
+    loc = ci->next;
+  }
+  return r;
+}
+
+ID AnnotationEditor::AttrID(const Attribute& attr) {
+  std::string ser;
+  if (!attr.SerializeToString(&ser)) abort();
+  auto it = new_attr2id_.find(ser);
+  if (it != new_attr2id_.end()) return it->second;
+  it = last_attr2id_.find(ser);
+  if (it != last_attr2id_.end()) {
+    ID id = it->second;
+    new_attr2id_.insert(*it);
+    last_attr2id_.erase(it);
+    return id;
+  }
+  ID id = AnnotatedString::MakeDecl(commands_, site_, attr);
+  new_attr2id_.emplace(std::make_pair(std::move(ser), id));
+  return id;
+}
+
+ID AnnotationEditor::Mark(ID beg, ID end, ID attr) {
+  Annotation a;
+  a.set_begin(beg.id);
+  a.set_end(end.id);
+  a.set_attribute(attr.id);
+  return Mark(a);
+}
+
+ID AnnotationEditor::Mark(const Annotation& ann) {
+  std::string ser;
+  if (!ann.SerializeToString(&ser)) abort();
+  auto it = new_ann2id_.find(ser);
+  if (it != new_ann2id_.end()) return it->second;
+  it = last_ann2id_.find(ser);
+  if (it != last_ann2id_.end()) {
+    ID id = it->second;
+    new_ann2id_.insert(*it);
+    last_ann2id_.erase(it);
+    return id;
+  }
+  ID id = AnnotatedString::MakeMark(commands_, site_, ann);
+  new_ann2id_.emplace(std::move(ser), id);
+  return id;
+}
+
+void AnnotationEditor::EndEdit() {
+  for (const auto& a : last_ann2id_) {
+    AnnotatedString::MakeDelMark(commands_, a.second);
+  }
+  for (const auto& a : last_attr2id_) {
+    AnnotatedString::MakeDelDecl(commands_, a.second);
+  }
+  commands_ = nullptr;
 }

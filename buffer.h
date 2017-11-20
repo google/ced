@@ -17,59 +17,8 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/types/any.h"
-#include "diagnostic.h"
+#include "annotated_string.h"
 #include "selector.h"
-#include "side_buffer.h"
-#include "umap.h"
-#include "uset.h"
-#include "woot.h"
-
-template <class T>
-struct Annotation {
-  Annotation(ID e, T&& d) : end(e), data(std::move(d)) {}
-  Annotation(ID e, const T& d) : end(e), data(d) {}
-  ID end;
-  T data;
-  bool operator<(const Annotation& rhs) const {
-    return end < rhs.end || (end == rhs.end && data < rhs.data);
-  }
-};
-
-template <class T>
-using AnnotationMap = UMap<ID, Annotation<T>>;
-
-template <class T>
-class AnnotationTracker {
- public:
-  AnnotationTracker(const AnnotationMap<T>& map) : map_(map) {}
-
-  void Enter(ID id) {
-    active_.erase(
-        std::remove_if(active_.begin(), active_.end(),
-                       [id](const Annotation<T>& a) { return id == a.end; }),
-        active_.end());
-    map_.ForEachValue(
-        id, [&](const Annotation<T>& ann) { active_.push_back(ann); });
-  }
-
-  T cur() {
-    if (active_.empty()) return T();
-    return active_.back().data;
-  }
-
- private:
-  AnnotationMap<T> map_;
-  std::vector<Annotation<T>> active_;
-};
-
-struct SideBufferRef {
-  std::string name;
-  std::vector<int> lines;
-
-  bool operator<(const SideBufferRef& other) const {
-    return name < other.name || (name == other.name && lines < other.lines);
-  }
-};
 
 struct EditNotification {
   bool fully_loaded = false;
@@ -78,12 +27,12 @@ struct EditNotification {
   AnnotatedString content;
 };
 
-struct EditResponse : public EditState<RspTrans> {
+struct EditResponse {
   bool done = false;
   bool become_used = false;
   bool become_loaded = false;
   bool referenced_file_changed = false;
-  AnnotatedString::CommandBuf content_updates;
+  CommandSet content_updates;
 };
 
 void IntegrateResponse(const EditResponse& response, EditNotification* state);
