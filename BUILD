@@ -527,3 +527,10 @@ cc_proto_library(
   protoc = "@com_google_protobuf//:protoc",
   default_runtime = "@com_google_protobuf//:protobuf",
 )
+
+cc_library(
+  name = "annotated_string",
+  hdrs = ["annotated_string.h"],
+  srcs = ["annotated_string.cc"],
+  deps = [":annotation", ":avl", "@com_google_absl//absl/strings"]
+)

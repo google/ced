@@ -58,12 +58,55 @@ message BufferRef {
   repeated int32 lines = 2;
 };
 
-message Annotation {
-  oneof annotation {
+message Cursor {};
+
+message BufferString {
+  string contents = 1;
+};
+
+message Dependency {
+  string filename = 1;
+};
+
+message Attribute {
+  oneof data {
     TagSet tags = 1;
     Diagnostic diagnostic = 2;
     Fixit fixit = 3;
     SizeAnnotation size = 4;
     BufferRef buffer_ref = 5;
+    Cursor cursor = 6;
+    BufferString buffer = 7;
+    Dependency dependency = 8;
   }
+};
+
+message Annotation {
+  uint64 begin = 1;
+  uint64 end = 2;
+  uint64 attribute = 3;
+};
+
+message InsertCommand {
+  uint64 after = 1;
+  uint64 before = 2;
+  string characters = 3;
+};
+
+message DeleteCommand {};
+
+message Command {
+  uint64 id = 1;
+  oneof command {
+    InsertCommand insert = 2;
+    DeleteCommand delete = 3;
+    Attribute decl = 4;
+    DeleteCommand del_decl = 5;
+    Annotation mark = 6;
+    DeleteCommand del_mark = 7;
+  };
+};
+
+message CommandSet {
+  repeated Command commands = 1;
 };

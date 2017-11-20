@@ -19,32 +19,6 @@
 #include <tuple>
 #include <vector>
 
-class Site;
-
-typedef uint64_t ID;
-
-class Site {
- public:
-  Site() : id_(id_gen_.fetch_add(1, std::memory_order_relaxed)) {
-    if (id_ == 0) abort();
-  }
-
-  Site(const Site&) = delete;
-  Site& operator=(const Site&) = delete;
-
-  ID GenerateID() {
-    return (clock_.fetch_add(1, std::memory_order_relaxed) << 16) | id_;
-  }
-
-  uint64_t site_id() const { return id_; }
-
- private:
-  Site(uint16_t id) : id_(id) {}
-  const uint16_t id_;
-  std::atomic<uint64_t> clock_{0};
-  static std::atomic<uint16_t> id_gen_;
-};
-
 template <class Derived>
 class CRDT {
  public:

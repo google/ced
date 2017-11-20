@@ -71,37 +71,19 @@ struct SideBufferRef {
   }
 };
 
-template <template <class Type> class TypeTranslator>
-struct EditState {
-  TypeTranslator<String> content;
-  TypeTranslator<AnnotationMap<Tag>> token_types;
-  TypeTranslator<USet<Diagnostic>> diagnostics;
-  TypeTranslator<AnnotationMap<ID>> diagnostic_ranges;
-  TypeTranslator<UMap<std::string, SideBuffer>> side_buffers;
-  TypeTranslator<AnnotationMap<SideBufferRef>> side_buffer_refs;
-  TypeTranslator<USet<Fixit>> fixits;
-  TypeTranslator<UMap<ID, std::string>> gutter_notes;
-  TypeTranslator<USet<std::string>> referenced_files;
-  TypeTranslator<USet<ID>> cursors;
-};
-
-template <class T>
-using NotifTrans = T;
-
-struct EditNotification : public EditState<NotifTrans> {
+struct EditNotification {
   bool fully_loaded = false;
   bool shutdown = false;
   uint64_t referenced_file_version = 0;
+  AnnotatedString content;
 };
-
-template <class T>
-using RspTrans = typename T::CommandBuf;
 
 struct EditResponse : public EditState<RspTrans> {
   bool done = false;
   bool become_used = false;
   bool become_loaded = false;
   bool referenced_file_changed = false;
+  AnnotatedString::CommandBuf content_updates;
 };
 
 void IntegrateResponse(const EditResponse& response, EditNotification* state);
