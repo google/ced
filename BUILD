@@ -110,6 +110,7 @@ cc_library(
     ":godbolt_collaborator",
     ":fixit_collaborator",
     ":referenced_file_collaborator",
+    ":io_collaborator",
   ]
 )
 
@@ -126,9 +127,7 @@ cc_library(
   deps = [
     ":annotated_string",
     ":log",
-    ":wrap_syscall",
     ":selector",
-    ":temp_file",
     "@com_google_absl//absl/synchronization",
     "@com_google_absl//absl/strings",
     "@com_google_absl//absl/time",
@@ -139,6 +138,11 @@ cc_library(
 cc_library(
   name = "io_collaborator",
   srcs = ["io_collaborator.cc"],
+  deps = [
+    ":temp_file",
+    ":wrap_syscall",
+    ":buffer"
+  ],
   alwayslink = 1,
 )
 

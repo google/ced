@@ -13,6 +13,9 @@
 // limitations under the License.
 #pragma once
 
+#include <stdlib.h>
+#include <unistd.h>
+#include <string>
 #include "wrap_syscall.h"
 
 class NamedTempFile {

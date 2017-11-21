@@ -66,7 +66,7 @@ void TerminalCollaborator::Render(TerminalRenderContainers containers) {
 
   auto side_bar = containers.main.AddContainer(LAY_FILL, LAY_COLUMN);
 
-  if (false) {
+  if (true) {
     std::vector<std::string> profile = buffer_->ProfileData();
     side_bar
         .AddItem(LAY_TOP | LAY_HFILL,

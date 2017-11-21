@@ -124,9 +124,9 @@ class Buffer {
   }
 
   const std::string& filename() const { return filename_; }
-  Language language() const;
-  bool read_only() const;
-  bool synthetic() const;
+  Language language() const { return Language::Cpp; }
+  bool read_only() const { return false; }
+  bool synthetic() const { return false; }
 
   std::vector<std::string> ProfileData() const;
 

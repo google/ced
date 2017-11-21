@@ -13,6 +13,8 @@
 // limitations under the License.
 #include "annotated_string.h"
 
+std::atomic<uint16_t> Site::id_gen_{1};
+
 AnnotatedString::AnnotatedString() {
   chars_ = chars_
                .Add(Begin(),
@@ -248,10 +250,11 @@ void AnnotatedString::IntegrateDelMark(ID id) {
   annotations_ = annotations_.Remove(id);
 }
 
-std::string AnnotatedString::Render() const {
+std::string AnnotatedString::Render(ID beg, ID end) const {
+  MakeOrderedIDs(&beg, &end);
   std::string r;
-  ID loc = Begin();
-  while (loc != End()) {
+  ID loc = beg;
+  while (loc != end) {
     const CharInfo* ci = chars_.Lookup(loc);
     if (ci->visible) {
       r += ci->chr;
@@ -261,6 +264,35 @@ std::string AnnotatedString::Render() const {
   return r;
 }
 
+int AnnotatedString::OrderIDs(ID a, ID b) const {
+  // same id
+  if (a == b) return 0;
+  if (a == Begin()) return -1;
+  if (a == End()) return 1;
+  if (b == Begin()) return 1;
+  if (b == End()) return -1;
+  LineIterator line_a(*this, a);
+  LineIterator line_b(*this, b);
+  if (line_a.id() == line_b.id()) {
+    // same line
+    AllIterator it(*this, line_a.id());
+    for (;;) {
+      if (it.id() == a) return -1;
+      if (it.id() == b) return 1;
+      it.MoveNext();
+    }
+  }
+  LineIterator bk = line_a;
+  LineIterator fw = line_a;
+  for (;;) {
+    bk.MovePrev();
+    fw.MoveNext();
+    if (bk.id() == line_b.id()) return 1;
+    if (fw.id() == line_b.id()) return -1;
+    if (bk.is_begin()) return -1;
+    if (fw.is_end()) return 1;
+  }
+}
 ID AnnotationEditor::AttrID(const Attribute& attr) {
   std::string ser;
   if (!attr.SerializeToString(&ser)) abort();

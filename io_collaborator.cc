@@ -91,4 +91,4 @@ EditResponse IOCollaborator::Pull() {
   return r;
 }
 
-IMPL_COLLABORATOR(FixitCollaborator, buffer) { return !buffer->synthetic(); }
+IMPL_COLLABORATOR(IOCollaborator, buffer) { return !buffer->synthetic(); }

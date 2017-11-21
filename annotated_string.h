@@ -83,7 +83,13 @@ class AnnotatedString {
   }
 
   static void MakeDelete(CommandSet* commands, ID id);
-  static void MakeDelete(CommandSet* commands, ID beg, ID end);
+  void MakeDelete(CommandSet* commands, ID beg, ID end) const {
+    AllIterator it(*this, beg);
+    while (it.id() != end) {
+      MakeDelete(commands, it.id());
+      it.MoveNext();
+    }
+  }
   static void MakeDelDecl(CommandSet* commands, ID id);
   static void MakeDelMark(CommandSet* commands, ID id);
   static ID MakeDecl(CommandSet* commands, Site* site,
@@ -93,7 +99,15 @@ class AnnotatedString {
 
   AnnotatedString Integrate(const CommandSet& commands) const;
 
-  std::string Render() const;
+  // return <0 if a before b, >0 if a after b, ==0 if a==b
+  int OrderIDs(ID a, ID b) const;
+  void MakeOrderedIDs(ID* a, ID* b) const {
+    if (OrderIDs(*a, *b) > 0) {
+      std::swap(*a, *b);
+    }
+  }
+
+  std::string Render() const { return Render(Begin(), End()); }
   std::string Render(ID begin, ID end) const;
 
   bool SameContentIdentity(const AnnotatedString& other) const {
