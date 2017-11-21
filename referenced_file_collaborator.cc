@@ -12,9 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "referenced_file_collaborator.h"
 #include <unordered_set>
+#include "buffer.h"
+#include "fswatch.h"
 #include "log.h"
+
+class ReferencedFileCollaborator final : public AsyncCollaborator {
+ public:
+  ReferencedFileCollaborator(const Buffer* buffer)
+      : AsyncCollaborator("reffile", absl::Seconds(0),
+                          absl::Milliseconds(100)) {}
+  void Push(const EditNotification& notification) override;
+  EditResponse Pull() override;
+
+ private:
+  void ChangedFile(bool shutdown_fswatch);
+  void RestartWatch() EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
+  absl::Mutex mu_;
+  std::unordered_set<std::string> last_ GUARDED_BY(mu_);
+  bool update_ GUARDED_BY(mu_);
+  bool shutdown_ GUARDED_BY(mu_);
+  std::unique_ptr<FSWatcher> fswatch_ GUARDED_BY(mu_);
+};
 
 void ReferencedFileCollaborator::Push(const EditNotification& notification) {
   absl::MutexLock lock(&mu_);
@@ -22,10 +42,10 @@ void ReferencedFileCollaborator::Push(const EditNotification& notification) {
     shutdown_ = true;
   }
   std::unordered_set<std::string> referenced;
-  notification.content.ForEachAttribute([&](ID id, const Attribute& attr) {
-    if (attr.data_case() != Attribute::kDependency) return;
-    referenced.insert(attr.dependency().filename());
-  });
+  notification.content.ForEachAttribute(
+      Attribute::kDependency, [&](ID id, const Attribute& attr) {
+        referenced.insert(attr.dependency().filename());
+      });
   if (referenced != last_) {
     Log() << "CHANGED FILE SET";
     last_.swap(referenced);
@@ -65,3 +85,5 @@ void ReferencedFileCollaborator::RestartWatch() {
   fswatch_.reset(new FSWatcher(
       interest_vec, [this](bool shutdown) { ChangedFile(shutdown); }));
 }
+
+IMPL_COLLABORATOR(ReferencedFileCollaborator, buffer) { return true; }

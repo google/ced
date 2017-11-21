@@ -11,13 +11,29 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "io_collaborator.h"
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include "temp_file.h"
 #include "wrap_syscall.h"
+
+#include "buffer.h"
+
+class IOCollaborator final : public AsyncCollaborator {
+ public:
+  IOCollaborator(const Buffer* buffer);
+  void Push(const EditNotification& notification) override;
+  EditResponse Pull() override;
+
+ private:
+  absl::Mutex mu_;
+  const std::string filename_;
+  int attributes_;
+  int fd_;
+  ID last_char_id_ GUARDED_BY(mu_);
+  AnnotatedString last_saved_ GUARDED_BY(mu_);
+};
 
 IOCollaborator::IOCollaborator(const Buffer* buffer)
     : AsyncCollaborator("io", absl::Milliseconds(100), absl::Milliseconds(500)),
@@ -74,3 +90,5 @@ EditResponse IOCollaborator::Pull() {
 
   return r;
 }
+
+IMPL_COLLABORATOR(FixitCollaborator, buffer) { return !buffer->synthetic(); }

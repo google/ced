@@ -195,15 +195,27 @@ void AnnotatedString::IntegrateDelChar(ID id) {
 }
 
 void AnnotatedString::IntegrateDecl(ID id, const Attribute& decl) {
-  attributes_ = attributes_.Add(id, decl);
+  attributes_ = attributes_.Add(id, decl.data_case());
+  const auto* tattr = attributes_by_type_.Lookup(decl.data_case());
+  attributes_by_type_ = attributes_by_type_.Add(
+      decl.data_case(), (tattr ? *tattr : AVL<ID, Attribute>()).Add(id, decl));
 }
 
 void AnnotatedString::IntegrateDelDecl(ID id) {
+  const auto* dc = attributes_.Lookup(id);
+  if (!dc) return;
+  attributes_by_type_ =
+      attributes_by_type_.Add(*dc, attributes_by_type_.Lookup(*dc)->Remove(id));
   attributes_ = attributes_.Remove(id);
 }
 
 void AnnotatedString::IntegrateMark(ID id, const Annotation& annotation) {
-  annotations_ = annotations_.Add(id, annotation);
+  const auto* dc = attributes_.Lookup(annotation.attribute());
+  assert(dc);
+  annotations_ = annotations_.Add(id, *dc);
+  const auto* tann = annotations_by_type_.Lookup(*dc);
+  annotations_by_type_ = annotations_by_type_.Add(
+      *dc, (tann ? *tann : AVL<ID, Annotation>()).Add(id, annotation));
   ID loc = annotation.begin();
   while (loc != annotation.end()) {
     const CharInfo* ci = chars_.Lookup(loc);
@@ -217,8 +229,10 @@ void AnnotatedString::IntegrateMark(ID id, const Annotation& annotation) {
 }
 
 void AnnotatedString::IntegrateDelMark(ID id) {
-  const Annotation* ann = annotations_.Lookup(id);
-  if (!ann) return;
+  const auto* dc = annotations_.Lookup(id);
+  if (!dc) return;
+  const auto* bt = annotations_by_type_.Lookup(*dc);
+  const auto* ann = bt->Lookup(id);
   ID loc = ann->begin();
   while (loc != ann->end()) {
     const CharInfo* ci = chars_.Lookup(loc);
@@ -230,6 +244,7 @@ void AnnotatedString::IntegrateDelMark(ID id) {
     }
     loc = ci->next;
   }
+  annotations_by_type_.Add(*dc, bt->Remove(id));
   annotations_ = annotations_.Remove(id);
 }
 

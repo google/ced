@@ -16,31 +16,29 @@
 EditResponse Editor::MakeResponse() {
   EditResponse r;
   r.done = state_.shutdown;
-  r.become_used = !unpublished_commands_.empty();
-  for (auto& cmd : unpublished_commands_) {
-    state_.content = state_.content.Integrate(cmd);
-    r.content.emplace_back(cmd->Clone());
-    unacknowledged_commands_.emplace_back(std::move(cmd));
-  }
-  unpublished_commands_.clear();
-  cursor_editor_.BeginEdit(&r.cursors);
-  cursor_editor_.Add(cursor_);
-  cursor_editor_.Publish();
-  assert(unpublished_commands_.empty());
+  r.become_used = !unpublished_commands_.commands().empty();
+  state_.content = state_.content.Integrate(unpublished_commands_);
+  r.content_updates.MergeFrom(unpublished_commands_);
+  unacknowledged_commands_.MergeFrom(unpublished_commands_);
+  unpublished_commands_.Clear();
+  AnnotationEditor::ScopedEdit edit(&ed_, &r.content_updates);
+  Attribute curs;
+  curs.mutable_cursor();
+  ed_.Mark(cursor_,
+           AnnotatedString::Iterator(state_.content, cursor_).Next().id(),
+           curs);
+  assert(unpublished_commands_.commands().empty());
   return r;
 }
 
 void Editor::UpdateState(const EditNotification& state) {
   state_ = state;
-  std::vector<String::CommandPtr> new_commands;
-  for (auto& cmd : unacknowledged_commands_) {
-    String s2 = state_.content.Integrate(cmd);
-    if (!s2.SameIdentity(state_.content)) {
-      new_commands.emplace_back(std::move(cmd));
-      state_.content = s2;
-    }
+  auto s2 = state_.content.Integrate(unacknowledged_commands_);
+  if (s2.SameTotalIdentity(state_.content)) {
+    unacknowledged_commands_.Clear();
+  } else {
+    state_.content = s2;
   }
-  new_commands.swap(unacknowledged_commands_);
 }
 
 void Editor::SelectLeft() {
@@ -95,8 +93,8 @@ void Editor::SelectUpN(int n) {
 
 void Editor::Backspace() {
   SetSelectMode(false);
-  state_.content.MakeRemove(&unpublished_commands_, cursor_);
-  String::Iterator it(state_.content, cursor_);
+  state_.content.MakeDelete(&unpublished_commands_, cursor_);
+  AnnotatedString::Iterator it(state_.content, cursor_);
   it.MovePrev();
   cursor_ = it.id();
 }
@@ -127,8 +125,8 @@ void Editor::Paste(AppEnv* env) {
 void Editor::InsChar(char c) {
   DeleteSelection();
   SetSelectMode(false);
-  cursor_ =
-      state_.content.MakeInsert(&unpublished_commands_, site_, c, cursor_);
+  cursor_ = state_.content.MakeInsert(&unpublished_commands_, site_,
+                                      absl::string_view(&c, 1), cursor_);
   cursor_row_ += (c == '\n');
 }
 
@@ -142,28 +140,28 @@ void Editor::SetSelectMode(bool sel) {
 
 void Editor::DeleteSelection() {
   if (!SelectMode()) return;
-  state_.content.MakeRemove(&unpublished_commands_, cursor_, selection_anchor_);
-  String::Iterator it(state_.content, cursor_);
+  state_.content.MakeDelete(&unpublished_commands_, cursor_, selection_anchor_);
+  AnnotatedString::Iterator it(state_.content, cursor_);
   it.MovePrev();
   cursor_ = it.id();
 }
 
 void Editor::CursorLeft() {
-  String::Iterator it(state_.content, cursor_);
+  AnnotatedString::Iterator it(state_.content, cursor_);
   cursor_row_ -= it.value() == '\n';
   it.MovePrev();
   cursor_ = it.id();
 }
 
 void Editor::CursorRight() {
-  String::Iterator it(state_.content, cursor_);
+  AnnotatedString::Iterator it(state_.content, cursor_);
   it.MoveNext();
   cursor_row_ += it.value() == '\n';
   cursor_ = it.id();
 }
 
 void Editor::CursorDown() {
-  String::Iterator it(state_.content, cursor_);
+  AnnotatedString::Iterator it(state_.content, cursor_);
   int col = 0;
   auto edge = [&it]() {
     return it.is_begin() || it.is_end() || it.value() == '\n';
@@ -173,7 +171,7 @@ void Editor::CursorDown() {
     col++;
   }
   Log() << "col:" << col;
-  it = String::Iterator(state_.content, cursor_);
+  it = AnnotatedString::Iterator(state_.content, cursor_);
   do {
     it.MoveNext();
   } while (!edge());
@@ -187,7 +185,7 @@ void Editor::CursorDown() {
 }
 
 void Editor::CursorUp() {
-  String::Iterator it(state_.content, cursor_);
+  AnnotatedString::Iterator it(state_.content, cursor_);
   int col = 0;
   auto edge = [&it]() {
     return it.is_begin() || it.is_end() || it.value() == '\n';
@@ -210,11 +208,11 @@ void Editor::CursorUp() {
 }
 
 void Editor::CursorStartOfLine() {
-  cursor_ = String::LineIterator(state_.content, cursor_).id();
+  cursor_ = AnnotatedString::LineIterator(state_.content, cursor_).id();
 }
 
 void Editor::CursorEndOfLine() {
-  cursor_ = String::LineIterator(state_.content, cursor_)
+  cursor_ = AnnotatedString::LineIterator(state_.content, cursor_)
                 .Next()
                 .AsIterator()
                 .Prev()
@@ -230,16 +228,16 @@ int Editor::RenderCommon(
     cursor_row_ = window_height - 1;
   }
 
-  cursor_ = String::Iterator(state_.content, cursor_).id();
-  String::LineIterator line_cr(state_.content, cursor_);
-  String::LineIterator line_end_cr = line_cr.Next();
-  String::LineIterator line_bk = line_cr;
-  String::LineIterator line_fw = line_cr;
+  cursor_ = AnnotatedString::Iterator(state_.content, cursor_).id();
+  AnnotatedString::LineIterator line_cr(state_.content, cursor_);
+  AnnotatedString::LineIterator line_end_cr = line_cr.Next();
+  AnnotatedString::LineIterator line_bk = line_cr;
+  AnnotatedString::LineIterator line_fw = line_cr;
   for (int i = 0; i < window_height; i++) {
     line_bk.MovePrev();
     line_fw.MoveNext();
   }
-  String::AllIterator it = line_bk.AsAllIterator();
+  AnnotatedString::AllIterator it = line_bk.AsAllIterator();
   AnnotationTracker<Tag> t_token(state_.token_types);
   AnnotationTracker<ID> t_diagnostic(state_.diagnostic_ranges);
   AnnotationTracker<SideBufferRef> t_side_buffer_ref(state_.side_buffer_refs);
@@ -248,7 +246,8 @@ int Editor::RenderCommon(
   int nrow = 0;
   int ncol = 0;
   auto last_was_cursor = [&]() {
-    return String::Iterator(state_.content, it.id()).Prev().id() == cursor_;
+    return AnnotatedString::Iterator(state_.content, it.id()).Prev().id() ==
+           cursor_;
   };
   std::vector<std::string> gutter_annotations;
   while (it.id() != line_fw.id()) {

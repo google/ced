@@ -101,17 +101,24 @@ cc_binary(
   deps = [
     ":standard_project_types",
     ":buffer",
+    ":default_collaborators",
     ":terminal_collaborator",
-    ":clang_format_collaborator",
-    ":libclang_collaborator",
-    ":godbolt_collaborator",
-    ":fixit_collaborator",
-    ":referenced_file_collaborator",
     ":config",
     ":terminal_color",
     ":render",
   ],
   linkopts = ["-lcurses", "-lpthread", "-ldl"]
+)
+
+cc_library(
+  name = "default_collaborators",
+  deps = [
+    ":clang_format_collaborator",
+    ":libclang_collaborator",
+    ":godbolt_collaborator",
+    ":fixit_collaborator",
+    ":referenced_file_collaborator",
+  ]
 )
 
 cc_library(
@@ -123,8 +130,8 @@ cc_library(
 
 cc_library(
   name = "buffer",
-  srcs = ["buffer.cc", "io_collaborator.cc"],
-  hdrs = ["buffer.h", "io_collaborator.h", "content_latch.h"],
+  srcs = ["buffer.cc"],
+  hdrs = ["buffer.h", "content_latch.h"],
   deps = [
     ":annotated_string",
     ":log",
@@ -136,6 +143,12 @@ cc_library(
     "@com_google_absl//absl/time",
     "@com_google_absl//absl/types:any",
   ]
+)
+
+cc_library(
+  name = "io_collaborator",
+  srcs = ["io_collaborator.cc"],
+  alwayslink = 1,
 )
 
 cc_test(
@@ -162,7 +175,6 @@ cc_library(
 cc_library(
   name = "godbolt_collaborator",
   srcs = ["godbolt_collaborator.cc"],
-  hdrs = ["godbolt_collaborator.h"],
   deps = [
     ":buffer",
     ":log",
@@ -171,12 +183,12 @@ cc_library(
     ":asm_parser",
     ":run",
   ],
+  alwayslink = 1,
 )
 
 cc_library(
   name = "clang_format_collaborator",
   srcs = ["clang_format_collaborator.cc"],
-  hdrs = ["clang_format_collaborator.h"],
   deps = [
     ":buffer",
     ":log",
@@ -185,28 +197,29 @@ cc_library(
     ":run",
     "@pugixml//:pugixml"
   ],
+  alwayslink = 1,
 )
 
 cc_library(
   name = "fixit_collaborator",
   srcs = ["fixit_collaborator.cc"],
-  hdrs = ["fixit_collaborator.h"],
   deps = [
     ":buffer",
     ":log",
-  ]
+  ],
+  alwayslink = 1
 )
 
 cc_library(
   name = "libclang_collaborator",
   srcs = ["libclang_collaborator.cc"],
-  hdrs = ["libclang_collaborator.h"],
   deps = [
     ":buffer",
     ":log",
     ":clang_config",
     "//libclang:libclang",
   ],
+  alwayslink = 1,
 )
 
 cc_library(
@@ -466,12 +479,12 @@ cc_binary(
 cc_library(
   name = "referenced_file_collaborator",
   srcs = ["referenced_file_collaborator.cc"],
-  hdrs = ["referenced_file_collaborator.h"],
   deps = [
     ":buffer",
     ":log",
     ":fswatch",
-  ]
+  ],
+  alwayslink = 1,
 )
 
 cc_binary(

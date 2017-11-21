@@ -11,15 +11,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "fixit_collaborator.h"
 #include "absl/strings/str_join.h"
+#include "buffer.h"
 #include "log.h"
+
+class FixitCollaborator final : public SyncCollaborator {
+ public:
+  FixitCollaborator(const Buffer* buffer)
+      : SyncCollaborator("fixit", absl::Milliseconds(1500),
+                         absl::Milliseconds(100)) {}
+
+  EditResponse Edit(const EditNotification& notification) override;
+};
 
 EditResponse FixitCollaborator::Edit(const EditNotification& notification) {
   EditResponse response;
   notification.content.ForEachAnnotation(
-      [&](ID annid, ID beg, ID end, const Attribute& attr) {
-        if (attr.data_case() != Attribute::kFixit) return;
+      Attribute::kFixit, [&](ID annid, ID beg, ID end, const Attribute& attr) {
         const Fixit& fixit = attr.fixit();
         if (fixit.type() != Fixit::COMPILE_FIX) return;
         Log() << "CONSUME FIXIT: " << annid.id;
@@ -31,3 +39,5 @@ EditResponse FixitCollaborator::Edit(const EditNotification& notification) {
       });
   return response;
 }
+
+IMPL_COLLABORATOR(FixitCollaborator, buffer) { return !buffer->read_only(); }

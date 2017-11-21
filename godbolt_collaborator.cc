@@ -11,13 +11,30 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "godbolt_collaborator.h"
 #include "absl/strings/str_join.h"
 #include "asm_parser.h"
+#include "buffer.h"
 #include "clang_config.h"
+#include "content_latch.h"
 #include "log.h"
 #include "run.h"
 #include "temp_file.h"
+
+class GodboltCollaborator final : public SyncCollaborator {
+ public:
+  GodboltCollaborator(const Buffer* buffer)
+      : SyncCollaborator("godbolt", absl::Seconds(0), absl::Milliseconds(300)),
+        buffer_(buffer),
+        content_latch_(buffer),
+        ed_(site()) {}
+
+  EditResponse Edit(const EditNotification& notification) override;
+
+ private:
+  const Buffer* const buffer_;
+  ContentLatch content_latch_;
+  AnnotationEditor ed_;
+};
 
 #if defined(__APPLE__)
 #define OBJDUMP_BIN "gobjdump"
@@ -74,4 +91,14 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   }
 
   return response;
+}
+
+IMPL_COLLABORATOR(GodboltCollaborator, buffer) {
+  switch (buffer->language()) {
+    case Language::C:
+    case Language::Cpp:
+      return true;
+    default:
+      return false;
+  }
 }

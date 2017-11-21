@@ -17,6 +17,7 @@
 #include <string>
 #include "absl/strings/str_join.h"
 #include "buffer.h"
+#include "log.h"
 #include "render.h"
 #include "theme.h"
 
@@ -26,13 +27,13 @@ struct AppEnv {
 
 class Editor {
  public:
-  Editor(Site* site) : site_(site), cursor_editor_(site) {}
+  Editor(Site* site) : site_(site), ed_(site) {}
 
   // state management
   void UpdateState(const EditNotification& state);
   const EditNotification& CurrentState() { return state_; }
   bool HasCommands() {
-    return state_.shutdown || !unpublished_commands_.empty();
+    return state_.shutdown || !unpublished_commands_.commands().empty();
   }
   EditResponse MakeResponse();
 
@@ -58,46 +59,7 @@ class Editor {
   void InsNewLine() { InsChar('\n'); }
   void InsChar(char c);
 
-  // rendering
  private:
-  struct CharInfo {
-    char c;
-    bool selected;
-    bool cursor;
-    Tag tag;
-  };
-  struct LineInfo {
-    bool cursor;
-    std::string gutter_annotation;
-  };
-
-  typedef std::function<void(LineInfo, const std::vector<CharInfo>&)>
-      LineCallback;
-
- public:
-  template <class RC>
-  void Render(RC* parent_context) {
-    RenderThing(&Editor::RenderCommon, &Editor::MainRowOfs, parent_context);
-  }
-
-  template <class RC>
-  void RenderSideBar(RC* parent_context) {
-    RenderThing(&Editor::RenderSideBarCommon, &Editor::SideBarRowOfs,
-                parent_context);
-  }
-
- private:
-  static uint32_t ThemeFlags(const LineInfo* li, const CharInfo* ci) {
-    uint32_t f = 0;
-    if (li->cursor) {
-      f |= Theme::HIGHLIGHT_LINE;
-    }
-    if (ci && ci->selected) {
-      f |= Theme::SELECTED;
-    }
-    return f;
-  }
-
   void CursorLeft();
   void CursorRight();
   void CursorDown();
@@ -109,6 +71,17 @@ class Editor {
   bool SelectMode() const { return selection_anchor_ != ID(); }
   void DeleteSelection();
 
+  ViewRendererPtr main_view_;
+  std::map<std::string, ChildView> child_views_;
+
+  template <class RC>
+  RenderFunc<RC> MakeRenderer(const AnnotatedString& s) {
+    return [s](RC* render_context) {
+
+    };
+  }
+
+#if 0
   template <class RC>
   struct EditRenderContext {
     RC* parent_context;
@@ -200,19 +173,21 @@ class Editor {
                                   row_idx, &parent_context->animating)};
     renderer.Draw(&ctx);
   }
+#endif
 
   Site* const site_;
   int cursor_row_ = 0;  // cursor row as an offset into the view buffer
-  ID cursor_ = String::Begin();
+  ID cursor_ = AnnotatedString::Begin();
   ID selection_anchor_ = ID();
   EditNotification state_;
-  std::vector<String::CommandPtr> unpublished_commands_;
-  std::vector<String::CommandPtr> unacknowledged_commands_;
+  CommandSet unpublished_commands_;
+  CommandSet unacknowledged_commands_;
   Tag cursor_token_;
-  SideBufferRef active_side_buffer_;
+  BufferRef active_side_buffer_;
+  AnnotationEditor ed_;
   int last_sb_offset_ = 0;
-  USetEditor<ID> cursor_editor_;
 
+#if 0
   int RenderCommon(int window_height, LineCallback callback);
   int MainRowOfs(int window_height, int first_draw_ignored,
                  const std::vector<int>& rows, bool* animating) {
@@ -252,4 +227,5 @@ class Editor {
           << " return_ofs:" << last_sb_offset_ + first_drawn;
     return last_sb_offset_ + first_drawn;
   }
+#endif
 };

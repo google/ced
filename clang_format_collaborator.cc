@@ -11,12 +11,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "clang_format_collaborator.h"
 #include "absl/strings/str_cat.h"
+#include "buffer.h"
 #include "clang_config.h"
 #include "log.h"
 #include "run.h"
 #include "src/pugixml.hpp"
+
+class ClangFormatCollaborator final : public SyncCollaborator {
+ public:
+  ClangFormatCollaborator(const Buffer* buffer)
+      : SyncCollaborator("clang-format", absl::Seconds(2),
+                         absl::Milliseconds(100)),
+        buffer_(buffer) {}
+
+  EditResponse Edit(const EditNotification& notification) override;
+
+ private:
+  const Buffer* const buffer_;
+};
 
 EditResponse ClangFormatCollaborator::Edit(
     const EditNotification& notification) {
@@ -76,4 +89,14 @@ EditResponse ClangFormatCollaborator::Edit(
   }
 
   return response;
+}
+
+IMPL_COLLABORATOR(ClangFormatCollaborator, buffer) {
+  switch (buffer->language()) {
+    case Language::C:
+    case Language::Cpp:
+      return true;
+    default:
+      return false;
+  }
 }

@@ -62,7 +62,8 @@ message BufferRef {
 message Cursor {};
 
 message BufferString {
-  string contents = 1;
+  string name = 1;
+  string contents = 2;
 };
 
 message Dependency {

@@ -102,9 +102,15 @@ class SyncCollaborator : public Collaborator {
 typedef std::unique_ptr<AsyncCollaborator> AsyncCollaboratorPtr;
 typedef std::unique_ptr<SyncCollaborator> SyncCollaboratorPtr;
 
+enum class Language {
+  C,
+  Cpp,
+  Asm,
+};
+
 class Buffer {
  public:
-  Buffer(const std::string& filename);
+  Buffer(const std::string& filename, AnnotatedString initial_string);
   ~Buffer();
 
   Buffer(const Buffer&) = delete;
@@ -118,8 +124,14 @@ class Buffer {
   }
 
   const std::string& filename() const { return filename_; }
+  Language language() const;
+  bool read_only() const;
+  bool synthetic() const;
 
   std::vector<std::string> ProfileData() const;
+
+  static void RegisterCollaborator(
+      std::function<void(Buffer*)> maybe_init_collaborator);
 
  private:
   void AddCollaborator(AsyncCollaboratorPtr&& collaborator);
@@ -147,3 +159,20 @@ class Buffer {
   std::vector<CollaboratorPtr> collaborators_ GUARDED_BY(mu_);
   std::vector<std::thread> collaborator_threads_ GUARDED_BY(mu_);
 };
+
+#define IMPL_COLLABORATOR(name, buffer_arg)             \
+  namespace {                                           \
+  class name##_impl {                                   \
+   public:                                              \
+    static bool ShouldAdd(const Buffer* buffer_arg);    \
+    name##_impl() {                                     \
+      Buffer::RegisterCollaborator([](Buffer* buffer) { \
+        if (ShouldAdd(buffer)) {                        \
+          buffer->MakeCollaborator<name>();             \
+        }                                               \
+      });                                               \
+    }                                                   \
+  };                                                    \
+  name##_impl impl;                                     \
+  }                                                     \
+  bool name##_impl::ShouldAdd(const Buffer* buffer_arg)

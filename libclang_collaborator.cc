@@ -11,14 +11,30 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "libclang_collaborator.h"
+#include "libclang/libclang.h"
+#include <memory>
 #include <unordered_map>
 #include "absl/strings/str_join.h"
+#include "buffer.h"
 #include "clang-c/Index.h"
 #include "clang_config.h"
-#include "libclang/libclang.h"
+#include "content_latch.h"
 #include "log.h"
 #include "selector.h"
+
+class LibClangCollaborator final : public SyncCollaborator {
+ public:
+  LibClangCollaborator(const Buffer* buffer);
+  ~LibClangCollaborator();
+
+  EditResponse Edit(const EditNotification& notification) override;
+
+ private:
+  const Buffer* const buffer_;
+  ContentLatch content_latch_;
+  void* tu_ = nullptr;
+  AnnotationEditor ed_;
+};
 
 namespace {
 
@@ -423,4 +439,14 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   tmr.Mark("diagnostics");
 
   return response;
+}
+
+IMPL_COLLABORATOR(LibClangCollaborator, buffer) {
+  switch (buffer->language()) {
+    case Language::C:
+    case Language::Cpp:
+      return true;
+    default:
+      return false;
+  }
 }

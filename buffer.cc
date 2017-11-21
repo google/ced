@@ -13,15 +13,42 @@
 // limitations under the License.
 #include "buffer.h"
 #include "absl/strings/str_cat.h"
-#include "io_collaborator.h"
 #include "log.h"
 
-Buffer::Buffer(const std::string& filename)
+namespace {
+
+class CollaboratorRegistry {
+ public:
+  static CollaboratorRegistry& Get() {
+    static CollaboratorRegistry r;
+    return r;
+  }
+
+  void Register(std::function<void(Buffer*)> f) { collabs_.push_back(f); }
+
+  void Run(Buffer* buffer) {
+    for (auto f : collabs_) {
+      f(buffer);
+    }
+  }
+
+ private:
+  std::vector<std::function<void(Buffer*)> > collabs_;
+};
+}
+
+Buffer::Buffer(const std::string& filename, AnnotatedString initial_string)
     : version_(0),
       updating_(false),
       last_used_(absl::Now() - absl::Seconds(1000000)),
       filename_(filename) {
-  MakeCollaborator<IOCollaborator>();
+  state_.content = initial_string;
+  CollaboratorRegistry::Get().Run(this);
+}
+
+void Buffer::RegisterCollaborator(
+    std::function<void(Buffer*)> maybe_init_collaborator) {
+  CollaboratorRegistry::Get().Register(maybe_init_collaborator);
 }
 
 Buffer::~Buffer() {

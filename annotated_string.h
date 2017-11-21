@@ -94,16 +94,27 @@ class AnnotatedString {
   AnnotatedString Integrate(const CommandSet& commands) const;
 
   std::string Render() const;
+  std::string Render(ID begin, ID end) const;
 
   bool SameContentIdentity(const AnnotatedString& other) const {
     return chars_.SameIdentity(other.chars_);
   }
 
+  bool SameTotalIdentity(const AnnotatedString& other) const {
+    return chars_.SameIdentity(other.chars_) &&
+           attributes_by_type_.SameIdentity(other.attributes_by_type_) &&
+           annotations_by_type_.SameIdentity(other.annotations_by_type_);
+  }
+
   // F(ID annid, ID begin, ID end, const Attribute& attr)
   template <class F>
-  void ForEachAnnotation(F&& f) const {
-    annotations_.ForEach([f, this](ID id, const Annotation& ann) {
-      const Attribute* attr = attributes_.Lookup(ann.attribute());
+  void ForEachAnnotation(Attribute::DataCase type, F&& f) const {
+    const auto* m = annotations_by_type_.Lookup(type);
+    if (!m) return;
+    const auto* am = attributes_by_type_.Lookup(type);
+    assert(am);
+    m->ForEach([f, am](ID id, const Annotation& ann) {
+      const Attribute* attr = am->Lookup(ann.attribute());
       if (attr == nullptr) return;
       f(id, ann.begin(), ann.end(), *attr);
     });
@@ -111,8 +122,10 @@ class AnnotatedString {
 
   // F(ID attrid, const Attribute& attr)
   template <class F>
-  void ForEachAttribute(F&& f) const {
-    attributes_.ForEach(f);
+  void ForEachAttribute(Attribute::DataCase type, F&& f) const {
+    const auto* m = attributes_by_type_.Lookup(type);
+    if (!m) return;
+    m->ForEach(f);
   }
 
  private:
@@ -145,8 +158,10 @@ class AnnotatedString {
 
   AVL<ID, CharInfo> chars_;
   AVL<ID, LineBreak> line_breaks_;
-  AVL<ID, Attribute> attributes_;
-  AVL<ID, Annotation> annotations_;
+  AVL<ID, Attribute::DataCase> attributes_;
+  AVL<Attribute::DataCase, AVL<ID, Attribute>> attributes_by_type_;
+  AVL<ID, Attribute::DataCase> annotations_;
+  AVL<Attribute::DataCase, AVL<ID, Annotation>> annotations_by_type_;
 
  public:
   class AllIterator {
@@ -198,6 +213,12 @@ class AnnotatedString {
     void MovePrev() {
       if (!is_begin()) it_.MovePrev();
       while (!is_begin() && !it_.is_visible()) it_.MovePrev();
+    }
+
+    Iterator Next() {
+      Iterator i(*this);
+      i.MoveNext();
+      return i;
     }
 
     Iterator Prev() {
