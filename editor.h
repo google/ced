@@ -82,8 +82,71 @@ class Editor {
       uint32_t base_flags = 0;
       AnnotatedString::AllIterator start_of_line = it;
       std::vector<std::string> gutter_annotations;
+      auto add_gutter = [&gutter_annotations](const std::string& s) {
+        for (const auto& g : gutter_annotations) {
+          if (g == s) return;
+        }
+        gutter_annotations.push_back(s);
+      };
       while (it.id() != line_fw.id()) {
         if (it.is_visible()) {
+          struct FoundCursor {};
+          uint32_t chr_flags = base_flags;
+          std::vector<std::string> tags;
+          try {
+            bool has_diagnostic = false;
+            it.ForEachAttrValue([&](const Attribute& attr) {
+              switch (attr.data_case()) {
+                case Attribute::kCursor:
+                  ctx->Move(nrow, ncol);
+                  if (base_flags & Theme::HIGHLIGHT_LINE) break;
+                  throw FoundCursor();
+                case Attribute::kSelection:
+                  chr_flags |= Theme::SELECTED;
+                  break;
+                case Attribute::kDiagnostic:
+                  has_diagnostic = true;
+                  break;
+                case Attribute::kTags:
+                  for (auto t : attr.tags().tags()) {
+                    tags.push_back(t);
+                  }
+                  break;
+                case Attribute::kSize:
+                  switch (attr.size().type()) {
+                    case SizeAnnotation::OFFSET_INTO_PARENT:
+                      if (attr.size().bits()) {
+                        add_gutter(absl::StrCat("@", attr.size().size(), ".",
+                                                attr.size().bits()));
+                      } else {
+                        add_gutter(absl::StrCat("@", attr.size().size()));
+                      }
+                      break;
+                    case SizeAnnotation::SIZEOF_SELF:
+                      if (attr.size().bits()) {
+                        add_gutter(absl::StrCat(
+                            attr.size().size() * 8 + attr.size().bits(), "b"));
+                      } else {
+                        add_gutter(absl::StrCat(attr.size().size(), "B"));
+                      }
+                      break;
+                    default:
+                      break;
+                  }
+                  break;
+                default:
+                  break;
+              }
+            });
+            if (has_diagnostic) {
+              tags.push_back("invalid");
+            }
+          } catch (FoundCursor) {
+            base_flags |= Theme::HIGHLIGHT_LINE;
+            ncol = 0;
+            it = start_of_line;
+            continue;
+          }
           if (it.value() == '\n') {
             auto fill_attr = ctx->color->Theme(::Theme::Tag(), base_flags);
             while (ncol < ctx->window->width()) {
@@ -103,70 +166,9 @@ class Editor {
             ncol = 0;
             start_of_line = it.Next();
           } else {
-            struct FoundCursor {};
-            try {
-              uint32_t chr_flags = base_flags;
-              std::vector<std::string> tags;
-              bool has_diagnostic = false;
-              it.ForEachAttrValue([&](const Attribute& attr) {
-                switch (attr.data_case()) {
-                  case Attribute::kCursor:
-                    ctx->Move(nrow, ncol);
-                    if (base_flags & Theme::HIGHLIGHT_LINE) break;
-                    throw FoundCursor();
-                  case Attribute::kSelection:
-                    chr_flags |= Theme::SELECTED;
-                    break;
-                  case Attribute::kDiagnostic:
-                    has_diagnostic = true;
-                    break;
-                  case Attribute::kTags:
-                    for (auto t : attr.tags().tags()) {
-                      tags.push_back(t);
-                    }
-                    break;
-                  case Attribute::kSize:
-                    switch (attr.size().type()) {
-                      case SizeAnnotation::OFFSET_INTO_PARENT:
-                        if (attr.size().bits()) {
-                          gutter_annotations.push_back(
-                              absl::StrCat("@", attr.size().size(), ".",
-                                           attr.size().bits()));
-                        } else {
-                          gutter_annotations.push_back(
-                              absl::StrCat("@", attr.size().size()));
-                        }
-                        break;
-                      case SizeAnnotation::SIZEOF_SELF:
-                        if (attr.size().bits()) {
-                          gutter_annotations.push_back(absl::StrCat(
-                              attr.size().size() * 8 + attr.size().bits(),
-                              "b"));
-                        } else {
-                          gutter_annotations.push_back(
-                              absl::StrCat(attr.size().size(), "B"));
-                        }
-                        break;
-                      default:
-                        break;
-                    }
-                    break;
-                  default:
-                    break;
-                }
-              });
-              if (has_diagnostic) {
-                tags.push_back("invalid");
-              }
-              ctx->Put(nrow, ncol, it.value(),
-                       ctx->color->Theme(tags, chr_flags));
-              ncol++;
-            } catch (FoundCursor) {
-              base_flags |= Theme::HIGHLIGHT_LINE;
-              ncol = 0;
-              it = start_of_line;
-              continue;
-            }
+            ctx->Put(nrow, ncol, it.value(),
+                     ctx->color->Theme(tags, chr_flags));
+            ncol++;
           }
         }
         it.MoveNext();

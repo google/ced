@@ -18,6 +18,8 @@
 #include "annotation.pb.h"
 #include "avl.h"
 
+#include "log.h"
+
 union ID {
   ID() { id = 0; }
   ID(uint64_t i) { id = i; }
@@ -214,14 +216,23 @@ class AnnotatedString {
     // F(const Attribute& attr)
     template <class F>
     void ForEachAttrValue(F&& f) {
+      Log() << "FEAV: " << pos_.id << " " << cur_->annotations.Empty();
       cur_->annotations.ForEach([this, f](ID id) {
+        Log() << "EXAM " << id.id << " on " << pos_.id;
         const auto* dc = str_->annotations_.Lookup(id);
-        if (!dc) return;
+        if (!dc) {
+          Log() << "no dc for " << id.id;
+          return;
+        }
         const Annotation& ann =
             *str_->annotations_by_type_.Lookup(*dc)->Lookup(id);
         const Attribute* attr =
             str_->attributes_by_type_.Lookup(*dc)->Lookup(ann.attribute());
-        if (!attr) return;
+        if (!attr) {
+          Log() << "failed attr lookup";
+          return;
+        }
+        Log() << attr->DebugString();
         f(*attr);
       });
     }

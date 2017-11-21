@@ -138,6 +138,8 @@ void AnnotatedString::IntegrateInsertChar(ID id, char c, ID after, ID before) {
                 .Add(id, LineBreak{prev_line_id, prev_lb->next})
                 .Add(prev_lb->next, LineBreak{id, next_lb->next});
       }
+      Log() << "Woot " << after.id << " " << id.id << " " << before.id << " '"
+            << c << "'";
       chars_ = chars_
                    .Add(after,
                         CharInfo{caft->visible, caft->chr, id, caft->prev,
@@ -194,6 +196,7 @@ void AnnotatedString::IntegrateDelChar(ID id) {
                        .Add(self->prev, LineBreak{prev->prev, self->next})
                        .Add(self->next, LineBreak{self->prev, next->next});
   }
+  Log() << "Del char " << id.id;
   chars_ = chars_.Add(id, CharInfo{false, cdel->chr, cdel->next, cdel->prev,
                                    cdel->after, cdel->before, AVL<ID>()});
 }
@@ -223,10 +226,12 @@ void AnnotatedString::IntegrateMark(ID id, const Annotation& annotation) {
   ID loc = annotation.begin();
   while (loc != annotation.end()) {
     const CharInfo* ci = chars_.Lookup(loc);
+    Log() << "Mark " << loc.id << " with " << id.id << " vis:" << ci->visible;
     assert(ci);
     if (ci->visible) {
-      chars_.Add(loc, CharInfo{ci->visible, ci->chr, ci->next, ci->prev,
-                               ci->after, ci->before, ci->annotations.Add(id)});
+      chars_ = chars_.Add(
+          loc, CharInfo{ci->visible, ci->chr, ci->next, ci->prev, ci->after,
+                        ci->before, ci->annotations.Add(id)});
     }
     loc = ci->next;
   }
@@ -241,14 +246,15 @@ void AnnotatedString::IntegrateDelMark(ID id) {
   while (loc != ann->end()) {
     const CharInfo* ci = chars_.Lookup(loc);
     assert(ci);
+    Log() << "Unmark " << loc.id << " with " << id.id << " vis:" << ci->visible;
     if (ci->visible) {
-      chars_.Add(loc,
-                 CharInfo{ci->visible, ci->chr, ci->next, ci->prev, ci->after,
-                          ci->before, ci->annotations.Remove(id)});
+      chars_ = chars_.Add(
+          loc, CharInfo{ci->visible, ci->chr, ci->next, ci->prev, ci->after,
+                        ci->before, ci->annotations.Remove(id)});
     }
     loc = ci->next;
   }
-  annotations_by_type_.Add(*dc, bt->Remove(id));
+  annotations_by_type_ = annotations_by_type_.Add(*dc, bt->Remove(id));
   annotations_ = annotations_.Remove(id);
 }
 
