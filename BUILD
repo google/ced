@@ -100,18 +100,15 @@ cc_binary(
   srcs = ["main.cc"],
   deps = [
     ":standard_project_types",
+    ":standard_collaborator_types",
     ":buffer",
-    ":default_collaborators",
     ":terminal_collaborator",
-    ":config",
-    ":terminal_color",
-    ":render",
   ],
   linkopts = ["-lcurses", "-lpthread", "-ldl"]
 )
 
 cc_library(
-  name = "default_collaborators",
+  name = "standard_collaborator_types",
   deps = [
     ":clang_format_collaborator",
     ":libclang_collaborator",

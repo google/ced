@@ -258,7 +258,7 @@ class AVL<K, void> {
   static void ForEachImpl(const Node *n, F &&f) {
     if (n == nullptr) return;
     ForEachImpl(n->left.get(), std::forward<F>(f));
-    f(const_cast<const K &>(n->kv.first));
+    f(const_cast<const K &>(n->key));
     ForEachImpl(n->right.get(), std::forward<F>(f));
   }
 

@@ -59,7 +59,9 @@ message BufferRef {
   repeated int32 lines = 2;
 };
 
-message Cursor {};
+message Cursor {
+  bool selection = 1;
+};
 
 message BufferString {
   string name = 1;

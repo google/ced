@@ -185,6 +185,21 @@ class AnnotatedString {
       cur_ = str_->chars_.Lookup(pos_);
     }
 
+    // F(const Attribute& attr)
+    template <class F>
+    void ForEachAttrValue(F&& f) {
+      cur_->annotations.ForEach([this, f](ID id) {
+        const auto* dc = str_->annotations_.Lookup(id);
+        if (!dc) return;
+        const Annotation& ann =
+            *str_->annotations_by_type_.Lookup(*dc)->Lookup(id);
+        const Attribute* attr =
+            str_->attributes_by_type_.Lookup(*dc)->Lookup(ann.attribute());
+        if (!attr) return;
+        f(*attr);
+      });
+    }
+
    private:
     const AnnotatedString* str_;
     ID pos_;
@@ -225,6 +240,12 @@ class AnnotatedString {
       Iterator i(*this);
       i.MovePrev();
       return i;
+    }
+
+    // F(const Attribute& attr)
+    template <class F>
+    void ForEachAttrValue(F&& f) {
+      it_.ForEachAttrValue(std::forward<F>(f));
     }
 
    private:

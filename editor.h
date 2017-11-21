@@ -59,6 +59,62 @@ class Editor {
   void InsNewLine() { InsChar('\n'); }
   void InsChar(char c);
 
+  template <class RC>
+  std::function<void(RC* ctx)> PrepareRender() {
+    return [this](RC* ctx) {
+      if (cursor_row_ < 0) {
+        cursor_row_ = 0;
+      } else if (cursor_row_ >= window_height) {
+        cursor_row_ = window_height - 1;
+      }
+
+      cursor_ = AnnotatedString::Iterator(state_.content, cursor_).id();
+      AnnotatedString::LineIterator line_cr(state_.content, cursor_);
+      AnnotatedString::LineIterator line_end_cr = line_cr.Next();
+      AnnotatedString::LineIterator line_bk = line_cr;
+      AnnotatedString::LineIterator line_fw = line_cr;
+      for (int i = 0; i < window_height; i++) {
+        line_bk.MovePrev();
+        line_fw.MoveNext();
+      }
+      AnnotatedString::AllIterator it = line_bk.AsAllIterator();
+      AnnotationTracker<Tag> t_token(state_.token_types);
+      AnnotationTracker<ID> t_diagnostic(state_.diagnostic_ranges);
+      AnnotationTracker<SideBufferRef> t_side_buffer_ref(
+          state_.side_buffer_refs);
+      std::vector<CharInfo> ci;
+      int nrow = 0;
+      int ncol = 0;
+      uint32_t base_flags = 0;
+      AnnotatedString::AllIterator start_of_line = it;
+      std::vector<std::string> gutter_annotations;
+      while (it.id() != line_fw.id()) {
+        if (it.is_visible()) {
+          if (it.value() == '\n') {
+            LineInfo li{it.id() == line_end_cr.id(),
+                        absl::StrJoin(gutter_annotations, ",")};
+            gutter_annotations.clear();
+            nrow++;
+            ncol = 0;
+            start_of_line = it.Next();
+          } else {
+            uint32_t line_flags = base_flags;
+            ctx->Put(nrow, ncol, it.value(),
+                     ctx->color->Theme(it, &line_flags));
+            if (line_flags == base_flags) {
+              ncol++;
+            } else {
+              base_flags = line_flags;
+              ncol = 0;
+              it = start_of_line;
+            }
+          }
+        }
+        it.MoveNext();
+      }
+    };
+  }
+
  private:
   void CursorLeft();
   void CursorRight();
@@ -70,16 +126,6 @@ class Editor {
   void SetSelectMode(bool sel);
   bool SelectMode() const { return selection_anchor_ != ID(); }
   void DeleteSelection();
-
-  ViewRendererPtr main_view_;
-  std::map<std::string, ChildView> child_views_;
-
-  template <class RC>
-  RenderFunc<RC> MakeRenderer(const AnnotatedString& s) {
-    return [s](RC* render_context) {
-
-    };
-  }
 
 #if 0
   template <class RC>
@@ -182,10 +228,8 @@ class Editor {
   EditNotification state_;
   CommandSet unpublished_commands_;
   CommandSet unacknowledged_commands_;
-  Tag cursor_token_;
   BufferRef active_side_buffer_;
   AnnotationEditor ed_;
-  int last_sb_offset_ = 0;
 
 #if 0
   int RenderCommon(int window_height, LineCallback callback);

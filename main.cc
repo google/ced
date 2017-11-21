@@ -14,11 +14,6 @@
 #include <curses.h>
 #include <signal.h>
 #include "buffer.h"
-#include "clang_format_collaborator.h"
-#include "fixit_collaborator.h"
-#include "godbolt_collaborator.h"
-#include "libclang_collaborator.h"
-#include "referenced_file_collaborator.h"
 #include "render.h"
 #include "terminal_collaborator.h"
 #include "terminal_color.h"
@@ -29,7 +24,7 @@ class Application {
  public:
   Application(const char* filename)
       : done_(false),
-        buffer_(filename),
+        buffer_(filename, AnnotatedString()),
         terminal_collaborator_(buffer_.MakeCollaborator<TerminalCollaborator>(
             [this]() { Invalidate(); })) {
     auto theme = std::unique_ptr<Theme>(new Theme(Theme::DEFAULT));
@@ -41,11 +36,6 @@ class Application {
     color_.reset(new TerminalColor{std::move(theme)});
     bkgd(color_->Theme(Tag(), 0));
     keypad(stdscr, true);
-    buffer_.MakeCollaborator<ClangFormatCollaborator>();
-    buffer_.MakeCollaborator<LibClangCollaborator>();
-    buffer_.MakeCollaborator<GodboltCollaborator>();
-    buffer_.MakeCollaborator<FixitCollaborator>();
-    buffer_.MakeCollaborator<ReferencedFileCollaborator>();
   }
 
   ~Application() { endwin(); }
