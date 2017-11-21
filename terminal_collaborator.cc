@@ -53,34 +53,15 @@ EditResponse TerminalCollaborator::Pull() {
   return r;
 }
 
-static const char* SeverityString(Severity sev) {
-  switch (sev) {
-    case Severity::UNSET:
-      return "???";
-    case Severity::IGNORED:
-      return "IGNORED";
-    case Severity::NOTE:
-      return "NOTE";
-    case Severity::WARNING:
-      return "WARNING";
-    case Severity::ERROR:
-      return "ERROR";
-    case Severity::FATAL:
-      return "FATAL";
-  }
-  return "XXXXX";
-}
-
 void TerminalCollaborator::Render(TerminalRenderContainers containers) {
+  absl::MutexLock lock(&mu_);
+
   /*
    * edit item
    */
   containers.main
       .AddItem(LAY_LEFT | LAY_VFILL,
-               [this](TerminalRenderContext* context) {
-                 absl::MutexLock lock(&mu_);
-                 editor_.Render(context);
-               })
+               editor_.PrepareRender<TerminalRenderContext>())
       .FixSize(80, 0);
 
   auto side_bar = containers.main.AddContainer(LAY_FILL, LAY_COLUMN);
@@ -92,34 +73,34 @@ void TerminalCollaborator::Render(TerminalRenderContainers containers) {
                  [profile](TerminalRenderContext* context) {
                    int row = 0;
                    for (const auto& s : profile) {
-                     context->Put(row++, 0, s, context->color->Theme(Tag(), 0));
+                     context->Put(row++, 0, s, context->color->Theme({}, 0));
                    }
                  })
         .FixSize(0, profile.size());
   }
 
+#if 0
   side_bar.AddItem(LAY_FILL, [this](TerminalRenderContext* context) {
     absl::MutexLock lock(&mu_);
     editor_.RenderSideBar(context);
   });
+#endif
 
   auto diagnostics =
       containers.ext_status.AddContainer(LAY_TOP | LAY_HFILL, LAY_COLUMN);
 
-  absl::MutexLock lock(&mu_);
   int num_diagnostics = 0;
-  editor_.CurrentState().diagnostics.ForEachValue(
-      [&](const Diagnostic& diagnostic) {
+  editor_.CurrentState().content.ForEachAttribute(
+      Attribute::kDiagnostic, [&](ID, const Attribute& attribute) {
         if (num_diagnostics < 10) {
-          std::string msg = absl::StrCat(diagnostic.index, ": [",
-                                         SeverityString(diagnostic.severity),
-                                         "] ", diagnostic.message);
+          std::string msg = absl::StrCat(
+              "[", Diagnostic_Severity_Name(attribute.diagnostic().severity()),
+              "] ", attribute.diagnostic().message());
           diagnostics
               .AddItem(LAY_TOP | LAY_HFILL,
                        [msg](TerminalRenderContext* context) {
                          Log() << *context->window;
-                         context->Put(0, 0, msg,
-                                      context->color->Theme(Tag(), 0));
+                         context->Put(0, 0, msg, context->color->Theme({}, 0));
                        })
               .FixSize(0, 1);
           num_diagnostics++;

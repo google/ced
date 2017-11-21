@@ -14,6 +14,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include "selector.h"
 
 struct AppEnv;
@@ -58,7 +59,7 @@ class LineEditor {
 
   template <class RC>
   void Render(RC* rc) {
-    rc->Put(0, 0, text_, rc->color(Tag(), 0));
+    rc->Put(0, 0, text_, rc->color({}, 0));
   }
 
  private:
