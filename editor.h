@@ -64,25 +64,19 @@ class Editor {
     return [this](RC* ctx) {
       if (cursor_row_ < 0) {
         cursor_row_ = 0;
-      } else if (cursor_row_ >= window_height) {
-        cursor_row_ = window_height - 1;
+      } else if (cursor_row_ >= ctx->window->height()) {
+        cursor_row_ = ctx->window->height() - 1;
       }
 
       cursor_ = AnnotatedString::Iterator(state_.content, cursor_).id();
       AnnotatedString::LineIterator line_cr(state_.content, cursor_);
-      AnnotatedString::LineIterator line_end_cr = line_cr.Next();
       AnnotatedString::LineIterator line_bk = line_cr;
       AnnotatedString::LineIterator line_fw = line_cr;
-      for (int i = 0; i < window_height; i++) {
+      for (int i = 0; i < ctx->window->height(); i++) {
         line_bk.MovePrev();
         line_fw.MoveNext();
       }
       AnnotatedString::AllIterator it = line_bk.AsAllIterator();
-      AnnotationTracker<Tag> t_token(state_.token_types);
-      AnnotationTracker<ID> t_diagnostic(state_.diagnostic_ranges);
-      AnnotationTracker<SideBufferRef> t_side_buffer_ref(
-          state_.side_buffer_refs);
-      std::vector<CharInfo> ci;
       int nrow = 0;
       int ncol = 0;
       uint32_t base_flags = 0;
@@ -91,8 +85,19 @@ class Editor {
       while (it.id() != line_fw.id()) {
         if (it.is_visible()) {
           if (it.value() == '\n') {
-            LineInfo li{it.id() == line_end_cr.id(),
-                        absl::StrJoin(gutter_annotations, ",")};
+            auto fill_attr = ctx->color->Theme(::Theme::Tag(), base_flags);
+            while (ncol < ctx->window->width()) {
+              ctx->Put(nrow, ncol, ' ', fill_attr);
+              ncol++;
+            }
+            std::string gutter = absl::StrJoin(gutter_annotations, ",");
+            ncol = ctx->window->width() - gutter.length();
+            fill_attr =
+                ctx->color->Theme(::Theme::Tag{"comment.gutter"}, base_flags);
+            for (auto c : gutter) {
+              ctx->Put(nrow, ncol, c, fill_attr);
+              ncol++;
+            }
             gutter_annotations.clear();
             nrow++;
             ncol = 0;
@@ -118,6 +123,34 @@ class Editor {
                     for (auto t : attr.tags().tags()) {
                       tags.push_back(t);
                     }
+                    break;
+                  case Attribute::kSize:
+                    switch (attr.size().type()) {
+                      case SizeAnnotation::OFFSET_INTO_PARENT:
+                        if (attr.size().bits()) {
+                          gutter_annotations.push_back(
+                              absl::StrCat("@", attr.size().size(), ".",
+                                           attr.size().bits()));
+                        } else {
+                          gutter_annotations.push_back(
+                              absl::StrCat("@", attr.size().size()));
+                        }
+                        break;
+                      case SizeAnnotation::SIZEOF_SELF:
+                        if (attr.size().bits()) {
+                          gutter_annotations.push_back(absl::StrCat(
+                              attr.size().size() * 8 + attr.size().bits(),
+                              "b"));
+                        } else {
+                          gutter_annotations.push_back(
+                              absl::StrCat(attr.size().size(), "B"));
+                        }
+                        break;
+                      default:
+                        break;
+                    }
+                    break;
+                  default:
                     break;
                 }
               });

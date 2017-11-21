@@ -185,6 +185,18 @@ class AnnotatedString {
       cur_ = str_->chars_.Lookup(pos_);
     }
 
+    AllIterator Next() {
+      AllIterator i(*this);
+      i.MoveNext();
+      return i;
+    }
+
+    AllIterator Prev() {
+      AllIterator i(*this);
+      i.MovePrev();
+      return i;
+    }
+
     // F(const Attribute& attr)
     template <class F>
     void ForEachAttrValue(F&& f) {
