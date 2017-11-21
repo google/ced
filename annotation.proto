@@ -59,9 +59,8 @@ message BufferRef {
   repeated int32 lines = 2;
 };
 
-message Cursor {
-  bool selection = 1;
-};
+message Cursor {};
+message Selection {};
 
 message BufferString {
   string name = 1;
@@ -80,8 +79,9 @@ message Attribute {
     SizeAnnotation size = 4;
     BufferRef buffer_ref = 5;
     Cursor cursor = 6;
-    BufferString buffer = 7;
-    Dependency dependency = 8;
+    Selection selection = 7;
+    BufferString buffer = 8;
+    Dependency dependency = 9;
   }
 };
 

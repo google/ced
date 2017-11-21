@@ -89,11 +89,6 @@ cc_test(
   deps = [":avl", "@com_google_googletest//:gtest_main"]
 )
 
-cc_library(
-  name = "list",
-  hdrs = ["list.h"]
-)
-
 cc_binary(
   name = "ced",
   linkstatic = 1,
@@ -122,7 +117,6 @@ cc_library(
   name = "selector",
   hdrs = ["selector.h"],
   srcs = ["selector.cc"],
-  deps = [":list"]
 )
 
 cc_library(

@@ -20,6 +20,10 @@
 #include "absl/types/optional.h"
 #include "selector.h"
 
+namespace plist {
+class Dict;
+}
+
 class Theme {
  public:
   explicit Theme(const std::string& file);
@@ -55,12 +59,16 @@ class Theme {
     Color background;
     Highlight highlight;
   };
+
+  typedef std::vector<std::string> Tag;
+
   Result ThemeToken(Tag token, uint32_t flags);
 
  private:
   void Load(const std::string& src);
 
   typedef absl::optional<Color> OptColor;
+  typedef std::vector<std::string> Selector;
 
   struct Setting {
     std::vector<Selector> scopes;
@@ -145,6 +153,8 @@ class Theme {
     }
   };
   static void LoadIgnored(const std::string& value, Setting* setting) {}
+
+  std::vector<Selector> ParseScopes(const plist::Dict* d);
 
   std::vector<Setting> settings_;
   std::map<std::pair<Tag, uint32_t>, Result> theme_cache_;

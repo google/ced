@@ -138,7 +138,7 @@ static std::string GetName(const plist::Dict* d) {
   return *str;
 }
 
-static std::vector<Selector> ParseScopes(const plist::Dict* d) {
+std::vector<Theme::Selector> Theme::ParseScopes(const plist::Dict* d) {
   auto scopes_node = d->Get("scope");
   if (!scopes_node) return {Selector()};
   auto* str = scopes_node->AsString();
@@ -148,9 +148,9 @@ static std::vector<Selector> ParseScopes(const plist::Dict* d) {
     Selector s;
     for (auto sel_row : absl::StrSplit(alt, ' ')) {
       if (sel_row.empty()) continue;
-      s = s.Push(std::string(sel_row.data(), sel_row.length()));
+      s.emplace_back(sel_row.data(), sel_row.length());
     }
-    r.push_back(s);
+    r.emplace_back(std::move(s));
   }
   return r;
 }

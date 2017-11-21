@@ -98,15 +98,40 @@ class Editor {
             ncol = 0;
             start_of_line = it.Next();
           } else {
-            uint32_t line_flags = base_flags;
-            ctx->Put(nrow, ncol, it.value(),
-                     ctx->color->Theme(it, &line_flags));
-            if (line_flags == base_flags) {
+            struct FoundCursor {};
+            try {
+              uint32_t chr_flags = base_flags;
+              std::vector<std::string> tags;
+              bool has_diagnostic = false;
+              it.ForEachAttrValue([&](const Attribute& attr) {
+                switch (attr.data_case()) {
+                  case Attribute::kCursor:
+                    if (base_flags & Theme::HIGHLIGHT_LINE) break;
+                    throw FoundCursor();
+                  case Attribute::kSelection:
+                    chr_flags |= Theme::SELECTED;
+                    break;
+                  case Attribute::kDiagnostic:
+                    has_diagnostic = true;
+                    break;
+                  case Attribute::kTags:
+                    for (auto t : attr.tags().tags()) {
+                      tags.push_back(t);
+                    }
+                    break;
+                }
+              });
+              if (has_diagnostic) {
+                tags.push_back("invalid");
+              }
+              ctx->Put(nrow, ncol, it.value(),
+                       ctx->color->Theme(tags, chr_flags));
               ncol++;
-            } else {
-              base_flags = line_flags;
+            } catch (FoundCursor) {
+              base_flags |= Theme::HIGHLIGHT_LINE;
               ncol = 0;
               it = start_of_line;
+              continue;
             }
           }
         }

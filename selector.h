@@ -15,9 +15,24 @@
 
 #include <stdint.h>
 #include <string>
-#include "list.h"
 
-typedef List<std::string> Tag;
-typedef List<std::string> Selector;
+namespace selector_detail {
 
-bool SelectorMatches(Selector selector, Tag tag);
+bool RuleMatches(const std::string& selector, const std::string& token);
+
+template <class TSel, class TTag>
+bool SelectorMatches(TSel selbeg, TSel selend, TTag tagbeg, TTag tagend) {
+  if (selbeg == selend) return true;
+  if (tagbeg == tagend) return false;
+  if (!RuleMatches(*--selend, *--tagend)) {
+    ++selend;
+  }
+  return SelectorMatches(selbeg, selend, tagbeg, tagend);
+}
+}
+
+template <class TSel, class TTag>
+bool SelectorMatches(const TSel& selector, const TTag& tag) {
+  return selector_detail::SelectorMatches(selector.begin(), selector.end(),
+                                          tag.begin(), tag.end());
+}

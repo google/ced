@@ -13,18 +13,9 @@
 // limitations under the License.
 #include "selector.h"
 
-static bool RuleMatches(const std::string& selector, const std::string& token) {
+bool selector_detail::RuleMatches(const std::string& selector,
+                                  const std::string& token) {
   return selector.length() <= token.length() &&
          std::mismatch(selector.begin(), selector.end(), token.begin()).first ==
              selector.end();
-}
-
-bool SelectorMatches(Selector selector, Tag token) {
-  if (selector.Empty()) return true;
-  if (token.Empty()) return false;
-  if (RuleMatches(selector.Head(), token.Head())) {
-    return SelectorMatches(selector.Tail(), token.Tail());
-  } else {
-    return SelectorMatches(selector, token.Tail());
-  }
 }
