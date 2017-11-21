@@ -14,6 +14,7 @@
 #include "theme.h"
 #include <functional>
 #include <unordered_map>
+#include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
 #include "default_theme.h"
 #include "log.h"
@@ -60,6 +61,8 @@ Theme::Result Theme::ThemeToken(Tag token, uint32_t flags) {
   auto key = std::make_pair(token, flags);
   auto it = theme_cache_.find(key);
   if (it != theme_cache_.end()) return it->second;
+
+  Log() << "Theme: " << absl::StrJoin(token, ":") << " flags=" << flags;
 
   Setting composite;
   for (auto sit = settings_.crbegin(); sit != settings_.crend(); ++sit) {

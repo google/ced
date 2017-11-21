@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "annotated_string.h"
+#include "log.h"
 
 std::atomic<uint16_t> Site::id_gen_{1};
 
@@ -77,6 +78,7 @@ ID AnnotatedString::MakeMark(CommandSet* commands, Site* site,
 AnnotatedString AnnotatedString::Integrate(const CommandSet& commands) const {
   AnnotatedString s = *this;
   for (const auto& cmd : commands.commands()) {
+    Log() << "INTEGRATE: " << cmd.DebugString();
     switch (cmd.command_case()) {
       case Command::kInsert:
         s.IntegrateInsert(cmd.id(), cmd.insert());

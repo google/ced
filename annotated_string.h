@@ -27,8 +27,8 @@ union ID {
   }
   uint64_t id;
   struct {
-    uint64_t clock : (64 - 16);
     uint64_t site : 16;
+    uint64_t clock : (64 - 16);
   };
 };
 

@@ -500,5 +500,5 @@ cc_library(
   name = "annotated_string",
   hdrs = ["annotated_string.h"],
   srcs = ["annotated_string.cc"],
-  deps = [":annotation", ":avl", "@com_google_absl//absl/strings"]
+  deps = [":annotation", ":avl", ":log", "@com_google_absl//absl/strings"]
 )
