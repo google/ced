@@ -63,7 +63,7 @@ class Editor {
   template <class RC>
   std::function<void(RC* ctx)> PrepareRender() {
     auto content = state_.content;
-    return [this,content](RC* ctx) {
+    return [this, content](RC* ctx) {
       if (cursor_row_ < 0) {
         cursor_row_ = 0;
       } else if (cursor_row_ >= ctx->window->height()) {
@@ -187,6 +187,7 @@ class Editor {
   void CursorUp();
   void CursorStartOfLine();
   void CursorEndOfLine();
+  void PublishCursor();
 
   void SetSelectMode(bool sel);
   bool SelectMode() const { return selection_anchor_ != ID(); }

@@ -28,6 +28,7 @@ EditResponse FixitCollaborator::Edit(const EditNotification& notification) {
   EditResponse response;
   notification.content.ForEachAnnotation(
       Attribute::kFixit, [&](ID annid, ID beg, ID end, const Attribute& attr) {
+        Log() << "FIXIT: " << attr.DebugString();
         const Fixit& fixit = attr.fixit();
         if (fixit.type() != Fixit::COMPILE_FIX) return;
         Log() << "CONSUME FIXIT: " << annid.id;

@@ -84,29 +84,29 @@ AnnotatedString AnnotatedString::Integrate(const CommandSet& commands) const {
 }
 
 void AnnotatedString::Integrate(const Command& cmd) {
-    Log() << "INTEGRATE: " << cmd.DebugString();
-    switch (cmd.command_case()) {
-      case Command::kInsert:
-        IntegrateInsert(cmd.id(), cmd.insert());
-        break;
-      case Command::kDelete:
-        IntegrateDelChar(cmd.id());
-        break;
-      case Command::kDecl:
-        IntegrateDecl(cmd.id(), cmd.decl());
-        break;
-      case Command::kDelDecl:
-        IntegrateDelDecl(cmd.id());
-        break;
-      case Command::kMark:
-        IntegrateMark(cmd.id(), cmd.mark());
-        break;
-      case Command::kDelMark:
-        IntegrateDelMark(cmd.id());
-        break;
-      default:
-        throw std::runtime_error("String integration failed");
-    }
+  Log() << "INTEGRATE: " << cmd.DebugString();
+  switch (cmd.command_case()) {
+    case Command::kInsert:
+      IntegrateInsert(cmd.id(), cmd.insert());
+      break;
+    case Command::kDelete:
+      IntegrateDelChar(cmd.id());
+      break;
+    case Command::kDecl:
+      IntegrateDecl(cmd.id(), cmd.decl());
+      break;
+    case Command::kDelDecl:
+      IntegrateDelDecl(cmd.id());
+      break;
+    case Command::kMark:
+      IntegrateMark(cmd.id(), cmd.mark());
+      break;
+    case Command::kDelMark:
+      IntegrateDelMark(cmd.id());
+      break;
+    default:
+      throw std::runtime_error("String integration failed");
+  }
 }
 
 void AnnotatedString::IntegrateInsert(ID id, const InsertCommand& cmd) {
@@ -308,6 +308,7 @@ int AnnotatedString::OrderIDs(ID a, ID b) const {
   }
 }
 ID AnnotationEditor::AttrID(const Attribute& attr) {
+  Log() << "AttrID: " << attr.DebugString();
   std::string ser;
   if (!attr.SerializeToString(&ser)) abort();
   auto it = new_attr2id_.find(ser);
@@ -333,6 +334,7 @@ ID AnnotationEditor::Mark(ID beg, ID end, ID attr) {
 }
 
 ID AnnotationEditor::Mark(const Annotation& ann) {
+  Log() << "Mark: " << ann.DebugString();
   std::string ser;
   if (!ann.SerializeToString(&ser)) abort();
   auto it = new_ann2id_.find(ser);

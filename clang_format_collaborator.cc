@@ -85,7 +85,9 @@ EditResponse ClangFormatCollaborator::Edit(
       n++;
       str.MakeDelete(&response.content_updates, del);
     }
-    str.MakeInsert(&response.content_updates, site(), r.text, it.Prev().id());
+    if (r.text[0]) {
+      str.MakeInsert(&response.content_updates, site(), r.text, it.Prev().id());
+    }
   }
 
   return response;

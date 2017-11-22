@@ -421,8 +421,12 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
           unsigned line, col, offset_start, offset_end;
           env->clang_getFileLocation(start, &file, &line, &col, &offset_start);
           env->clang_getFileLocation(end, &file, &line, &col, &offset_end);
+          Log() << file;
+          if (file)
+            Log() << filename << " "
+                  << env->clang_getCString(env->clang_getFileName(file));
           if (file &&
-              filename == env->clang_getCString(env->clang_getFileName(file))) {
+              /*filename == env->clang_getCString(env->clang_getFileName(file))*/ true) {
             Attribute fix_attr;
             Fixit* fix = fix_attr.mutable_fixit();
             fix->set_type(Fixit::COMPILE_FIX);

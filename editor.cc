@@ -14,6 +14,8 @@
 #include "editor.h"
 
 EditResponse Editor::MakeResponse() {
+  PublishCursor();
+
   EditResponse r;
   r.done = state_.shutdown;
   r.become_used = !unpublished_commands_.commands().empty();
@@ -21,20 +23,18 @@ EditResponse Editor::MakeResponse() {
   r.content_updates.MergeFrom(unpublished_commands_);
   unacknowledged_commands_.MergeFrom(unpublished_commands_);
   unpublished_commands_.Clear();
-  {
-    AnnotationEditor::ScopedEdit edit(&ed_, &r.content_updates);
-    Attribute curs;
-    curs.mutable_cursor();
-    Log() << "cursor_=" << cursor_.id;
-    Log() << "Next(cursor_)="
-          << AnnotatedString::Iterator(state_.content, cursor_).Next().id().id;
-    ed_.Mark(cursor_,
-             AnnotatedString::Iterator(state_.content, cursor_).Next().id(),
-             curs);
-    assert(unpublished_commands_.commands().empty());
-    cursor_reported_ = cursor_;
-  }
+  assert(unpublished_commands_.commands().empty());
   return r;
+}
+
+void Editor::PublishCursor() {
+  AnnotationEditor::ScopedEdit edit(&ed_, &unpublished_commands_);
+  Attribute curs;
+  curs.mutable_cursor();
+  ed_.Mark(cursor_,
+           AnnotatedString::Iterator(state_.content, cursor_).Next().id(),
+           curs);
+  cursor_reported_ = cursor_;
 }
 
 void Editor::UpdateState(const EditNotification& state) {
@@ -103,6 +103,7 @@ void Editor::Backspace() {
   AnnotatedString::Iterator it(state_.content, cursor_);
   it.MovePrev();
   cursor_ = it.id();
+  PublishCursor();
 }
 
 void Editor::Copy(AppEnv* env) {
@@ -124,16 +125,18 @@ void Editor::Paste(AppEnv* env) {
     DeleteSelection();
     SetSelectMode(false);
   }
-  cursor_ = state_.content.Insert(&unpublished_commands_, site_,
-                                      env->clipboard, cursor_);
+  cursor_ = state_.content.Insert(&unpublished_commands_, site_, env->clipboard,
+                                  cursor_);
+  PublishCursor();
 }
 
 void Editor::InsChar(char c) {
   DeleteSelection();
   SetSelectMode(false);
   cursor_ = state_.content.Insert(&unpublished_commands_, site_,
-                                      absl::string_view(&c, 1), cursor_);
+                                  absl::string_view(&c, 1), cursor_);
   cursor_row_ += (c == '\n');
+  PublishCursor();
 }
 
 void Editor::SetSelectMode(bool sel) {
@@ -150,6 +153,7 @@ void Editor::DeleteSelection() {
   AnnotatedString::Iterator it(state_.content, cursor_);
   it.MovePrev();
   cursor_ = it.id();
+  PublishCursor();
 }
 
 void Editor::CursorLeft() {
@@ -157,6 +161,7 @@ void Editor::CursorLeft() {
   cursor_row_ -= it.value() == '\n';
   it.MovePrev();
   cursor_ = it.id();
+  PublishCursor();
 }
 
 void Editor::CursorRight() {
@@ -164,6 +169,7 @@ void Editor::CursorRight() {
   it.MoveNext();
   cursor_row_ += it.value() == '\n';
   cursor_ = it.id();
+  PublishCursor();
 }
 
 void Editor::CursorDown() {
@@ -188,6 +194,7 @@ void Editor::CursorDown() {
   it.MovePrev();
   cursor_ = it.id();
   cursor_row_++;
+  PublishCursor();
 }
 
 void Editor::CursorUp() {
@@ -211,10 +218,12 @@ void Editor::CursorUp() {
   it.MovePrev();
   cursor_ = it.id();
   cursor_row_--;
+  PublishCursor();
 }
 
 void Editor::CursorStartOfLine() {
   cursor_ = AnnotatedString::LineIterator(state_.content, cursor_).id();
+  PublishCursor();
 }
 
 void Editor::CursorEndOfLine() {
@@ -223,4 +232,5 @@ void Editor::CursorEndOfLine() {
                 .AsIterator()
                 .Prev()
                 .id();
+  PublishCursor();
 }
