@@ -229,9 +229,9 @@ class AnnotatedString {
     // F(const Attribute& attr)
     template <class F>
     void ForEachAttrValue(F&& f) {
-      Log() << "FEAV: " << pos_.id << " " << cur_->annotations.Empty();
+      // Log() << "FEAV: " << pos_.id << " " << cur_->annotations.Empty();
       cur_->annotations.ForEach([this, f](ID id) {
-        Log() << "EXAM " << id.id << " on " << pos_.id;
+        // Log() << "EXAM " << id.id << " on " << pos_.id;
         const auto* dc = str_->annotations_.Lookup(id);
         if (!dc) {
           Log() << "no dc for " << id.id;
@@ -245,7 +245,7 @@ class AnnotatedString {
           Log() << "failed attr lookup";
           return;
         }
-        Log() << attr->DebugString();
+        // Log() << attr->DebugString();
         f(*attr);
       });
     }

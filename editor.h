@@ -91,65 +91,55 @@ class Editor {
       };
       while (it.id() != line_fw.id()) {
         if (it.is_visible()) {
-          struct FoundCursor {};
           uint32_t chr_flags = base_flags;
           std::vector<std::string> tags;
           bool move_cursor = false;
-          try {
-            bool has_diagnostic = false;
-            it.ForEachAttrValue([&](const Attribute& attr) {
-              switch (attr.data_case()) {
-                case Attribute::kCursor:
-                  Log() << "found cursor " << nrow << " " << ncol;
-                  move_cursor = true;
-                  if (base_flags & Theme::HIGHLIGHT_LINE) break;
-                  throw FoundCursor();
-                case Attribute::kSelection:
-                  chr_flags |= Theme::SELECTED;
-                  break;
-                case Attribute::kDiagnostic:
-                  has_diagnostic = true;
-                  break;
-                case Attribute::kTags:
-                  for (auto t : attr.tags().tags()) {
-                    tags.push_back(t);
-                  }
-                  break;
-                case Attribute::kSize:
-                  switch (attr.size().type()) {
-                    case SizeAnnotation::OFFSET_INTO_PARENT:
-                      if (attr.size().bits()) {
-                        add_gutter(absl::StrCat("@", attr.size().size(), ".",
-                                                attr.size().bits()));
-                      } else {
-                        add_gutter(absl::StrCat("@", attr.size().size()));
-                      }
-                      break;
-                    case SizeAnnotation::SIZEOF_SELF:
-                      if (attr.size().bits()) {
-                        add_gutter(absl::StrCat(
-                            attr.size().size() * 8 + attr.size().bits(), "b"));
-                      } else {
-                        add_gutter(absl::StrCat(attr.size().size(), "B"));
-                      }
-                      break;
-                    default:
-                      break;
-                  }
-                  break;
-                default:
-                  break;
-              }
-            });
-            if (has_diagnostic) {
-              tags.push_back("invalid");
+          bool has_diagnostic = false;
+          it.ForEachAttrValue([&](const Attribute& attr) {
+            switch (attr.data_case()) {
+              case Attribute::kCursor:
+                Log() << "found cursor " << nrow << " " << ncol;
+                move_cursor = true;
+                break;
+              case Attribute::kSelection:
+                chr_flags |= Theme::SELECTED;
+                break;
+              case Attribute::kDiagnostic:
+                has_diagnostic = true;
+                break;
+              case Attribute::kTags:
+                for (auto t : attr.tags().tags()) {
+                  tags.push_back(t);
+                }
+                break;
+              case Attribute::kSize:
+                switch (attr.size().type()) {
+                  case SizeAnnotation::OFFSET_INTO_PARENT:
+                    if (attr.size().bits()) {
+                      add_gutter(absl::StrCat("@", attr.size().size(), ".",
+                                              attr.size().bits()));
+                    } else {
+                      add_gutter(absl::StrCat("@", attr.size().size()));
+                    }
+                    break;
+                  case SizeAnnotation::SIZEOF_SELF:
+                    if (attr.size().bits()) {
+                      add_gutter(absl::StrCat(
+                          attr.size().size() * 8 + attr.size().bits(), "b"));
+                    } else {
+                      add_gutter(absl::StrCat(attr.size().size(), "B"));
+                    }
+                    break;
+                  default:
+                    break;
+                }
+                break;
+              default:
+                break;
             }
-          } catch (FoundCursor) {
-            Log() << "REDRAW ROW " << nrow;
-            base_flags |= Theme::HIGHLIGHT_LINE;
-            ncol = 0;
-            it = start_of_line;
-            continue;
+          });
+          if (has_diagnostic) {
+            tags.push_back("invalid");
           }
           if (it.value() == '\n') {
             auto fill_attr = ctx->color->Theme(::Theme::Tag(), base_flags);
@@ -168,7 +158,7 @@ class Editor {
             gutter_annotations.clear();
             nrow++;
             ncol = 0;
-            start_of_line = it.Next();
+            start_of_line = it;
             base_flags = 0;
           } else {
             ctx->Put(nrow, ncol, it.value(),
@@ -177,6 +167,11 @@ class Editor {
           }
           if (move_cursor) {
             ctx->Move(nrow, ncol);
+            if ((base_flags & Theme::HIGHLIGHT_LINE) == 0) {
+              ncol = 0;
+              it = start_of_line;
+              base_flags |= Theme::HIGHLIGHT_LINE;
+            }
           }
         }
         it.MoveNext();
