@@ -25,6 +25,9 @@ EditResponse Editor::MakeResponse() {
     AnnotationEditor::ScopedEdit edit(&ed_, &r.content_updates);
     Attribute curs;
     curs.mutable_cursor();
+    Log() << "cursor_=" << cursor_.id;
+    Log() << "Next(cursor_)="
+          << AnnotatedString::Iterator(state_.content, cursor_).Next().id().id;
     ed_.Mark(cursor_,
              AnnotatedString::Iterator(state_.content, cursor_).Next().id(),
              curs);
@@ -121,14 +124,14 @@ void Editor::Paste(AppEnv* env) {
     DeleteSelection();
     SetSelectMode(false);
   }
-  cursor_ = state_.content.MakeInsert(&unpublished_commands_, site_,
+  cursor_ = state_.content.Insert(&unpublished_commands_, site_,
                                       env->clipboard, cursor_);
 }
 
 void Editor::InsChar(char c) {
   DeleteSelection();
   SetSelectMode(false);
-  cursor_ = state_.content.MakeInsert(&unpublished_commands_, site_,
+  cursor_ = state_.content.Insert(&unpublished_commands_, site_,
                                       absl::string_view(&c, 1), cursor_);
   cursor_row_ += (c == '\n');
 }

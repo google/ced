@@ -14,6 +14,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <atomic>
 #include "absl/strings/string_view.h"
 #include "annotation.pb.h"
 #include "avl.h"
@@ -55,8 +56,9 @@ class Site {
   }
 
   std::pair<ID, ID> GenerateIDBlock(uint64_t n) {
+    assert(n > 0);
     uint64_t first = clock_.fetch_add(n, std::memory_order_relaxed);
-    return std::make_pair(ID(id_, first), ID(id_, first + n));
+    return std::make_pair(ID(id_, first), ID(id_, first + n - 1));
   }
 
   uint16_t site_id() const { return id_; }
@@ -84,6 +86,16 @@ class AnnotatedString {
                          chars_.Lookup(after)->next);
   }
 
+  ID Insert(CommandSet* commands, Site* site, absl::string_view chars,
+                ID after) {
+    const size_t start = commands->mutable_commands()->size();
+    ID r = MakeInsert(commands, site, chars, after);
+    for (size_t i = start; i < commands->mutable_commands()->size(); i++) {
+      Integrate(commands->mutable_commands()->Get(i));
+    }
+    return r;
+  }
+
   static void MakeDelete(CommandSet* commands, ID id);
   void MakeDelete(CommandSet* commands, ID beg, ID end) const {
     AllIterator it(*this, beg);
@@ -100,6 +112,7 @@ class AnnotatedString {
                      const Annotation& annotation);
 
   AnnotatedString Integrate(const CommandSet& commands) const;
+  void Integrate(const Command& command);
 
   // return <0 if a before b, >0 if a after b, ==0 if a==b
   int OrderIDs(ID a, ID b) const;

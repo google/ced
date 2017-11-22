@@ -15,6 +15,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 // can be used as a project aspect
 class CompilationDatabase {

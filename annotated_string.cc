@@ -78,31 +78,35 @@ ID AnnotatedString::MakeMark(CommandSet* commands, Site* site,
 AnnotatedString AnnotatedString::Integrate(const CommandSet& commands) const {
   AnnotatedString s = *this;
   for (const auto& cmd : commands.commands()) {
+    s.Integrate(cmd);
+  }
+  return s;
+}
+
+void AnnotatedString::Integrate(const Command& cmd) {
     Log() << "INTEGRATE: " << cmd.DebugString();
     switch (cmd.command_case()) {
       case Command::kInsert:
-        s.IntegrateInsert(cmd.id(), cmd.insert());
+        IntegrateInsert(cmd.id(), cmd.insert());
         break;
       case Command::kDelete:
-        s.IntegrateDelChar(cmd.id());
+        IntegrateDelChar(cmd.id());
         break;
       case Command::kDecl:
-        s.IntegrateDecl(cmd.id(), cmd.decl());
+        IntegrateDecl(cmd.id(), cmd.decl());
         break;
       case Command::kDelDecl:
-        s.IntegrateDelDecl(cmd.id());
+        IntegrateDelDecl(cmd.id());
         break;
       case Command::kMark:
-        s.IntegrateMark(cmd.id(), cmd.mark());
+        IntegrateMark(cmd.id(), cmd.mark());
         break;
       case Command::kDelMark:
-        s.IntegrateDelMark(cmd.id());
+        IntegrateDelMark(cmd.id());
         break;
       default:
         throw std::runtime_error("String integration failed");
     }
-  }
-  return s;
 }
 
 void AnnotatedString::IntegrateInsert(ID id, const InsertCommand& cmd) {
