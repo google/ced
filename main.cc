@@ -121,7 +121,12 @@ class Application {
     std::ostringstream out;
     out << frame_time;
     std::string ftstr = out.str();
-    mvaddstr(fb_rows - 1, fb_cols - ftstr.length(), ftstr.c_str());
+    chtype attr = frame_time > absl::Milliseconds(10)
+                      ? color_->Theme({"invalid"}, 0)
+                      : color_->Theme({}, 0);
+    for (size_t i = 0; i < ftstr.length(); i++) {
+      mvaddch(fb_rows - 1, fb_cols - ftstr.length() + i, ftstr[i] | attr);
+    }
 
     if (ctx.crow != -1) {
       move(ctx.crow, ctx.ccol);
