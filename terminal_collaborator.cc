@@ -71,6 +71,7 @@ void TerminalCollaborator::Render(TerminalRenderContainers containers) {
     side_bar
         .AddItem(LAY_TOP | LAY_HFILL,
                  [profile](TerminalRenderContext* context) {
+                   context->animating = true;
                    int row = 0;
                    for (const auto& s : profile) {
                      context->Put(row++, 0, s, context->color->Theme({}, 0));

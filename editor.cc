@@ -39,12 +39,17 @@ void Editor::PublishCursor() {
 
 void Editor::UpdateState(const EditNotification& state) {
   state_ = state;
-  auto s2 = state_.content.Integrate(unacknowledged_commands_);
-  if (s2.SameTotalIdentity(state_.content)) {
-    unacknowledged_commands_.Clear();
-  } else {
-    state_.content = s2;
+  auto s2 = state_.content;
+  CommandSet unacked;
+  for (const auto& cmd : unacknowledged_commands_.commands()) {
+    auto s3 = s2;
+    s2.Integrate(cmd);
+    if (!s3.SameTotalIdentity(s2)) {
+      *unacked.add_commands() = cmd;
+    }
   }
+  unacknowledged_commands_.Swap(&unacked);
+  state_.content = s2;
 }
 
 void Editor::SelectLeft() {
