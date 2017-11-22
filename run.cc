@@ -89,12 +89,12 @@ RunResult run(const std::string& command, const std::vector<std::string>& args,
 
   Log() << "RUN: " << absl::StrCat(command, " ", absl::StrJoin(args, " "));
 
-  std::vector<char*> cargs;
-  cargs.push_back(strdup(command.c_str()));
-  for (auto& arg : args) cargs.push_back(strdup(arg.c_str()));
-  cargs.push_back(nullptr);
   pid_t p = WrapSyscall("fork", [&]() { return fork(); });
   if (p == 0) {
+    std::vector<char*> cargs;
+    cargs.push_back(strdup(command.c_str()));
+    for (auto& arg : args) cargs.push_back(strdup(arg.c_str()));
+    cargs.push_back(nullptr);
     WrapSyscall("dup2", [&]() { return dup2(pipes[IN][READ], STDIN_FILENO); });
     WrapSyscall("dup2",
                 [&]() { return dup2(pipes[OUT][WRITE], STDOUT_FILENO); });

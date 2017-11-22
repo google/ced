@@ -232,12 +232,13 @@ void AnnotatedString::IntegrateMark(ID id, const Annotation& annotation) {
     const CharInfo* ci = chars_.Lookup(loc);
     Log() << "Mark " << loc.id << " with " << id.id << " vis:" << ci->visible;
     assert(ci);
+    auto next = ci->next;
     if (ci->visible) {
       chars_ = chars_.Add(
           loc, CharInfo{ci->visible, ci->chr, ci->next, ci->prev, ci->after,
                         ci->before, ci->annotations.Add(id)});
     }
-    loc = ci->next;
+    loc = next;
   }
 }
 
@@ -251,12 +252,13 @@ void AnnotatedString::IntegrateDelMark(ID id) {
     const CharInfo* ci = chars_.Lookup(loc);
     assert(ci);
     Log() << "Unmark " << loc.id << " with " << id.id << " vis:" << ci->visible;
+    auto next = ci->next;
     if (ci->visible) {
       chars_ = chars_.Add(
           loc, CharInfo{ci->visible, ci->chr, ci->next, ci->prev, ci->after,
                         ci->before, ci->annotations.Remove(id)});
     }
-    loc = ci->next;
+    loc = next;
   }
   annotations_by_type_ = annotations_by_type_.Add(*dc, bt->Remove(id));
   annotations_ = annotations_.Remove(id);

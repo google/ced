@@ -62,15 +62,16 @@ class Editor {
 
   template <class RC>
   std::function<void(RC* ctx)> PrepareRender() {
-    return [this](RC* ctx) {
+    auto content = state_.content;
+    return [this,content](RC* ctx) {
       if (cursor_row_ < 0) {
         cursor_row_ = 0;
       } else if (cursor_row_ >= ctx->window->height()) {
         cursor_row_ = ctx->window->height() - 1;
       }
 
-      cursor_ = AnnotatedString::Iterator(state_.content, cursor_).id();
-      AnnotatedString::LineIterator line_cr(state_.content, cursor_);
+      cursor_ = AnnotatedString::Iterator(content, cursor_).id();
+      AnnotatedString::LineIterator line_cr(content, cursor_);
       AnnotatedString::LineIterator line_bk = line_cr;
       AnnotatedString::LineIterator line_fw = line_cr;
       for (int i = 0; i < ctx->window->height(); i++) {
