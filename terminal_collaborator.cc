@@ -31,9 +31,12 @@ TerminalCollaborator::TerminalCollaborator(const Buffer* buffer,
       state_(State::EDITING) {}
 
 void TerminalCollaborator::Push(const EditNotification& notification) {
+  LogTimer tmr("term_push");
   {
     absl::MutexLock lock(&mu_);
-    editor_.UpdateState(notification);
+    tmr.Mark("lock");
+    editor_.UpdateState(&tmr, notification);
+    tmr.Mark("update");
   }
   invalidate_();
 }
@@ -45,10 +48,13 @@ EditResponse TerminalCollaborator::Pull() {
   };
 
   mu_.LockWhen(absl::Condition(&ready));
+  LogTimer tmr("term_pull");
   EditResponse r = editor_.MakeResponse();
+  tmr.Mark("make");
   r.become_used |= recently_used_;
   recently_used_ = false;
   mu_.Unlock();
+  tmr.Mark("unlock");
 
   return r;
 }
@@ -175,7 +181,9 @@ static bool MaybeProcessEditingKey(AppEnv* app_env, int key,
 }
 
 void TerminalCollaborator::ProcessKey(AppEnv* app_env, int key) {
+  LogTimer tmr("term_proc_key");
   absl::MutexLock lock(&mu_);
+  tmr.Mark("locked");
 
   Log() << "TerminalCollaborator::ProcessKey: " << key;
 

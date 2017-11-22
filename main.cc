@@ -56,14 +56,18 @@ class Application {
   void Run() {
     bool refresh = true;
     absl::Time last_key_press = absl::Now();
+    std::unique_ptr<LogTimer> log_timer(new LogTimer("main_loop"));
     for (;;) {
       bool animating = false;
       if (refresh) {
         erase();
-        animating = Render(last_key_press);
+        animating = Render(log_timer.get(), last_key_press);
+        log_timer->Mark("rendered");
       }
       timeout(animating ? 10 : -1);
+      log_timer.reset();
       int c = getch();
+      log_timer.reset(new LogTimer("main_loop"));
       Log() << "GOTKEY: " << c;
       last_key_press = absl::Now();
 
@@ -81,17 +85,21 @@ class Application {
           terminal_collaborator_->ProcessKey(&app_env_, c);
       }
 
+      log_timer->Mark("input_processed");
+
       absl::MutexLock lock(&mu_);
       if (done_) return;
       if (invalidated_) {
         refresh = true;
         invalidated_ = false;
       }
+
+      log_timer->Mark("signalled");
     }
   }
 
  private:
-  bool Render(absl::Time last_key_press) {
+  bool Render(LogTimer* log_timer, absl::Time last_key_press) {
     TerminalRenderer renderer;
     int fb_rows, fb_cols;
     getmaxyx(stdscr, fb_rows, fb_cols);
@@ -102,9 +110,12 @@ class Application {
         top.AddContainer(LAY_HFILL, LAY_ROW).FixSize(0, 1),
     };
     terminal_collaborator_->Render(containers);
+    log_timer->Mark("collected_layout");
     renderer.Layout();
+    log_timer->Mark("layout");
     TerminalRenderContext ctx{color_.get(), nullptr, -1, -1, false};
     renderer.Draw(&ctx);
+    log_timer->Mark("draw");
 
     auto frame_time = absl::Now() - last_key_press;
     std::ostringstream out;

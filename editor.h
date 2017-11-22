@@ -30,7 +30,7 @@ class Editor {
   Editor(Site* site) : site_(site), ed_(site) {}
 
   // state management
-  void UpdateState(const EditNotification& state);
+  void UpdateState(LogTimer* tmr, const EditNotification& state);
   const EditNotification& CurrentState() { return state_; }
   bool HasCommands() {
     return state_.shutdown || !unpublished_commands_.commands().empty() ||
@@ -201,6 +201,5 @@ class Editor {
   EditNotification state_;
   CommandSet unpublished_commands_;
   CommandSet unacknowledged_commands_;
-  BufferRef active_side_buffer_;
   AnnotationEditor ed_;
 };

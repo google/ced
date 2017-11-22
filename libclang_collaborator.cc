@@ -397,8 +397,8 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
           unsigned line, col, offset_start, offset_end;
           env->clang_getFileLocation(start, &file, &line, &col, &offset_start);
           env->clang_getFileLocation(end, &file, &line, &col, &offset_end);
-          if (file &&
-              filename == env->clang_getCString(env->clang_getFileName(file))) {
+          if (file /* &&
+              filename == env->clang_getCString(env->clang_getFileName(file))*/) {
             ed_.Mark(ids[offset_start], ids[offset_end], diag_id);
           }
         }

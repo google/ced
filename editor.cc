@@ -37,7 +37,7 @@ void Editor::PublishCursor() {
   cursor_reported_ = cursor_;
 }
 
-void Editor::UpdateState(const EditNotification& state) {
+void Editor::UpdateState(LogTimer* tmr, const EditNotification& state) {
   state_ = state;
   auto s2 = state_.content;
   CommandSet unacked;
@@ -46,6 +46,9 @@ void Editor::UpdateState(const EditNotification& state) {
     s2.Integrate(cmd);
     if (!s3.SameTotalIdentity(s2)) {
       *unacked.add_commands() = cmd;
+      tmr->Mark("unacked");
+    } else {
+      tmr->Mark("acked");
     }
   }
   unacknowledged_commands_.Swap(&unacked);
@@ -178,6 +181,7 @@ void Editor::CursorRight() {
 }
 
 void Editor::CursorDown() {
+  LogTimer tmr("cursor_down");
   AnnotatedString::Iterator it(state_.content, cursor_);
   int col = 0;
   auto edge = [&it]() {
@@ -199,7 +203,9 @@ void Editor::CursorDown() {
   it.MovePrev();
   cursor_ = it.id();
   cursor_row_++;
+  tmr.Mark("moved");
   PublishCursor();
+  tmr.Mark("published");
 }
 
 void Editor::CursorUp() {

@@ -14,7 +14,6 @@
 #pragma once
 
 #include <stdint.h>
-#include <atomic>
 #include "absl/strings/string_view.h"
 #include "annotation.pb.h"
 #include "avl.h"
@@ -87,7 +86,7 @@ class AnnotatedString {
   }
 
   ID Insert(CommandSet* commands, Site* site, absl::string_view chars,
-                ID after) {
+            ID after) {
     const size_t start = commands->mutable_commands()->size();
     ID r = MakeInsert(commands, site, chars, after);
     for (size_t i = start; i < commands->mutable_commands()->size(); i++) {
@@ -191,6 +190,7 @@ class AnnotatedString {
   AVL<Attribute::DataCase, AVL<ID, Attribute>> attributes_by_type_;
   AVL<ID, Attribute::DataCase> annotations_;
   AVL<Attribute::DataCase, AVL<ID, Annotation>> annotations_by_type_;
+  AVL<ID> graveyard_;
 
  public:
   class AllIterator {

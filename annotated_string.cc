@@ -206,6 +206,7 @@ void AnnotatedString::IntegrateDelChar(ID id) {
 }
 
 void AnnotatedString::IntegrateDecl(ID id, const Attribute& decl) {
+  if (graveyard_.Lookup(id)) return;
   attributes_ = attributes_.Add(id, decl.data_case());
   const auto* tattr = attributes_by_type_.Lookup(decl.data_case());
   attributes_by_type_ = attributes_by_type_.Add(
@@ -218,9 +219,11 @@ void AnnotatedString::IntegrateDelDecl(ID id) {
   attributes_by_type_ =
       attributes_by_type_.Add(*dc, attributes_by_type_.Lookup(*dc)->Remove(id));
   attributes_ = attributes_.Remove(id);
+  graveyard_ = graveyard_.Add(id);
 }
 
 void AnnotatedString::IntegrateMark(ID id, const Annotation& annotation) {
+  if (graveyard_.Lookup(id)) return;
   const auto* dc = attributes_.Lookup(annotation.attribute());
   assert(dc);
   annotations_ = annotations_.Add(id, *dc);
@@ -230,7 +233,8 @@ void AnnotatedString::IntegrateMark(ID id, const Annotation& annotation) {
   ID loc = annotation.begin();
   while (loc != annotation.end()) {
     const CharInfo* ci = chars_.Lookup(loc);
-    Log() << "Mark " << loc.id << " with " << id.id << " vis:" << ci->visible;
+    // Log() << "Mark " << loc.id << " with " << id.id << " vis:" <<
+    // ci->visible;
     assert(ci);
     auto next = ci->next;
     if (ci->visible) {
@@ -251,7 +255,8 @@ void AnnotatedString::IntegrateDelMark(ID id) {
   while (loc != ann->end()) {
     const CharInfo* ci = chars_.Lookup(loc);
     assert(ci);
-    Log() << "Unmark " << loc.id << " with " << id.id << " vis:" << ci->visible;
+    // Log() << "Unmark " << loc.id << " with " << id.id << " vis:" <<
+    // ci->visible;
     auto next = ci->next;
     if (ci->visible) {
       chars_ = chars_.Add(
@@ -262,6 +267,7 @@ void AnnotatedString::IntegrateDelMark(ID id) {
   }
   annotations_by_type_ = annotations_by_type_.Add(*dc, bt->Remove(id));
   annotations_ = annotations_.Remove(id);
+  graveyard_ = graveyard_.Add(id);
 }
 
 std::string AnnotatedString::Render(ID beg, ID end) const {
@@ -308,7 +314,7 @@ int AnnotatedString::OrderIDs(ID a, ID b) const {
   }
 }
 ID AnnotationEditor::AttrID(const Attribute& attr) {
-  Log() << "AttrID: " << attr.DebugString();
+  // Log() << "AttrID: " << attr.DebugString();
   std::string ser;
   if (!attr.SerializeToString(&ser)) abort();
   auto it = new_attr2id_.find(ser);
@@ -334,7 +340,7 @@ ID AnnotationEditor::Mark(ID beg, ID end, ID attr) {
 }
 
 ID AnnotationEditor::Mark(const Annotation& ann) {
-  Log() << "Mark: " << ann.DebugString();
+  // Log() << "Mark: " << ann.DebugString();
   std::string ser;
   if (!ann.SerializeToString(&ser)) abort();
   auto it = new_ann2id_.find(ser);
