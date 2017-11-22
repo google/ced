@@ -145,7 +145,7 @@ void AnnotatedString::IntegrateInsertChar(ID id, char c, ID after, ID before) {
                         CharInfo{caft->visible, caft->chr, id, caft->prev,
                                  caft->after, caft->before, caft->annotations})
                    .Add(id, CharInfo{true, c, before, after, after, before,
-                                     caft->annotations})
+                                     AVL<ID>()})
                    .Add(before,
                         CharInfo{cbef->visible, cbef->chr, cbef->next, id,
                                  cbef->after, cbef->before, cbef->annotations});
@@ -350,5 +350,9 @@ void AnnotationEditor::EndEdit() {
   for (const auto& a : last_attr2id_) {
     AnnotatedString::MakeDelDecl(commands_, a.second);
   }
+  last_ann2id_.clear();
+  last_attr2id_.clear();
+  last_ann2id_.swap(new_ann2id_);
+  last_attr2id_.swap(new_attr2id_);
   commands_ = nullptr;
 }

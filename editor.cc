@@ -21,13 +21,16 @@ EditResponse Editor::MakeResponse() {
   r.content_updates.MergeFrom(unpublished_commands_);
   unacknowledged_commands_.MergeFrom(unpublished_commands_);
   unpublished_commands_.Clear();
-  AnnotationEditor::ScopedEdit edit(&ed_, &r.content_updates);
-  Attribute curs;
-  curs.mutable_cursor();
-  ed_.Mark(cursor_,
-           AnnotatedString::Iterator(state_.content, cursor_).Next().id(),
-           curs);
-  assert(unpublished_commands_.commands().empty());
+  {
+    AnnotationEditor::ScopedEdit edit(&ed_, &r.content_updates);
+    Attribute curs;
+    curs.mutable_cursor();
+    ed_.Mark(cursor_,
+             AnnotatedString::Iterator(state_.content, cursor_).Next().id(),
+             curs);
+    assert(unpublished_commands_.commands().empty());
+    cursor_reported_ = cursor_;
+  }
   return r;
 }
 

@@ -33,7 +33,8 @@ class Editor {
   void UpdateState(const EditNotification& state);
   const EditNotification& CurrentState() { return state_; }
   bool HasCommands() {
-    return state_.shutdown || !unpublished_commands_.commands().empty();
+    return state_.shutdown || !unpublished_commands_.commands().empty() ||
+           cursor_reported_ != cursor_;
   }
   EditResponse MakeResponse();
 
@@ -93,12 +94,14 @@ class Editor {
           struct FoundCursor {};
           uint32_t chr_flags = base_flags;
           std::vector<std::string> tags;
+          bool move_cursor = false;
           try {
             bool has_diagnostic = false;
             it.ForEachAttrValue([&](const Attribute& attr) {
               switch (attr.data_case()) {
                 case Attribute::kCursor:
-                  ctx->Move(nrow, ncol);
+                  Log() << "found cursor " << nrow << " " << ncol;
+                  move_cursor = true;
                   if (base_flags & Theme::HIGHLIGHT_LINE) break;
                   throw FoundCursor();
                 case Attribute::kSelection:
@@ -142,6 +145,7 @@ class Editor {
               tags.push_back("invalid");
             }
           } catch (FoundCursor) {
+            Log() << "REDRAW ROW " << nrow;
             base_flags |= Theme::HIGHLIGHT_LINE;
             ncol = 0;
             it = start_of_line;
@@ -165,10 +169,14 @@ class Editor {
             nrow++;
             ncol = 0;
             start_of_line = it.Next();
+            base_flags = 0;
           } else {
             ctx->Put(nrow, ncol, it.value(),
                      ctx->color->Theme(tags, chr_flags));
             ncol++;
+          }
+          if (move_cursor) {
+            ctx->Move(nrow, ncol);
           }
         }
         it.MoveNext();
@@ -191,6 +199,7 @@ class Editor {
   Site* const site_;
   int cursor_row_ = 0;  // cursor row as an offset into the view buffer
   ID cursor_ = AnnotatedString::Begin();
+  ID cursor_reported_ = AnnotatedString::End();
   ID selection_anchor_ = ID();
   EditNotification state_;
   CommandSet unpublished_commands_;
