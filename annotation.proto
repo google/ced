@@ -114,3 +114,27 @@ message Command {
 message CommandSet {
   repeated Command commands = 1;
 };
+
+message AnnotatedStringMsg {
+  message CharInfo {
+    uint64 id = 1;
+    bool visible = 2;
+    int32 chr = 3;
+    uint64 next = 4;
+    uint64 prev = 5;
+    uint64 after = 6;
+    uint64 before = 7;
+  };
+  repeated CharInfo chars = 1;
+  message Attr {
+    uint64 id = 1;
+    Attribute attr = 2;
+  };
+  repeated Attr attributes = 2;
+  message Anno {
+    uint64 id = 1;
+    Annotation anno = 2;
+  };
+  repeated Anno annotations = 3;
+  repeated uint64 graveyard = 4;
+};

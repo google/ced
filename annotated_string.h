@@ -161,6 +161,8 @@ class AnnotatedString {
     m->ForEach(f);
   }
 
+  AnnotatedStringMsg AsProto()const;
+
  private:
   void IntegrateInsert(ID id, const InsertCommand& cmd);
   void IntegrateDelChar(ID id);
