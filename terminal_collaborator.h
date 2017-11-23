@@ -74,9 +74,6 @@ class TerminalCollaborator final : public AsyncCollaborator {
   void Push(const EditNotification& notification) override;
   EditResponse Pull() override;
 
-  void Render(TerminalRenderContainers containers);
-  void ProcessKey(AppEnv* app_env, int key);
-
   static void All_Render(TerminalRenderContainers containers);
   static void All_ProcessKey(AppEnv* app_env, int key);
 
@@ -86,13 +83,15 @@ class TerminalCollaborator final : public AsyncCollaborator {
     FINDING,
   };
 
+  void Render(TerminalRenderContainers containers) EXCLUSIVE_LOCKS_REQUIRED(mu_);
+  void ProcessKey(AppEnv* app_env, int key) EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
   const Buffer* const buffer_;
-  absl::Mutex mu_;
+  static absl::Mutex mu_;
   Editor editor_ GUARDED_BY(mu_);
   LineEditor find_editor_ GUARDED_BY(mu_);
   bool recently_used_ GUARDED_BY(mu_);
   State state_ GUARDED_BY(mu_);
 
-  static absl::Mutex all_mu_;
-  static std::vector<TerminalCollaborator*> all_ GUARDED_BY(all_mu_);
+  static std::vector<TerminalCollaborator*> all_ GUARDED_BY(mu_);
 };

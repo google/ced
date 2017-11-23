@@ -159,6 +159,7 @@ class Buffer {
   EditNotification state_ GUARDED_BY(mu_);
   std::vector<CollaboratorPtr> collaborators_ GUARDED_BY(mu_);
   std::vector<std::thread> collaborator_threads_ GUARDED_BY(mu_);
+  std::thread init_thread_;
 };
 
 #define IMPL_COLLABORATOR(name, buffer_arg)             \

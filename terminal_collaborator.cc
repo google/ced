@@ -19,7 +19,7 @@
 #include "absl/strings/str_join.h"
 #include "log.h"
 
-absl::Mutex TerminalCollaborator::all_mu_;
+absl::Mutex TerminalCollaborator::mu_;
 std::vector<TerminalCollaborator*> TerminalCollaborator::all_;
 
 constexpr char ctrl(char c) { return c & 0x1f; }
@@ -30,22 +30,22 @@ TerminalCollaborator::TerminalCollaborator(const Buffer* buffer)
       editor_(site()),
       recently_used_(false),
       state_(State::EDITING) {
-        absl::MutexLock lock(&all_mu_);
+        absl::MutexLock lock(&mu_);
         all_.push_back(this);
       }
 
 TerminalCollaborator::~TerminalCollaborator() {
-  absl::MutexLock lock(&all_mu_);
+  absl::MutexLock lock(&mu_);
   all_.erase(std::remove(all_.begin(), all_.end(), this), all_.end());
 }
 
  void TerminalCollaborator::All_Render(TerminalRenderContainers containers) {
-  absl::MutexLock lock(&all_mu_);
+  absl::MutexLock lock(&mu_);
   for (auto t : all_) t->Render(containers);
  }
 
  void TerminalCollaborator::All_ProcessKey(AppEnv* app_env, int key) {
-  absl::MutexLock lock(&all_mu_);
+  absl::MutexLock lock(&mu_);
   for (auto t : all_) t->ProcessKey(app_env, key);
  }
 
@@ -79,8 +79,6 @@ EditResponse TerminalCollaborator::Pull() {
 }
 
 void TerminalCollaborator::Render(TerminalRenderContainers containers) {
-  absl::MutexLock lock(&mu_);
-
   /*
    * edit item
    */
@@ -203,7 +201,6 @@ void TerminalCollaborator::ProcessKey(AppEnv* app_env, int key) {
   if (buffer_->synthetic()) return;
 
   LogTimer tmr("term_proc_key");
-  absl::MutexLock lock(&mu_);
   tmr.Mark("locked");
 
   Log() << "TerminalCollaborator::ProcessKey: " << key;

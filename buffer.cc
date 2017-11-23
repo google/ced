@@ -43,7 +43,9 @@ Buffer::Buffer(const std::string& filename, absl::optional<AnnotatedString> init
       last_used_(absl::Now() - absl::Seconds(1000000)),
       filename_(filename) {
   if (initial_string) state_.content = *initial_string;
-  CollaboratorRegistry::Get().Run(this);
+  init_thread_ = std::thread([this]() {
+    CollaboratorRegistry::Get().Run(this);
+  });
 }
 
 void Buffer::RegisterCollaborator(
@@ -52,6 +54,8 @@ void Buffer::RegisterCollaborator(
 }
 
 Buffer::~Buffer() {
+  init_thread_.join();
+
   UpdateState(nullptr, false,
               [](EditNotification& state) { state.shutdown = true; });
 
