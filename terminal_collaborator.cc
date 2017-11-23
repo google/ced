@@ -82,16 +82,14 @@ void TerminalCollaborator::Render(TerminalRenderContainers containers) {
   /*
    * edit item
    */
-  containers.main
+  (buffer_->synthetic() ? containers.side_bar : containers.main)
       .AddItem(LAY_LEFT | LAY_VFILL,
                editor_.PrepareRender<TerminalRenderContext>())
       .FixSize(80, 0);
 
-  auto side_bar = containers.main.AddContainer(LAY_FILL, LAY_COLUMN);
-
   if (true) {
     std::vector<std::string> profile = buffer_->ProfileData();
-    side_bar
+    containers.side_bar
         .AddItem(LAY_TOP | LAY_HFILL,
                  [profile](TerminalRenderContext* context) {
                    context->animating = true;

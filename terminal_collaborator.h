@@ -61,6 +61,7 @@ typedef Renderer<TerminalRenderContext> TerminalRenderer;
 
 struct TerminalRenderContainers {
   TerminalRenderer::ContainerRef main;
+  TerminalRenderer::ContainerRef side_bar;
   TerminalRenderer::ContainerRef ext_status;
   TerminalRenderer::ContainerRef status;
 };

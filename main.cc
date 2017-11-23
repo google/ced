@@ -106,8 +106,10 @@ class Application {
     int fb_rows, fb_cols;
     getmaxyx(stdscr, fb_rows, fb_cols);
     auto top = renderer.AddContainer(LAY_COLUMN).FixSize(fb_cols, fb_rows);
+    auto body = top.AddContainer(LAY_FILL, LAY_ROW);
     TerminalRenderContainers containers{
-        top.AddContainer(LAY_FILL, LAY_ROW),
+        body.AddContainer(LAY_LEFT | LAY_VFILL, LAY_ROW),
+        body.AddContainer(LAY_FILL, LAY_COLUMN),
         top.AddContainer(LAY_BOTTOM | LAY_HFILL, LAY_COLUMN),
         top.AddContainer(LAY_HFILL, LAY_ROW).FixSize(0, 1),
     };
