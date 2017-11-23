@@ -65,14 +65,20 @@ struct TerminalRenderContainers {
   TerminalRenderer::ContainerRef status;
 };
 
+extern void InvalidateTerminal();
+
 class TerminalCollaborator final : public AsyncCollaborator {
  public:
-  TerminalCollaborator(const Buffer* buffer, std::function<void()> invalidate);
+  TerminalCollaborator(const Buffer* buffer);
+  ~TerminalCollaborator();
   void Push(const EditNotification& notification) override;
   EditResponse Pull() override;
 
   void Render(TerminalRenderContainers containers);
   void ProcessKey(AppEnv* app_env, int key);
+
+  static void All_Render(TerminalRenderContainers containers);
+  static void All_ProcessKey(AppEnv* app_env, int key);
 
  private:
   enum class State {
@@ -81,10 +87,12 @@ class TerminalCollaborator final : public AsyncCollaborator {
   };
 
   const Buffer* const buffer_;
-  const std::function<void()> invalidate_;
   absl::Mutex mu_;
   Editor editor_ GUARDED_BY(mu_);
   LineEditor find_editor_ GUARDED_BY(mu_);
   bool recently_used_ GUARDED_BY(mu_);
   State state_ GUARDED_BY(mu_);
+
+  static absl::Mutex all_mu_;
+  static std::vector<TerminalCollaborator*> all_ GUARDED_BY(all_mu_);
 };

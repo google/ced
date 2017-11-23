@@ -19,16 +19,35 @@
 #include "absl/strings/str_join.h"
 #include "log.h"
 
+absl::Mutex TerminalCollaborator::all_mu_;
+std::vector<TerminalCollaborator*> TerminalCollaborator::all_;
+
 constexpr char ctrl(char c) { return c & 0x1f; }
 
-TerminalCollaborator::TerminalCollaborator(const Buffer* buffer,
-                                           std::function<void()> invalidate)
+TerminalCollaborator::TerminalCollaborator(const Buffer* buffer)
     : AsyncCollaborator("terminal", absl::Seconds(0), absl::Milliseconds(5)),
       buffer_(buffer),
-      invalidate_(invalidate),
       editor_(site()),
       recently_used_(false),
-      state_(State::EDITING) {}
+      state_(State::EDITING) {
+        absl::MutexLock lock(&all_mu_);
+        all_.push_back(this);
+      }
+
+TerminalCollaborator::~TerminalCollaborator() {
+  absl::MutexLock lock(&all_mu_);
+  all_.erase(std::remove(all_.begin(), all_.end(), this), all_.end());
+}
+
+ void TerminalCollaborator::All_Render(TerminalRenderContainers containers) {
+  absl::MutexLock lock(&all_mu_);
+  for (auto t : all_) t->Render(containers);
+ }
+
+ void TerminalCollaborator::All_ProcessKey(AppEnv* app_env, int key) {
+  absl::MutexLock lock(&all_mu_);
+  for (auto t : all_) t->ProcessKey(app_env, key);
+ }
 
 void TerminalCollaborator::Push(const EditNotification& notification) {
   LogTimer tmr("term_push");
@@ -38,7 +57,7 @@ void TerminalCollaborator::Push(const EditNotification& notification) {
     editor_.UpdateState(&tmr, notification);
     tmr.Mark("update");
   }
-  invalidate_();
+  InvalidateTerminal();
 }
 
 EditResponse TerminalCollaborator::Pull() {
@@ -181,6 +200,8 @@ static bool MaybeProcessEditingKey(AppEnv* app_env, int key,
 }
 
 void TerminalCollaborator::ProcessKey(AppEnv* app_env, int key) {
+  if (buffer_->synthetic()) return;
+
   LogTimer tmr("term_proc_key");
   absl::MutexLock lock(&mu_);
   tmr.Mark("locked");
@@ -211,4 +232,8 @@ void TerminalCollaborator::ProcessKey(AppEnv* app_env, int key) {
       }
       break;
   }
+}
+
+IMPL_COLLABORATOR(TerminalCollaborator, buffer) {
+  return true;
 }

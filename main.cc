@@ -24,9 +24,9 @@ class Application {
  public:
   Application(const char* filename)
       : done_(false),
-        buffer_(filename, AnnotatedString()),
-        terminal_collaborator_(buffer_.MakeCollaborator<TerminalCollaborator>(
-            [this]() { Invalidate(); })) {
+        buffer_(filename) {
+          assert(!app_);
+          app_ = this;
     auto theme = std::unique_ptr<Theme>(new Theme(Theme::DEFAULT));
     initscr();
     raw();
@@ -38,7 +38,9 @@ class Application {
     keypad(stdscr, true);
   }
 
-  ~Application() { endwin(); }
+  ~Application() { assert(app_==this); endwin(); app_=nullptr;}
+
+  static Application* Get() { return app_; }
 
   void Quit() {
     absl::MutexLock lock(&mu_);
@@ -82,7 +84,7 @@ class Application {
           Quit();
           break;
         default:
-          terminal_collaborator_->ProcessKey(&app_env_, c);
+          TerminalCollaborator::All_ProcessKey(&app_env_, c);
       }
 
       log_timer->Mark("input_processed");
@@ -109,7 +111,7 @@ class Application {
         top.AddContainer(LAY_BOTTOM | LAY_HFILL, LAY_COLUMN),
         top.AddContainer(LAY_HFILL, LAY_ROW).FixSize(0, 1),
     };
-    terminal_collaborator_->Render(containers);
+    TerminalCollaborator::All_Render(containers);
     log_timer->Mark("collected_layout");
     renderer.Layout();
     log_timer->Mark("layout");
@@ -140,10 +142,17 @@ class Application {
   bool invalidated_ GUARDED_BY(mu_);
 
   Buffer buffer_;
-  TerminalCollaborator* const terminal_collaborator_;
   std::unique_ptr<TerminalColor> color_;
   AppEnv app_env_;
+
+  static Application* app_;
 };
+
+void InvalidateTerminal() {
+  Application::Get()->Invalidate();
+}
+
+Application* Application::app_ = nullptr;
 
 int main(int argc, char** argv) {
   if (argc != 2) {

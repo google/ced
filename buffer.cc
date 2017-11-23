@@ -37,12 +37,12 @@ class CollaboratorRegistry {
 };
 }
 
-Buffer::Buffer(const std::string& filename, AnnotatedString initial_string)
-    : version_(0),
+Buffer::Buffer(const std::string& filename, absl::optional<AnnotatedString> initial_string)
+    : synthetic_(initial_string), version_(0),
       updating_(false),
       last_used_(absl::Now() - absl::Seconds(1000000)),
       filename_(filename) {
-  state_.content = initial_string;
+  if (initial_string) state_.content = *initial_string;
   CollaboratorRegistry::Get().Run(this);
 }
 

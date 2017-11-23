@@ -16,7 +16,7 @@
 #include <thread>
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
-#include "absl/types/any.h"
+#include "absl/types/optional.h"
 #include "annotated_string.h"
 #include "selector.h"
 
@@ -110,7 +110,7 @@ enum class Language {
 
 class Buffer {
  public:
-  Buffer(const std::string& filename, AnnotatedString initial_string);
+  Buffer(const std::string& filename, absl::optional<AnnotatedString> initial_string=absl::optional<AnnotatedString>());
   ~Buffer();
 
   Buffer(const Buffer&) = delete;
@@ -126,7 +126,7 @@ class Buffer {
   const std::string& filename() const { return filename_; }
   Language language() const { return Language::Cpp; }
   bool read_only() const { return false; }
-  bool synthetic() const { return false; }
+  bool synthetic() const { return synthetic_; }
 
   std::vector<std::string> ProfileData() const;
 
@@ -149,6 +149,7 @@ class Buffer {
                    std::function<void(EditNotification& new_state)>);
 
   mutable absl::Mutex mu_;
+  const bool synthetic_;
   uint64_t version_ GUARDED_BY(mu_);
   std::set<Collaborator*> declared_no_edit_collaborators_ GUARDED_BY(mu_);
   std::set<Collaborator*> done_collaborators_ GUARDED_BY(mu_);
