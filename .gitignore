@@ -1,4 +1,5 @@
 bazel-*
 .cedlog.*
 compile_commands.json
+.vscode
 

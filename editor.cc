@@ -53,6 +53,20 @@ void Editor::UpdateState(LogTimer* tmr, const EditNotification& state) {
   }
   unacknowledged_commands_.Swap(&unacked);
   state_.content = s2;
+
+  std::map<ID, std::unique_ptr<Buffer>> new_buffers;
+  state_.content.ForEachAttribute(Attribute::kBuffer, [this, &new_buffers](ID id, const Attribute& attr) {
+    auto it = buffers_.find(id);
+    if (it != buffers_.end()) {
+      new_buffers.emplace(it->first, std::move(it->second));
+      buffers_.erase(it);
+    } else {
+      AnnotatedString s;
+      s.Insert(site_, attr.buffer().contents(), AnnotatedString::Begin());
+      new_buffers.emplace(id, std::unique_ptr<Buffer>( new Buffer(attr.buffer().name(), s)));
+    }
+  });
+  buffers_.swap(new_buffers);
 }
 
 void Editor::SelectLeft() {

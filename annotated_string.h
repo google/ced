@@ -95,6 +95,11 @@ class AnnotatedString {
     return r;
   }
 
+  ID Insert(Site* site, absl::string_view chars, ID after) {
+    CommandSet throw_away;
+    return Insert(&throw_away, site, chars, after);
+  }
+
   static void MakeDelete(CommandSet* commands, ID id);
   void MakeDelete(CommandSet* commands, ID beg, ID end) const {
     AllIterator it(*this, beg);
