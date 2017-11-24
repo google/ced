@@ -20,14 +20,11 @@
 
 constexpr char ctrl(char c) { return c & 037; }
 
+static std::atomic<bool> invalidated;
+
 class Application : public std::enable_shared_from_this<Application> {
  public:
   Application(const char* filename) : done_(false), buffer_(filename) {
-    assert(!app_);
-    {
-      absl::MutexLock lock(&glob_mu_);
-      app_ = this;
-    }
     auto theme = std::unique_ptr<Theme>(new Theme(Theme::DEFAULT));
     initscr();
     raw();
@@ -41,27 +38,10 @@ class Application : public std::enable_shared_from_this<Application> {
 
   ~Application() {
     endwin();
-    absl::MutexLock lock(&glob_mu_);
-    assert(app_ == this);
-    app_ = nullptr;
-  }
-
-  static std::shared_ptr<Application> Get() {
-    absl::MutexLock lock(&glob_mu_);
-    return app_ ? app_->shared_from_this() : nullptr;
   }
 
   void Quit() {
-    absl::MutexLock lock(&mu_);
     done_ = true;
-  }
-
-  void Invalidate() {
-    {
-      absl::MutexLock lock(&mu_);
-      invalidated_ = true;
-    }
-    kill(getpid(), SIGWINCH);
   }
 
   void Run() {
@@ -98,12 +78,9 @@ class Application : public std::enable_shared_from_this<Application> {
 
       log_timer->Mark("input_processed");
 
-      absl::MutexLock lock(&mu_);
       if (done_) return;
-      if (invalidated_) {
-        refresh = true;
-        invalidated_ = false;
-      }
+      bool expected = true;
+      refresh = invalidated.compare_exchange_strong(expected, false, std::memory_order_relaxed, std::memory_order_relaxed);
 
       log_timer->Mark("signalled");
     }
@@ -148,22 +125,16 @@ class Application : public std::enable_shared_from_this<Application> {
     return ctx.animating;
   }
 
-  absl::Mutex mu_;
-  bool done_ GUARDED_BY(mu_);
-  bool invalidated_ GUARDED_BY(mu_);
-
+  std::atomic<bool> done_;
   Buffer buffer_;
   std::unique_ptr<TerminalColor> color_;
   AppEnv app_env_;
-
-  static absl::Mutex glob_mu_;
-  static Application* app_ GUARDED_BY(glob_mu_);
 };
 
-void InvalidateTerminal() { std::shared_ptr<Application> app = Application::Get(); if (app) app->Invalidate(); }
-
-absl::Mutex Application::glob_mu_;
-Application* Application::app_ = nullptr;
+void InvalidateTerminal() { 
+  invalidated = true;
+  kill(getpid(), SIGWINCH);
+}
 
 int main(int argc, char** argv) {
   if (argc != 2) {
@@ -171,8 +142,7 @@ int main(int argc, char** argv) {
     return 1;
   }
   try {
-    std::shared_ptr<Application> app(new Application(argv[1]));
-    app->Run();
+    Application(argv[1]).Run();
   } catch (std::exception& e) {
     Log() << "FATAL ERROR: " << e.what();
     fprintf(stderr, "ERROR: %s", e.what());
