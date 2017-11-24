@@ -69,6 +69,7 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
 
   AnnotationEditor::ScopedEdit edit(&ed_, &response.content_updates);
   Attribute side_buf;
+  side_buf.mutable_buffer()->set_name(buffer_->filename() + ".gb.s");
   side_buf.mutable_buffer()->set_contents(parsed_asm.body);
   ID side_buf_id = ed_.AttrID(side_buf);
 
