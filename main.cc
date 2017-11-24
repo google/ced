@@ -20,11 +20,14 @@
 
 constexpr char ctrl(char c) { return c & 037; }
 
-class Application {
+class Application : public std::enable_shared_from_this<Application> {
  public:
   Application(const char* filename) : done_(false), buffer_(filename) {
     assert(!app_);
-    app_ = this;
+    {
+      absl::MutexLock lock(&glob_mu_);
+      app_ = this;
+    }
     auto theme = std::unique_ptr<Theme>(new Theme(Theme::DEFAULT));
     initscr();
     raw();
@@ -37,12 +40,16 @@ class Application {
   }
 
   ~Application() {
-    assert(app_ == this);
     endwin();
+    absl::MutexLock lock(&glob_mu_);
+    assert(app_ == this);
     app_ = nullptr;
   }
 
-  static Application* Get() { return app_; }
+  static std::shared_ptr<Application> Get() {
+    absl::MutexLock lock(&glob_mu_);
+    return app_ ? app_->shared_from_this() : nullptr;
+  }
 
   void Quit() {
     absl::MutexLock lock(&mu_);
@@ -149,11 +156,13 @@ class Application {
   std::unique_ptr<TerminalColor> color_;
   AppEnv app_env_;
 
-  static Application* app_;
+  static absl::Mutex glob_mu_;
+  static Application* app_ GUARDED_BY(glob_mu_);
 };
 
-void InvalidateTerminal() { Application::Get()->Invalidate(); }
+void InvalidateTerminal() { std::shared_ptr<Application> app = Application::Get(); if (app) app->Invalidate(); }
 
+absl::Mutex Application::glob_mu_;
 Application* Application::app_ = nullptr;
 
 int main(int argc, char** argv) {
@@ -162,7 +171,8 @@ int main(int argc, char** argv) {
     return 1;
   }
   try {
-    Application(argv[1]).Run();
+    std::shared_ptr<Application> app(new Application(argv[1]));
+    app->Run();
   } catch (std::exception& e) {
     Log() << "FATAL ERROR: " << e.what();
     fprintf(stderr, "ERROR: %s", e.what());
