@@ -255,16 +255,18 @@ void Buffer::RunSync(SyncCollaborator* collaborator) {
 }
 
 std::vector<std::string> Buffer::ProfileData() const {
+  auto now = absl::Now();
   absl::MutexLock lock(&mu_);
   std::vector<std::string> out;
   for (const auto& c : collaborators_) {
-    out.emplace_back(absl::StrCat(c->name(), ":"));
-    out.emplace_back(
-        absl::StrCat("  chg:", absl::FormatTime(c->last_change())));
-    out.emplace_back(
-        absl::StrCat("  rsp:", absl::FormatTime(c->last_response())));
-    out.emplace_back(
-        absl::StrCat("  req:", absl::FormatTime(c->last_request())));
+  auto report = [&out, now, this, &c](const char* name, absl::Time timestamp) {
+    auto age = now - timestamp;
+    if (age > absl::Seconds(5)) return;
+    out.emplace_back(absl::StrCat(filename(), ":", c->name(), ":", name, ": ", absl::FormatTime(timestamp), " (", absl::FormatDuration(age), " ago)"));
+  };
+    report("chg", c->last_change());
+    report("rsp", c->last_response());
+    report("rqst", c->last_request());
   }
   return out;
 }
