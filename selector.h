@@ -29,7 +29,7 @@ bool SelectorMatches(TSel selbeg, TSel selend, TTag tagbeg, TTag tagend) {
   }
   return SelectorMatches(selbeg, selend, tagbeg, tagend);
 }
-}
+}  // namespace selector_detail
 
 template <class TSel, class TTag>
 bool SelectorMatches(const TSel& selector, const TTag& tag) {

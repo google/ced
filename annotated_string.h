@@ -161,7 +161,7 @@ class AnnotatedString {
     m->ForEach(f);
   }
 
-  AnnotatedStringMsg AsProto()const;
+  AnnotatedStringMsg AsProto() const;
 
  private:
   void IntegrateInsert(ID id, const InsertCommand& cmd);
@@ -319,6 +319,15 @@ class AnnotatedString {
         lb = str.line_breaks_.Lookup(it.id());
       }
       id_ = it.id();
+    }
+
+    static LineIterator FromLineNumber(const AnnotatedString& str,
+                                       int line_no) {
+      LineIterator it(str, Begin());
+      for (int i = 0; i < line_no; i++) {
+        it.MoveNext();
+      }
+      return it;
     }
 
     bool is_end() const { return id_ == End(); }

@@ -34,6 +34,27 @@ void Editor::PublishCursor() {
   ed_.Mark(cursor_,
            AnnotatedString::Iterator(state_.content, cursor_).Next().id(),
            curs);
+  AnnotatedString::Iterator(state_.content, cursor_)
+      .ForEachAttrValue([this, curs](const Attribute& attr) {
+        if (attr.data_case() != Attribute::kBufferRef) return;
+        auto it = buffers_.find(attr.buffer_ref().buffer());
+        if (it == buffers_.end()) return;
+        CommandSet cmds;
+        auto cur_content = it->second.buffer->ContentSnapshot();
+        {
+          AnnotationEditor::ScopedEdit edit_child(&it->second.ed, &cmds);
+          for (auto line : attr.buffer_ref().lines()) {
+            Log() << "Mark child frame line " << line;
+            AnnotatedString::LineIterator li =
+                AnnotatedString::LineIterator::FromLineNumber(cur_content,
+                                                              line);
+            it->second.ed.Mark(li.id(), li.Next().id(), curs);
+          }
+        }
+        Log() << "Push changes " << cmds.DebugString();
+        it->second.buffer->PushChanges(&cmds);
+        Log() << "Result: " << it->second.buffer->ContentSnapshot().AsProto().DebugString();
+      });
   cursor_reported_ = cursor_;
 }
 
@@ -54,19 +75,24 @@ void Editor::UpdateState(LogTimer* tmr, const EditNotification& state) {
   unacknowledged_commands_.Swap(&unacked);
   state_.content = s2;
 
-  std::map<ID, std::unique_ptr<Buffer>> new_buffers;
-  state_.content.ForEachAttribute(Attribute::kBuffer, [this, &new_buffers](ID id, const Attribute& attr) {
-    auto it = buffers_.find(id);
-    if (it != buffers_.end()) {
-      new_buffers.emplace(it->first, std::move(it->second));
-      buffers_.erase(it);
-    } else {
-      AnnotatedString s;
-      s.Insert(site_, attr.buffer().contents(), AnnotatedString::Begin());
-      new_buffers.emplace(id, std::unique_ptr<Buffer>( new Buffer(attr.buffer().name(), s)));
-    }
-  });
+  std::map<ID, BufferInfo> new_buffers;
+  state_.content.ForEachAttribute(
+      Attribute::kBuffer, [this, &new_buffers](ID id, const Attribute& attr) {
+        auto it = buffers_.find(id);
+        if (it != buffers_.end()) {
+          new_buffers.emplace(it->first, std::move(it->second));
+          buffers_.erase(it);
+        } else {
+          AnnotatedString s;
+          s.Insert(site_, attr.buffer().contents(), AnnotatedString::Begin());
+          new_buffers.emplace(id, BufferInfo{std::unique_ptr<Buffer>(new Buffer(
+                                                 attr.buffer().name(), s)),
+                                             AnnotationEditor(site_)});
+        }
+      });
   buffers_.swap(new_buffers);
+
+  PublishCursor();
 }
 
 void Editor::SelectLeft() {

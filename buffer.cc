@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "buffer.h"
+#include <unordered_map>
 #include "absl/strings/str_cat.h"
 #include "log.h"
 
@@ -35,17 +36,19 @@ class CollaboratorRegistry {
  private:
   std::vector<std::function<void(Buffer*)> > collabs_;
 };
-}
 
-Buffer::Buffer(const std::string& filename, absl::optional<AnnotatedString> initial_string)
-    : synthetic_(initial_string), version_(0),
+}  // namespace
+
+Buffer::Buffer(const std::string& filename,
+               absl::optional<AnnotatedString> initial_string)
+    : synthetic_(initial_string),
+      version_(0),
       updating_(false),
       last_used_(absl::Now() - absl::Seconds(1000000)),
       filename_(filename) {
   if (initial_string) state_.content = *initial_string;
-  init_thread_ = std::thread([this]() {
-    CollaboratorRegistry::Get().Run(this);
-  });
+  init_thread_ =
+      std::thread([this]() { CollaboratorRegistry::Get().Run(this); });
 }
 
 void Buffer::RegisterCollaborator(
@@ -62,6 +65,18 @@ Buffer::~Buffer() {
   for (auto& t : collaborator_threads_) {
     t.join();
   }
+}
+
+static const std::unordered_map<std::string, Language> kExtToLanguage = {
+    {".cpp", Language::Cpp}, {".cc", Language::Cpp}, {".c", Language::C},
+    {".h", Language::Cpp},   {".s", Language::Asm},
+};
+
+Language Buffer::language() const {
+  auto ext = filename_.substr(filename_.rfind('.'));
+  auto it = kExtToLanguage.find(ext);
+  if (it != kExtToLanguage.end()) return it->second;
+  return Language::Unknown;
 }
 
 void Buffer::AddCollaborator(AsyncCollaboratorPtr&& collaborator) {
@@ -192,6 +207,17 @@ void Buffer::UpdateState(Collaborator* collaborator, bool become_used,
   mu_.Unlock();
 }
 
+void Buffer::PushChanges(const CommandSet* commands) {
+  UpdateState(nullptr, false, [commands](EditNotification& state) {
+    state.content = state.content.Integrate(*commands);
+  });
+}
+
+AnnotatedString Buffer::ContentSnapshot() {
+  absl::MutexLock lock(&mu_);
+  return state_.content;
+}
+
 void Buffer::SinkResponse(Collaborator* collaborator,
                           const EditResponse& response) {
   {
@@ -259,11 +285,14 @@ std::vector<std::string> Buffer::ProfileData() const {
   absl::MutexLock lock(&mu_);
   std::vector<std::string> out;
   for (const auto& c : collaborators_) {
-  auto report = [&out, now, this, &c](const char* name, absl::Time timestamp) {
-    auto age = now - timestamp;
-    if (age > absl::Seconds(5)) return;
-    out.emplace_back(absl::StrCat(filename(), ":", c->name(), ":", name, ": ", absl::FormatTime(timestamp), " (", absl::FormatDuration(age), " ago)"));
-  };
+    auto report = [&out, now, this, &c](const char* name,
+                                        absl::Time timestamp) {
+      auto age = now - timestamp;
+      if (age > absl::Seconds(5)) return;
+      out.emplace_back(absl::StrCat(filename(), ":", c->name(), ":", name, ": ",
+                                    absl::FormatTime(timestamp), " (",
+                                    absl::FormatDuration(age), " ago)"));
+    };
     report("chg", c->last_change());
     report("rsp", c->last_response());
     report("rqst", c->last_request());

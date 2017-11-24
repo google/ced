@@ -22,11 +22,9 @@ constexpr char ctrl(char c) { return c & 037; }
 
 class Application {
  public:
-  Application(const char* filename)
-      : done_(false),
-        buffer_(filename) {
-          assert(!app_);
-          app_ = this;
+  Application(const char* filename) : done_(false), buffer_(filename) {
+    assert(!app_);
+    app_ = this;
     auto theme = std::unique_ptr<Theme>(new Theme(Theme::DEFAULT));
     initscr();
     raw();
@@ -38,7 +36,11 @@ class Application {
     keypad(stdscr, true);
   }
 
-  ~Application() { assert(app_==this); endwin(); app_=nullptr;}
+  ~Application() {
+    assert(app_ == this);
+    endwin();
+    app_ = nullptr;
+  }
 
   static Application* Get() { return app_; }
 
@@ -150,9 +152,7 @@ class Application {
   static Application* app_;
 };
 
-void InvalidateTerminal() {
-  Application::Get()->Invalidate();
-}
+void InvalidateTerminal() { Application::Get()->Invalidate(); }
 
 Application* Application::app_ = nullptr;
 

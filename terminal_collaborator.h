@@ -84,7 +84,8 @@ class TerminalCollaborator final : public AsyncCollaborator {
     FINDING,
   };
 
-  void Render(TerminalRenderContainers containers) EXCLUSIVE_LOCKS_REQUIRED(mu_);
+  void Render(TerminalRenderContainers containers)
+      EXCLUSIVE_LOCKS_REQUIRED(mu_);
   void ProcessKey(AppEnv* app_env, int key) EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   const Buffer* const buffer_;

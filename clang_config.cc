@@ -109,11 +109,12 @@ End of search list.
   RE2 r_end(R"(End of search list\..*)");
   bool started = false;
   std::string ent;
-  for (auto line : absl::StrSplit(run(toolname, {"-std=c++11", "-stdlib=libc++",
-                                                 "-v", "-E", "-x", "c++", "-"},
-                                      "")
-                                      .err,
-                                  '\n')) {
+  for (auto line : absl::StrSplit(
+           run(toolname,
+               {"-std=c++11", "-stdlib=libc++", "-v", "-E", "-x", "c++", "-"},
+               "")
+               .err,
+           '\n')) {
     re2::StringPiece spline(line.data(), line.length());
     Log() << "CLANGARGLINE: " << line;
     if (!started && RE2::FullMatch(spline, r_start)) {

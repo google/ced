@@ -284,35 +284,35 @@ std::string AnnotatedString::Render(ID beg, ID end) const {
   return r;
 }
 
-AnnotatedStringMsg AnnotatedString::AsProto()const {
+AnnotatedStringMsg AnnotatedString::AsProto() const {
   AnnotatedStringMsg out;
   chars_.ForEach([&](ID id, const CharInfo& ci) {
     auto c = out.add_chars();
-    c->set_id( id.id);
-    c->set_visible( ci.visible);
-    c->set_chr( ci.chr);
+    c->set_id(id.id);
+    c->set_visible(ci.visible);
+    c->set_chr(ci.chr);
     c->set_next(ci.next.id);
     c->set_prev(ci.prev.id);
     c->set_after(ci.after.id);
     c->set_before(ci.before.id);
   });
-  attributes_by_type_.ForEach([&](Attribute::DataCase, AVL<ID, Attribute> attrs) {
-    attrs.ForEach([&](ID id, const Attribute& attr) {
-      auto a = out.add_attributes();
-      a->set_id(id.id);
-      *a->mutable_attr() = attr;
-    });
-  });
-  annotations_by_type_.ForEach([&](Attribute::DataCase, AVL<ID, Annotation> attrs) {
-    attrs.ForEach([&](ID id, const Annotation& anno) {
-      auto a = out.add_annotations();
-      a->set_id(id.id);
-      *a->mutable_anno() = anno;
-    });
-  });
-  graveyard_.ForEach([&](ID id) {
-    out.add_graveyard(id.id);
-  });
+  attributes_by_type_.ForEach(
+      [&](Attribute::DataCase, AVL<ID, Attribute> attrs) {
+        attrs.ForEach([&](ID id, const Attribute& attr) {
+          auto a = out.add_attributes();
+          a->set_id(id.id);
+          *a->mutable_attr() = attr;
+        });
+      });
+  annotations_by_type_.ForEach(
+      [&](Attribute::DataCase, AVL<ID, Annotation> attrs) {
+        attrs.ForEach([&](ID id, const Annotation& anno) {
+          auto a = out.add_annotations();
+          a->set_id(id.id);
+          *a->mutable_anno() = anno;
+        });
+      });
+  graveyard_.ForEach([&](ID id) { out.add_graveyard(id.id); });
   return out;
 }
 

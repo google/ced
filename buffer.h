@@ -103,6 +103,7 @@ typedef std::unique_ptr<AsyncCollaborator> AsyncCollaboratorPtr;
 typedef std::unique_ptr<SyncCollaborator> SyncCollaboratorPtr;
 
 enum class Language {
+  Unknown,
   C,
   Cpp,
   Asm,
@@ -110,7 +111,9 @@ enum class Language {
 
 class Buffer {
  public:
-  Buffer(const std::string& filename, absl::optional<AnnotatedString> initial_string=absl::optional<AnnotatedString>());
+  Buffer(const std::string& filename,
+         absl::optional<AnnotatedString> initial_string =
+             absl::optional<AnnotatedString>());
   ~Buffer();
 
   Buffer(const Buffer&) = delete;
@@ -124,7 +127,7 @@ class Buffer {
   }
 
   const std::string& filename() const { return filename_; }
-  Language language() const { return Language::Cpp; }
+  Language language() const;
   bool read_only() const { return false; }
   bool synthetic() const { return synthetic_; }
 
@@ -132,6 +135,9 @@ class Buffer {
 
   static void RegisterCollaborator(
       std::function<void(Buffer*)> maybe_init_collaborator);
+
+  void PushChanges(const CommandSet* cmds);
+  AnnotatedString ContentSnapshot();
 
  private:
   void AddCollaborator(AsyncCollaboratorPtr&& collaborator);
@@ -155,7 +161,7 @@ class Buffer {
   std::set<Collaborator*> done_collaborators_ GUARDED_BY(mu_);
   bool updating_ GUARDED_BY(mu_);
   absl::Time last_used_ GUARDED_BY(mu_);
-  const std::string filename_ GUARDED_BY(mu_);
+  const std::string filename_;
   EditNotification state_ GUARDED_BY(mu_);
   std::vector<CollaboratorPtr> collaborators_ GUARDED_BY(mu_);
   std::vector<std::thread> collaborator_threads_ GUARDED_BY(mu_);

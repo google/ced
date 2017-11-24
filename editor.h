@@ -202,5 +202,9 @@ class Editor {
   CommandSet unpublished_commands_;
   CommandSet unacknowledged_commands_;
   AnnotationEditor ed_;
-  std::map<ID, std::unique_ptr<Buffer>> buffers_;
+  struct BufferInfo {
+    std::unique_ptr<Buffer> buffer;
+    AnnotationEditor ed;
+  };
+  std::map<ID, BufferInfo> buffers_;
 };

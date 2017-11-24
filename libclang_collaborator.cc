@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "libclang/libclang.h"
 #include <memory>
 #include <unordered_map>
 #include "absl/strings/str_join.h"
@@ -19,6 +18,7 @@
 #include "clang-c/Index.h"
 #include "clang_config.h"
 #include "content_latch.h"
+#include "libclang/libclang.h"
 #include "log.h"
 #include "selector.h"
 
@@ -234,10 +234,9 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
     content_changed = true;
   }
 
-  if (0 !=
-      env->clang_reparseTranslationUnit(tu, unsaved_files.size(),
-                                        unsaved_files.data(),
-                                        env->clang_defaultReparseOptions(tu))) {
+  if (0 != env->clang_reparseTranslationUnit(
+               tu, unsaved_files.size(), unsaved_files.data(),
+               env->clang_defaultReparseOptions(tu))) {
     Log() << "failed reparse";
     return response;
   }
@@ -278,20 +277,20 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
     std::unique_ptr<CXCursor[]> tok_cursors(new CXCursor[numTokens]);
     env->clang_annotateTokens(tu, tokens, numTokens, tok_cursors.get());
 
-    std::function<void(TagSet*, CXCursor)> f_add = [&f_add, env](
-        TagSet* t, CXCursor cursor) {
-      if (!env->clang_Cursor_isNull(cursor)) {
-        f_add(t, env->clang_getCursorLexicalParent(cursor));
-      }
-      CXCursorKind kind = env->clang_getCursorKind(cursor);
-      auto it = tok_cursor_rules.find(kind);
-      if (it != tok_cursor_rules.end()) {
-        t->add_tags(it->second);
-      }
-      t->add_tags(absl::StrCat(
-          "LIBCLANG-",
-          env->clang_getCString(env->clang_getCursorKindSpelling(kind))));
-    };
+    std::function<void(TagSet*, CXCursor)> f_add =
+        [&f_add, env](TagSet* t, CXCursor cursor) {
+          if (!env->clang_Cursor_isNull(cursor)) {
+            f_add(t, env->clang_getCursorLexicalParent(cursor));
+          }
+          CXCursorKind kind = env->clang_getCursorKind(cursor);
+          auto it = tok_cursor_rules.find(kind);
+          if (it != tok_cursor_rules.end()) {
+            t->add_tags(it->second);
+          }
+          t->add_tags(absl::StrCat(
+              "LIBCLANG-",
+              env->clang_getCString(env->clang_getCursorKindSpelling(kind))));
+        };
     std::function<void(TagSet*, CXToken)> f_tidy = [env](TagSet* t,
                                                          CXToken token) {
       switch (env->clang_getTokenKind(token)) {
@@ -426,7 +425,9 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
             Log() << filename << " "
                   << env->clang_getCString(env->clang_getFileName(file));
           if (file &&
-              /*filename == env->clang_getCString(env->clang_getFileName(file))*/ true) {
+              /*filename ==
+                 env->clang_getCString(env->clang_getFileName(file))*/
+              true) {
             Attribute fix_attr;
             Fixit* fix = fix_attr.mutable_fixit();
             fix->set_type(Fixit::COMPILE_FIX);
