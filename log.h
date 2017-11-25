@@ -27,7 +27,11 @@ DECLARE_string(logfile);
 
 class Log : public std::ostringstream {
  public:
-  Log() = default;
+  Log() {
+    if (FLAGS_logfile.empty()) {
+      this->setstate(std::ios_base::badbit);
+    }
+  }
   ~Log() {
     if (!FLAGS_logfile.empty()) {
       static LogFile file;
