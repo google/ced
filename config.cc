@@ -15,7 +15,6 @@
 #include <unordered_map>
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
-#include "log.h"
 #include "project.h"
 #include "yaml-cpp/yaml.h"
 
@@ -48,16 +47,12 @@ class ConfigRegistry {
     }
     Project::ForEachAspect<ConfigFile>(
         [this](ConfigFile* a) { LoadConfig(a->Config()); });
-    for (auto it = configs_.crbegin(); it != configs_.crend(); ++it) {
-      Log() << *it;
-    }
   }
 
   void LoadConfig(const std::string& filename) {
     try {
       configs_.push_back(YAML::LoadFile(filename));
     } catch (std::exception& e) {
-      Log() << "Failed opening '" << filename << "': " << e.what();
     }
   }
 
@@ -72,7 +67,6 @@ class ConfigRegistry {
         nstk.push_back(nstk.back()[child_str]);
       }
       if (nstk.back()) {
-        Log() << "CONFIG: " << path << " --> " << nstk.back();
         watcher->Set(nstk.back());
         return;
       }
@@ -85,7 +79,6 @@ class ConfigRegistry {
 };
 
 void ConfigWatcher::RegisterWatcher(const std::string& path) {
-  Log() << "CONFIG.CREATE: " << path;
   ConfigRegistry::Get().RegisterWatcher(this, path);
 }
 

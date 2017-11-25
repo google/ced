@@ -21,17 +21,22 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "wrap_syscall.h"
+#include <gflags/gflags.h>
+
+DECLARE_string(logfile);
 
 class Log : public std::ostringstream {
  public:
   Log() = default;
   ~Log() {
-    static LogFile file;
-    *this << '\n';
-    WrapSyscall("write", [this]() {
-      auto s = str();
-      return ::write(file.hdl(), s.data(), s.length());
-    });
+    if (!FLAGS_logfile.empty()) {
+      static LogFile file;
+      *this << '\n';
+      WrapSyscall("write", [this]() {
+        auto s = str();
+        return ::write(file.hdl(), s.data(), s.length());
+      });
+    }
   }
 
   Log(const Log&) = delete;
@@ -41,11 +46,8 @@ class Log : public std::ostringstream {
   class LogFile {
    public:
     LogFile() {
-      std::ostringstream name;
-      name << ".cedlog." << getpid();
-      auto s = name.str();
-      hdl_ = WrapSyscall("open", [s]() {
-        return open(s.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, 0777);
+      hdl_ = WrapSyscall("open", []() {
+        return open(FLAGS_logfile.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, 0777);
       });
     }
 
@@ -57,12 +59,6 @@ class Log : public std::ostringstream {
     int hdl_;
   };
 };
-
-#define Log() \
-  if (false)  \
-    ;         \
-  else        \
-    Log()
 
 class LogTimer {
  public:

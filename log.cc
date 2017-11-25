@@ -12,3 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "log.h"
+
+DEFINE_string(logfile, "", "Logging destination");

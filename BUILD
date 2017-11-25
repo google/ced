@@ -237,7 +237,12 @@ cc_library(
   name = "log",
   srcs = ["log.cc"],
   hdrs = ["log.h"],
-  deps = [":wrap_syscall", '@com_google_absl//absl/strings',"@com_google_absl//absl/time"]
+  deps = [
+    ":wrap_syscall", 
+    '@com_google_absl//absl/strings',
+    "@com_google_absl//absl/time",
+    "@com_github_gflags_gflags//:gflags",
+  ]
 )
 
 cc_test(
@@ -254,7 +259,6 @@ cc_library(
     '@yaml//:yaml',
     '@com_google_absl//absl/synchronization',
     '@com_google_absl//absl/strings',
-    ":log",
     ':project',
     "@boost//:filesystem",
   ],
