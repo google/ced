@@ -25,10 +25,16 @@ struct AppEnv {
   std::string clipboard;
 };
 
-class Editor {
+class Editor : public std::enable_shared_from_this<Editor> {
  public:
+  static std::shared_ptr<Editor> Make(Site* site) {
+    return std::shared_ptr<Editor>(new Editor(site));
+  }
+
+ private:
   Editor(Site* site) : site_(site), ed_(site) {}
 
+ public:
   // state management
   void UpdateState(LogTimer* tmr, const EditNotification& state);
   const EditNotification& CurrentState() { return state_; }
@@ -63,15 +69,16 @@ class Editor {
   template <class RC>
   std::function<void(RC* ctx)> PrepareRender() {
     auto content = state_.content;
-    return [this, content](RC* ctx) {
-      if (cursor_row_ < 0) {
-        cursor_row_ = 0;
-      } else if (cursor_row_ >= ctx->window->height()) {
-        cursor_row_ = ctx->window->height() - 1;
+    std::shared_ptr<Editor> self = shared_from_this();
+    return [self, content](RC* ctx) {
+      if (self->cursor_row_ < 0) {
+        self->cursor_row_ = 0;
+      } else if (self->cursor_row_ >= ctx->window->height()) {
+        self->cursor_row_ = ctx->window->height() - 1;
       }
 
-      cursor_ = AnnotatedString::Iterator(content, cursor_).id();
-      AnnotatedString::LineIterator line_cr(content, cursor_);
+      self->cursor_ = AnnotatedString::Iterator(content, self->cursor_).id();
+      AnnotatedString::LineIterator line_cr(content, self->cursor_);
       AnnotatedString::LineIterator line_bk = line_cr;
       AnnotatedString::LineIterator line_fw = line_cr;
       for (int i = 0; i < ctx->window->height(); i++) {

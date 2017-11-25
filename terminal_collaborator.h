@@ -90,7 +90,7 @@ class TerminalCollaborator final : public AsyncCollaborator {
 
   const Buffer* const buffer_;
   static absl::Mutex mu_;
-  Editor editor_ GUARDED_BY(mu_);
+  std::shared_ptr<Editor> editor_ GUARDED_BY(mu_);
   LineEditor find_editor_ GUARDED_BY(mu_);
   bool recently_used_ GUARDED_BY(mu_);
   State state_ GUARDED_BY(mu_);

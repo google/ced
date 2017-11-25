@@ -31,7 +31,7 @@ constexpr char ctrl(char c) { return c & 0x1f; }
 TerminalCollaborator::TerminalCollaborator(const Buffer* buffer)
     : AsyncCollaborator("terminal", absl::Seconds(0), absl::Milliseconds(5)),
       buffer_(buffer),
-      editor_(site()),
+      editor_(Editor::Make(site())),
       recently_used_(false),
       state_(State::EDITING) {
   absl::MutexLock lock(&mu_);
@@ -58,7 +58,7 @@ void TerminalCollaborator::Push(const EditNotification& notification) {
   {
     absl::MutexLock lock(&mu_);
     tmr.Mark("lock");
-    editor_.UpdateState(&tmr, notification);
+    editor_->UpdateState(&tmr, notification);
     tmr.Mark("update");
   }
   InvalidateTerminal();
@@ -67,12 +67,12 @@ void TerminalCollaborator::Push(const EditNotification& notification) {
 EditResponse TerminalCollaborator::Pull() {
   auto ready = [this]() {
     mu_.AssertHeld();
-    return editor_.HasCommands() || recently_used_;
+    return editor_->HasCommands() || recently_used_;
   };
 
   mu_.LockWhen(absl::Condition(&ready));
   LogTimer tmr("term_pull");
-  EditResponse r = editor_.MakeResponse();
+  EditResponse r = editor_->MakeResponse();
   tmr.Mark("make");
   r.become_used |= recently_used_;
   recently_used_ = false;
@@ -88,7 +88,7 @@ void TerminalCollaborator::Render(TerminalRenderContainers containers) {
    */
   (buffer_->synthetic() ? containers.side_bar : containers.main)
       .AddItem(LAY_LEFT | LAY_VFILL,
-               editor_.PrepareRender<TerminalRenderContext>())
+               editor_->PrepareRender<TerminalRenderContext>())
       .FixSize(80, 0);
 
   if (FLAGS_buffer_profile_display) {
@@ -108,7 +108,7 @@ void TerminalCollaborator::Render(TerminalRenderContainers containers) {
 #if 0
   side_bar.AddItem(LAY_FILL, [this](TerminalRenderContext* context) {
     absl::MutexLock lock(&mu_);
-    editor_.RenderSideBar(context);
+    editor_->RenderSideBar(context);
   });
 #endif
 
@@ -116,7 +116,7 @@ void TerminalCollaborator::Render(TerminalRenderContainers containers) {
       containers.ext_status.AddContainer(LAY_TOP | LAY_HFILL, LAY_COLUMN);
 
   int num_diagnostics = 0;
-  editor_.CurrentState().content.ForEachAttribute(
+  editor_->CurrentState().content.ForEachAttribute(
       Attribute::kDiagnostic, [&](ID, const Attribute& attribute) {
         if (num_diagnostics < 10) {
           std::string msg = absl::StrCat(
@@ -136,7 +136,7 @@ void TerminalCollaborator::Render(TerminalRenderContainers containers) {
 
 template <class EditorType>
 static bool MaybeProcessEditingKey(AppEnv* app_env, int key,
-                                   EditorType* editor) {
+                                   std::shared_ptr<EditorType> editor) {
   int fb_rows, fb_cols;
   getmaxyx(stdscr, fb_rows, fb_cols);
   switch (key) {
@@ -210,17 +210,18 @@ void TerminalCollaborator::ProcessKey(AppEnv* app_env, int key) {
   recently_used_ = true;
   switch (state_) {
     case State::EDITING:
-      if (!MaybeProcessEditingKey(app_env, key, &editor_)) {
+      if (!MaybeProcessEditingKey(app_env, key, editor_)) {
         switch (key) {
           case ctrl('F'):
-            state_ = State::FINDING;
+            //state_ = State::FINDING;
             break;
           case 10:
-            editor_.InsNewLine();
+            editor_->InsNewLine();
             break;
         }
       }
       break;
+#if 0      
     case State::FINDING:
       if (!MaybeProcessEditingKey(app_env, key, &find_editor_)) {
         switch (key) {
@@ -230,6 +231,7 @@ void TerminalCollaborator::ProcessKey(AppEnv* app_env, int key) {
         }
       }
       break;
+#endif
   }
 }
 
