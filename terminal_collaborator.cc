@@ -18,6 +18,9 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "log.h"
+#include <gflags/gflags.h>
+
+DEFINE_bool(buffer_profile_display, false, "Show buffer collaborator latency HUD");
 
 absl::Mutex TerminalCollaborator::mu_;
 std::vector<TerminalCollaborator*> TerminalCollaborator::all_;
@@ -87,7 +90,7 @@ void TerminalCollaborator::Render(TerminalRenderContainers containers) {
                editor_.PrepareRender<TerminalRenderContext>())
       .FixSize(80, 0);
 
-  if (true) {
+  if (FLAGS_buffer_profile_display) {
     std::vector<std::string> profile = buffer_->ProfileData();
     containers.side_bar
         .AddItem(LAY_TOP | LAY_HFILL,

@@ -98,6 +98,7 @@ cc_binary(
     ":standard_collaborator_types",
     ":buffer",
     ":terminal_collaborator",
+    "@com_github_gflags_gflags//:gflags",
   ],
   linkopts = ["-lcurses", "-lpthread", "-ldl"]
 )
@@ -163,7 +164,8 @@ cc_library(
     ":render",
     ":editor",
     ":line_editor",
-    "@com_google_absl//absl/time"
+    "@com_google_absl//absl/time",
+    "@com_github_gflags_gflags//:gflags",
   ],
 )
 
