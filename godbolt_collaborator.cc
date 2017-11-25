@@ -52,8 +52,8 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   auto text = str.Render();
   NamedTempFile tmpf;
   std::vector<std::string> args;
-  auto cmd =
-      ClangCompileCommand(buffer_->filename(), "-", tmpf.filename(), &args);
+  auto cmd = ClangCompileCommand(buffer_->filename().string(), "-",
+                                 tmpf.filename(), &args);
   Log() << cmd << " " << absl::StrJoin(args, " ");
   if (run(cmd, args, text).status != 0) {
     return response;
@@ -70,7 +70,9 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
 
   AnnotationEditor::ScopedEdit edit(&ed_, &response.content_updates);
   Attribute side_buf;
-  side_buf.mutable_buffer()->set_name(buffer_->filename() + ".gb.s");
+  auto s = buffer_->filename();
+  s.replace_extension("s");
+  side_buf.mutable_buffer()->set_name(s.string());
   side_buf.mutable_buffer()->set_contents(parsed_asm.body);
   ID side_buf_id = ed_.AttrID(side_buf);
 

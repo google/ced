@@ -78,8 +78,8 @@ static void CloseFDsAfter(int after) {
   }
 }
 
-RunResult run(const std::string& command, const std::vector<std::string>& args,
-              const std::string& input) {
+RunResult run(const boost::filesystem::path& command,
+              const std::vector<std::string>& args, const std::string& input) {
   enum Pipe { IN, OUT, ERR };
   enum Dir { READ, WRITE };
   int pipes[3][2];
@@ -87,12 +87,13 @@ RunResult run(const std::string& command, const std::vector<std::string>& args,
     WrapSyscall("pipe", [&]() { return pipe(pipes[i]); });
   }
 
-  Log() << "RUN: " << absl::StrCat(command, " ", absl::StrJoin(args, " "));
+  Log() << "RUN: "
+        << absl::StrCat(command.string(), " ", absl::StrJoin(args, " "));
 
   pid_t p = WrapSyscall("fork", [&]() { return fork(); });
   if (p == 0) {
     std::vector<char*> cargs;
-    cargs.push_back(strdup(command.c_str()));
+    cargs.push_back(strdup(command.string().c_str()));
     for (auto& arg : args) cargs.push_back(strdup(arg.c_str()));
     cargs.push_back(nullptr);
     WrapSyscall("dup2", [&]() { return dup2(pipes[IN][READ], STDIN_FILENO); });

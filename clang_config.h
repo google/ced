@@ -13,14 +13,15 @@
 // limitations under the License.
 #pragma once
 
+#include <boost/filesystem/path.hpp>
 #include <string>
 #include <vector>
 
-std::string ClangToolPath(const std::string& name);
-std::string ClangLibPath(const std::string& name);
-std::string ClangCompileCommand(const std::string& filename,
-                                const std::string& src_file,
-                                const std::string& dst_file,
-                                std::vector<std::string>* args);
-void ClangCompileArgs(const std::string& filename,
+boost::filesystem::path ClangToolPath(const std::string& name);
+boost::filesystem::path ClangLibPath(const std::string& name);
+boost::filesystem::path ClangCompileCommand(
+    const boost::filesystem::path& filename,
+    const boost::filesystem::path& src_file,
+    const boost::filesystem::path& dst_file, std::vector<std::string>* args);
+void ClangCompileArgs(const boost::filesystem::path& filename,
                       std::vector<std::string>* args);

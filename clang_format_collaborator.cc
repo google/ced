@@ -39,10 +39,11 @@ EditResponse ClangFormatCollaborator::Edit(
   auto text = str.Render();
   auto clang_format = ClangToolPath("clang-format");
   Log() << "clang-format command: " << clang_format;
-  auto res = run(clang_format,
-                 {"-output-replacements-xml",
-                  absl::StrCat("-assume-filename=", buffer_->filename())},
-                 text);
+  auto res =
+      run(clang_format,
+          {"-output-replacements-xml",
+           absl::StrCat("-assume-filename=", buffer_->filename().string())},
+          text);
   Log() << res.out;
 
   pugi::xml_document doc;

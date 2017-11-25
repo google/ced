@@ -200,3 +200,12 @@ git_repository(
     commit = "30dbc81fb5ffdc98ea9b14b1918bfe4e8779b26e", # v2.2.0 + fix of include path
     remote = "https://github.com/gflags/gflags.git"
 )
+
+git_repository(
+    name = "com_github_nelhage_boost",
+    commit = 'd6446dc9de6e43b039af07482a9361bdc6da5237',
+    remote = "https://github.com/nelhage/rules_boost",
+)
+
+load("@com_github_nelhage_boost//:boost/boost.bzl", "boost_deps")
+boost_deps()

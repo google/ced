@@ -13,6 +13,7 @@
 // limitations under the License.
 #pragma once
 
+#include <boost/filesystem/path.hpp>
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,7 +25,7 @@ class CompilationDatabase {
   virtual ~CompilationDatabase();
   virtual std::string CompileCommandsFile() const = 0;
 
-  bool ClangCompileArgs(const std::string& filename,
+  bool ClangCompileArgs(const boost::filesystem::path& filename,
                         std::vector<std::string>* args);
 
  private:

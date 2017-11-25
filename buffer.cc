@@ -39,7 +39,7 @@ class CollaboratorRegistry {
 
 }  // namespace
 
-Buffer::Buffer(const std::string& filename,
+Buffer::Buffer(const boost::filesystem::path& filename,
                absl::optional<AnnotatedString> initial_string)
     : synthetic_(initial_string),
       version_(0),
@@ -73,7 +73,7 @@ static const std::unordered_map<std::string, Language> kExtToLanguage = {
 };
 
 Language Buffer::language() const {
-  auto ext = filename_.substr(filename_.rfind('.'));
+  auto ext = filename_.extension().string();
   auto it = kExtToLanguage.find(ext);
   if (it != kExtToLanguage.end()) return it->second;
   return Language::Unknown;
@@ -289,9 +289,9 @@ std::vector<std::string> Buffer::ProfileData() const {
                                         absl::Time timestamp) {
       auto age = now - timestamp;
       if (age > absl::Seconds(5)) return;
-      out.emplace_back(absl::StrCat(filename(), ":", c->name(), ":", name, ": ",
-                                    absl::FormatTime(timestamp), " (",
-                                    absl::FormatDuration(age), " ago)"));
+      out.emplace_back(absl::StrCat(filename().string(), ":", c->name(), ":",
+                                    name, ": ", absl::FormatTime(timestamp),
+                                    " (", absl::FormatDuration(age), " ago)"));
     };
     report("chg", c->last_change());
     report("rsp", c->last_response());

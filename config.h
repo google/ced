@@ -13,8 +13,21 @@
 // limitations under the License.
 #pragma once
 
+#include <boost/filesystem/path.hpp>
 #include "absl/synchronization/mutex.h"
 #include "yaml-cpp/yaml.h"
+
+namespace YAML {
+
+template <>
+struct convert<boost::filesystem::path> {
+  static bool decode(Node n, boost::filesystem::path& p) {
+    p = n.Scalar();
+    return true;
+  }
+};
+
+}  // namespace YAML
 
 class ConfigWatcher {
  public:

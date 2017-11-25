@@ -53,7 +53,8 @@ void Editor::PublishCursor() {
         }
         Log() << "Push changes " << cmds.DebugString();
         it->second.buffer->PushChanges(&cmds);
-        Log() << "Result: " << it->second.buffer->ContentSnapshot().AsProto().DebugString();
+        Log() << "Result: "
+              << it->second.buffer->ContentSnapshot().AsProto().DebugString();
       });
   cursor_reported_ = cursor_;
 }

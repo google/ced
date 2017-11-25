@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include <curses.h>
+#include <gflags/gflags.h>
 #include <signal.h>
 #include "buffer.h"
 #include "render.h"
 #include "terminal_collaborator.h"
 #include "terminal_color.h"
-#include <gflags/gflags.h>
 
 constexpr char ctrl(char c) { return c & 037; }
 
@@ -37,13 +37,9 @@ class Application : public std::enable_shared_from_this<Application> {
     keypad(stdscr, true);
   }
 
-  ~Application() {
-    endwin();
-  }
+  ~Application() { endwin(); }
 
-  void Quit() {
-    done_ = true;
-  }
+  void Quit() { done_ = true; }
 
   void Run() {
     bool refresh = true;
@@ -81,7 +77,9 @@ class Application : public std::enable_shared_from_this<Application> {
 
       if (done_) return;
       bool expected = true;
-      refresh = invalidated.compare_exchange_strong(expected, false, std::memory_order_relaxed, std::memory_order_relaxed);
+      refresh = invalidated.compare_exchange_strong(expected, false,
+                                                    std::memory_order_relaxed,
+                                                    std::memory_order_relaxed);
 
       log_timer->Mark("signalled");
     }
@@ -132,7 +130,7 @@ class Application : public std::enable_shared_from_this<Application> {
   AppEnv app_env_;
 };
 
-void InvalidateTerminal() { 
+void InvalidateTerminal() {
   invalidated = true;
   kill(getpid(), SIGWINCH);
 }

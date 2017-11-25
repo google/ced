@@ -49,13 +49,15 @@ class ClangEnv : public LibClang {
 
   absl::Mutex* mu() LOCK_RETURNED(mu_) { return &mu_; }
 
-  void UpdateUnsavedFile(std::string filename, const std::string& contents)
+  void UpdateUnsavedFile(const boost::filesystem::path& filename,
+                         const std::string& contents)
       EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    unsaved_files_[filename] = contents;
+    unsaved_files_[absolute(filename).string()] = contents;
   }
 
-  void ClearUnsavedFile(std::string filename) EXCLUSIVE_LOCKS_REQUIRED(mu_) {
-    unsaved_files_.erase(filename);
+  void ClearUnsavedFile(const boost::filesystem::path& filename)
+      EXCLUSIVE_LOCKS_REQUIRED(mu_) {
+    unsaved_files_.erase(absolute(filename).string());
   }
 
   std::vector<CXUnsavedFile> GetUnsavedFiles() EXCLUSIVE_LOCKS_REQUIRED(mu_) {
@@ -396,8 +398,9 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
           unsigned line, col, offset_start, offset_end;
           env->clang_getFileLocation(start, &file, &line, &col, &offset_start);
           env->clang_getFileLocation(end, &file, &line, &col, &offset_end);
-          if (file /* &&
-              filename == env->clang_getCString(env->clang_getFileName(file))*/) {
+          if (file && boost::filesystem::equivalent(
+                          filename, env->clang_getCString(
+                                        env->clang_getFileName(file)))) {
             ed_.Mark(ids[offset_start], ids[offset_end], diag_id);
           }
         }
@@ -424,10 +427,9 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
           if (file)
             Log() << filename << " "
                   << env->clang_getCString(env->clang_getFileName(file));
-          if (file &&
-              /*filename ==
-                 env->clang_getCString(env->clang_getFileName(file))*/
-              true) {
+          if (file && boost::filesystem::equivalent(
+                          filename, env->clang_getCString(
+                                        env->clang_getFileName(file)))) {
             Attribute fix_attr;
             Fixit* fix = fix_attr.mutable_fixit();
             fix->set_type(Fixit::COMPILE_FIX);

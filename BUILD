@@ -133,6 +133,7 @@ cc_library(
     "@com_google_absl//absl/strings",
     "@com_google_absl//absl/time",
     "@com_google_absl//absl/types:optional",
+    "@boost//:filesystem",
   ]
 )
 
@@ -255,6 +256,7 @@ cc_library(
     '@com_google_absl//absl/strings',
     ":log",
     ':project',
+    "@boost//:filesystem",
   ],
 )
 
@@ -269,7 +271,8 @@ cc_library(
       ':config',
       ':read',
       ':run',
-      ':project'
+      ':project',
+      "@boost//:filesystem",
   ],
 )
 
@@ -317,7 +320,12 @@ cc_library(
     name = "run",
     srcs = ["run.cc"],
     hdrs = ["run.h"],
-    deps = [":wrap_syscall", ":log", "@com_google_absl//absl/strings"]
+    deps = [
+      ":wrap_syscall", 
+      ":log", 
+      "@com_google_absl//absl/strings",      
+      "@boost//:filesystem",
+    ]
 )
 
 cc_library(
@@ -349,6 +357,7 @@ cc_library(
       '@json//:json',
       "@com_google_absl//absl/synchronization",
       "@com_google_absl//absl/strings",
+      "@boost//:filesystem",
       ":read",
   ]
 )

@@ -13,6 +13,7 @@
 // limitations under the License.
 #pragma once
 
+#include <boost/filesystem/path.hpp>
 #include <string>
 #include <vector>
 
@@ -22,5 +23,5 @@ struct RunResult {
   int status;
 };
 
-RunResult run(const std::string& commands, const std::vector<std::string>& args,
-              const std::string& input);
+RunResult run(const boost::filesystem::path& command,
+              const std::vector<std::string>& args, const std::string& input);

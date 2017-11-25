@@ -13,6 +13,7 @@
 // limitations under the License.
 #pragma once
 
+#include <boost/filesystem.hpp>
 #include <thread>
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
@@ -111,7 +112,7 @@ enum class Language {
 
 class Buffer {
  public:
-  Buffer(const std::string& filename,
+  Buffer(const boost::filesystem::path& filename,
          absl::optional<AnnotatedString> initial_string =
              absl::optional<AnnotatedString>());
   ~Buffer();
@@ -126,7 +127,7 @@ class Buffer {
     return p;
   }
 
-  const std::string& filename() const { return filename_; }
+  const boost::filesystem::path& filename() const { return filename_; }
   Language language() const;
   bool read_only() const { return false; }
   bool synthetic() const { return synthetic_; }
@@ -161,7 +162,7 @@ class Buffer {
   std::set<Collaborator*> done_collaborators_ GUARDED_BY(mu_);
   bool updating_ GUARDED_BY(mu_);
   absl::Time last_used_ GUARDED_BY(mu_);
-  const std::string filename_;
+  const boost::filesystem::path filename_;
   EditNotification state_ GUARDED_BY(mu_);
   std::vector<CollaboratorPtr> collaborators_ GUARDED_BY(mu_);
   std::vector<std::thread> collaborator_threads_ GUARDED_BY(mu_);

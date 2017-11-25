@@ -12,18 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "compilation_database.h"
+#include <boost/filesystem.hpp>
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "absl/synchronization/mutex.h"
 #include "read.h"
 #include "src/json.hpp"
-
-static bool Exists(const std::string& path) {
-  FILE* f = fopen(path.c_str(), "r");
-  if (!f) return false;
-  fclose(f);
-  return true;
-}
 
 struct CompilationDatabase::Impl {
   absl::Mutex mu;
@@ -36,10 +30,10 @@ CompilationDatabase::CompilationDatabase() : impl_(new Impl) {}
 
 CompilationDatabase::~CompilationDatabase() {}
 
-bool CompilationDatabase::ClangCompileArgs(const std::string& filename,
-                                           std::vector<std::string>* args) {
+bool CompilationDatabase::ClangCompileArgs(
+    const boost::filesystem::path& filename, std::vector<std::string>* args) {
   absl::MutexLock lock(&impl_->mu);
-  auto it = impl_->cache.find(filename);
+  auto it = impl_->cache.find(boost::filesystem::absolute(filename).string());
   if (it != impl_->cache.end()) {
     if (!it->second) return false;
     *args = *it->second;
@@ -50,7 +44,8 @@ bool CompilationDatabase::ClangCompileArgs(const std::string& filename,
     impl_->js = nlohmann::json::parse(Read(CompileCommandsFile()));
   }
   for (const auto& child : impl_->js) {
-    if (child["file"] == filename) {
+    std::string file = child["file"];
+    if (boost::filesystem::equivalent(file, filename)) {
       args->clear();
       std::string command = child["command"];
       std::string directory = child["directory"];
@@ -66,20 +61,21 @@ bool CompilationDatabase::ClangCompileArgs(const std::string& filename,
         }
         std::string arg(arg_view.data(), arg_view.length());
         if (arg.length() && arg[0] != '/' && arg[0] != '-') {
-          auto as_if_under_dir = absl::StrCat(directory, "/", arg);
-          if (Exists(as_if_under_dir)) {
-            arg = as_if_under_dir;
+          auto as_if_under_dir = boost::filesystem::path(directory) / arg;
+          if (exists(as_if_under_dir)) {
+            arg = as_if_under_dir.string();
           }
         }
         args->emplace_back(std::move(arg));
       }
       impl_->cache.emplace(
-          std::make_pair(filename, std::unique_ptr<std::vector<std::string>>(
-                                       new std::vector<std::string>(*args))));
+          std::make_pair(boost::filesystem::absolute(filename).string(),
+                         std::unique_ptr<std::vector<std::string>>(
+                             new std::vector<std::string>(*args))));
       return true;
     }
   }
   // cache negative result
-  impl_->cache[filename];
+  impl_->cache[boost::filesystem::absolute(filename).string()];
   return false;
 }

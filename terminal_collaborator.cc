@@ -13,14 +13,15 @@
 // limitations under the License.
 #include "terminal_collaborator.h"
 #include <curses.h>
+#include <gflags/gflags.h>
 #include <deque>
 #include <vector>
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "log.h"
-#include <gflags/gflags.h>
 
-DEFINE_bool(buffer_profile_display, false, "Show buffer collaborator latency HUD");
+DEFINE_bool(buffer_profile_display, false,
+            "Show buffer collaborator latency HUD");
 
 absl::Mutex TerminalCollaborator::mu_;
 std::vector<TerminalCollaborator*> TerminalCollaborator::all_;

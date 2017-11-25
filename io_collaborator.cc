@@ -28,7 +28,7 @@ class IOCollaborator final : public AsyncCollaborator {
 
  private:
   absl::Mutex mu_;
-  const std::string filename_;
+  const Buffer* const buffer_;
   int attributes_;
   int fd_;
   ID last_char_id_ GUARDED_BY(mu_);
@@ -37,10 +37,11 @@ class IOCollaborator final : public AsyncCollaborator {
 
 IOCollaborator::IOCollaborator(const Buffer* buffer)
     : AsyncCollaborator("io", absl::Milliseconds(100), absl::Milliseconds(500)),
-      filename_(buffer->filename()),
+      buffer_(buffer),
       last_char_id_(AnnotatedString::Begin()) {
-  fd_ = WrapSyscall("open",
-                    [this]() { return open(filename_.c_str(), O_RDONLY); });
+  fd_ = WrapSyscall("open", [this]() {
+    return open(buffer_->filename().string().c_str(), O_RDONLY);
+  });
   struct stat st;
   WrapSyscall("fstat", [&]() { return fstat(fd_, &st); });
   attributes_ = st.st_mode;
@@ -63,7 +64,7 @@ void IOCollaborator::Push(const EditNotification& notification) {
   }
   close(fd);
   WrapSyscall("rename", [&]() {
-    return rename(tmp.filename().c_str(), filename_.c_str());
+    return rename(tmp.filename().c_str(), buffer_->filename().string().c_str());
   });
 }
 

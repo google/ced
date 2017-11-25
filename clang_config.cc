@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "clang_config.h"
 #include <sys/param.h>
+#include <boost/filesystem.hpp>
 #include <stdexcept>
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -34,66 +35,65 @@
 #endif
 
 static Config<std::string> clang_version("project.clang-version");
-static ConfigMap<std::string, std::string> clang_location("clang.location");
+static ConfigMap<std::string, boost::filesystem::path> clang_location(
+    "clang.location");
 static Config<std::string> compile_commands_regen(
     "project.compile-commands-regen");
 
-static std::vector<absl::string_view> Path() {
+static std::vector<boost::filesystem::path> Path() {
   const char* path = getenv("PATH");
-  return absl::StrSplit(path, ':');
+  std::vector<boost::filesystem::path> out;
+  for (auto p : absl::StrSplit(path, ':')) {
+    out.emplace_back(std::string(p.data(), p.length()));
+  }
+  return out;
 }
 
-static bool Exists(const std::string& path) {
-  FILE* f = fopen(path.c_str(), "r");
-  if (!f) return false;
-  fclose(f);
-  return true;
-}
-
-std::string ClangToolPath(const std::string& tool_name) {
+boost::filesystem::path ClangToolPath(const std::string& tool_name) {
   auto version = clang_version.get();
   if (!version.empty()) {
     auto path = clang_location.get(version);
     if (!path.empty()) {
-      auto cmd = absl::StrCat(path, "/bin/", tool_name);
-      if (Exists(cmd)) return cmd;
+      auto cmd = path / "bin" / tool_name;
+      if (boost::filesystem::exists(cmd)) return cmd;
     }
     for (auto path : Path()) {
-      auto cmd = absl::StrCat(path, "/", tool_name, "-", version);
-      if (Exists(cmd)) return cmd;
+      auto cmd = path / absl::StrCat(tool_name, "-", version);
+      if (boost::filesystem::exists(cmd)) return cmd;
     }
   }
   for (auto path : Path()) {
-    auto cmd = absl::StrCat(path, "/", tool_name);
-    if (Exists(cmd)) return cmd;
+    auto cmd = path / tool_name;
+    if (boost::filesystem::exists(cmd)) return cmd;
   }
   throw std::runtime_error(
       absl::StrCat("Clang tool '", tool_name, "' not found"));
 }
 
-std::string ClangLibPath(const std::string& lib_base) {
+boost::filesystem::path ClangLibPath(const std::string& lib_base) {
   auto lib_name = absl::StrCat(PLAT_LIB_PFX, lib_base, PLAT_LIB_SFX);
   auto version = clang_version.get();
   if (!version.empty()) {
     auto path = clang_location.get(version);
     if (!path.empty()) {
-      auto lib = absl::StrCat(path, "/lib/", lib_name);
-      if (Exists(lib)) return lib;
+      auto lib = path / "lib" / lib_name;
+      if (boost::filesystem::exists(lib)) return lib;
     }
-    for (auto path : {"/lib", "/usr/lib", "/usr/local/lib"}) {
-      auto lib = absl::StrCat(path, "/", lib_name, ".", version);
-      if (Exists(lib)) return lib;
+    for (boost::filesystem::path path :
+         {"/lib", "/usr/lib", "/usr/local/lib"}) {
+      auto lib = path / absl::StrCat(lib_name, ".", version);
+      if (boost::filesystem::exists(lib)) return lib;
     }
   }
-  for (auto path : {"/lib", "/usr/lib", "/usr/local/lib"}) {
-    auto lib = absl::StrCat(path, "/", lib_name);
-    if (Exists(lib)) return lib;
+  for (boost::filesystem::path path : {"/lib", "/usr/lib", "/usr/local/lib"}) {
+    auto lib = path / lib_name;
+    if (boost::filesystem::exists(lib)) return lib;
   }
   throw std::runtime_error(
       absl::StrCat("Clang lib '", lib_name, "' not found"));
 }
 
-static void ExtractIncludePathsFromTool(const std::string& toolname,
+static void ExtractIncludePathsFromTool(const boost::filesystem::path& toolname,
                                         std::vector<std::string>* args) {
   /*
 #include <...> search starts here:
@@ -128,7 +128,7 @@ End of search list.
   }
 }
 
-void ClangCompileArgs(const std::string& filename,
+void ClangCompileArgs(const boost::filesystem::path& filename,
                       std::vector<std::string>* args) {
   if (CompilationDatabase* db = Project::GetAspect<CompilationDatabase>()) {
     if (db->ClangCompileArgs(filename, args)) {
@@ -142,8 +142,8 @@ void ClangCompileArgs(const std::string& filename,
 
 #ifdef __APPLE__
   for (auto path : Path()) {
-    auto cmd = absl::StrCat(path, "/clang");
-    if (Exists(cmd) && cmd != ClangToolPath("clang")) {
+    auto cmd = path / "clang";
+    if (boost::filesystem::exists(cmd) && cmd != ClangToolPath("clang")) {
       ExtractIncludePathsFromTool(cmd, args);
     }
   }
@@ -169,10 +169,10 @@ void ClangCompileArgs(const std::string& filename,
   }
 }
 
-std::string ClangCompileCommand(const std::string& filename,
-                                const std::string& src_file,
-                                const std::string& dst_file,
-                                std::vector<std::string>* args) {
+boost::filesystem::path ClangCompileCommand(
+    const boost::filesystem::path& filename,
+    const boost::filesystem::path& src_file,
+    const boost::filesystem::path& dst_file, std::vector<std::string>* args) {
   ClangCompileArgs(filename, args);
 
   args->push_back("-g");
@@ -181,8 +181,8 @@ std::string ClangCompileCommand(const std::string& filename,
 
   args->push_back("-c");
   args->push_back("-o");
-  args->push_back(dst_file);
-  args->push_back(src_file);
+  args->push_back(dst_file.string());
+  args->push_back(src_file.string());
 
   return ClangToolPath("clang++");
 }
