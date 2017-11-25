@@ -1,4 +1,4 @@
-build --crosstool_top=@co_vsco_bazel_toolchains//tools/cpp:default-toolchain
+build --client_env=CC=clang
 
 build:asan --strip=never 
 build:asan --copt -fsanitize=address 
