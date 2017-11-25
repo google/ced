@@ -200,3 +200,12 @@ git_repository(
     commit = "30dbc81fb5ffdc98ea9b14b1918bfe4e8779b26e", # v2.2.0 + fix of include path
     remote = "https://github.com/gflags/gflags.git"
 )
+
+git_repository(
+    name = 'co_vsco_bazel_toolchains',
+    remote = 'https://github.com/vsco/bazel-toolchains',
+    tag = 'v62.0.3202.9',
+)
+
+load("@co_vsco_bazel_toolchains//toolchains:repositories.bzl", "bazel_toolchains_repositories")
+bazel_toolchains_repositories()
