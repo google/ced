@@ -14,9 +14,7 @@
 
 syntax = "proto3";
 
-message TagSet {
-  repeated string tags = 1;
-};
+message TagSet { repeated string tags = 1; };
 
 message Diagnostic {
   enum Severity {
@@ -54,6 +52,8 @@ message SizeAnnotation {
   uint32 bits = 3;
 };
 
+message TopContext { repeated string lines = 1; };
+
 message BufferRef {
   uint64 buffer = 1;
   repeated int32 lines = 2;
@@ -67,9 +67,7 @@ message BufferString {
   string contents = 2;
 };
 
-message Dependency {
-  string filename = 1;
-};
+message Dependency { string filename = 1; };
 
 message Attribute {
   oneof data {
@@ -82,6 +80,7 @@ message Attribute {
     Selection selection = 7;
     BufferString buffer = 8;
     Dependency dependency = 9;
+    TopContext top_context = 10;
   }
 };
 
@@ -111,9 +110,7 @@ message Command {
   };
 };
 
-message CommandSet {
-  repeated Command commands = 1;
-};
+message CommandSet { repeated Command commands = 1; };
 
 message AnnotatedStringMsg {
   message CharInfo {

@@ -451,8 +451,8 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
 
 IMPL_COLLABORATOR(LibClangCollaborator, buffer) {
   auto fext = buffer->filename().extension();
-  for (auto mext : {".c", ".cxx", ".cpp", ".C", ".cc", ".h", ".H", ".hpp",
-                    ".hxx"}) {
+  for (auto mext :
+       {".c", ".cxx", ".cpp", ".C", ".cc", ".h", ".H", ".hpp", ".hxx"}) {
     if (fext == mext) return true;
   }
   return false;

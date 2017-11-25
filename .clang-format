@@ -2,3 +2,5 @@
 Language:        Cpp
 BasedOnStyle:  Google
 ...
+Language:        Proto
+DisableFormat: false
