@@ -34,6 +34,15 @@ void Editor::PublishCursor() {
   ed_.Mark(cursor_,
            AnnotatedString::Iterator(state_.content, cursor_).Next().id(),
            curs);
+  if (selection_anchor_ != ID()) {
+    Attribute sel;
+    sel.mutable_selection();
+    if (state_.content.OrderIDs(cursor_, selection_anchor_) < 0) {
+      ed_.Mark(cursor_, selection_anchor_, sel);
+    } else {
+      ed_.Mark(selection_anchor_, cursor_, sel);
+    }
+  }
   AnnotatedString::Iterator(state_.content, cursor_)
       .ForEachAttrValue([this, curs](const Attribute& attr) {
         if (attr.data_case() != Attribute::kBufferRef) return;
