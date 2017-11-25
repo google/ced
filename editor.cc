@@ -102,8 +102,9 @@ void Editor::UpdateState(LogTimer* tmr, const EditNotification& state) {
       });
   buffers_.swap(new_buffers);
   for (auto& b : new_buffers) {
-    auto *p = b.second.buffer.release();
-    // buffer destruction can be slow and mutex-grabby... just do it in its own thread
+    auto* p = b.second.buffer.release();
+    // buffer destruction can be slow and mutex-grabby... just do it in its own
+    // thread
     std::thread([p]() { delete p; }).detach();
   }
 

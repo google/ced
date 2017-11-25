@@ -112,6 +112,7 @@ cc_library(
     ":fixit_collaborator",
     ":referenced_file_collaborator",
     ":io_collaborator",
+    ":regex_highlight_collaborator",
   ]
 )
 
@@ -168,6 +169,16 @@ cc_library(
     "@com_google_absl//absl/time",
     "@com_github_gflags_gflags//:gflags",
   ],
+)
+
+cc_library(
+  name = "regex_highlight_collaborator",
+  srcs = ["regex_highlight_collaborator.cc"],
+  deps = [
+    ":buffer",
+    '@com_googlesource_code_re2//:re2',
+  ],
+  alwayslink = 1,
 )
 
 cc_library(

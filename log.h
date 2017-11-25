@@ -14,6 +14,7 @@
 #pragma once
 
 #include <fcntl.h>
+#include <gflags/gflags.h>
 #include <unistd.h>
 #include <sstream>
 #include <vector>
@@ -21,7 +22,6 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "wrap_syscall.h"
-#include <gflags/gflags.h>
 
 DECLARE_string(logfile);
 
@@ -51,7 +51,8 @@ class Log : public std::ostringstream {
    public:
     LogFile() {
       hdl_ = WrapSyscall("open", []() {
-        return open(FLAGS_logfile.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, 0777);
+        return open(FLAGS_logfile.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC,
+                    0777);
       });
     }
 
