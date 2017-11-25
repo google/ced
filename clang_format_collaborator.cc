@@ -95,11 +95,10 @@ EditResponse ClangFormatCollaborator::Edit(
 }
 
 IMPL_COLLABORATOR(ClangFormatCollaborator, buffer) {
-  switch (buffer->language()) {
-    case Language::C:
-    case Language::Cpp:
-      return true;
-    default:
-      return false;
+  auto fext = buffer->filename().extension();
+  for (auto mext : {".c", ".cxx", ".cpp", ".C", ".cc", ".h", ".H", ".hpp",
+                    ".hxx", ".proto", ".js", ".java", ".m"}) {
+    if (fext == mext) return true;
   }
+  return false;
 }

@@ -67,18 +67,6 @@ Buffer::~Buffer() {
   }
 }
 
-static const std::unordered_map<std::string, Language> kExtToLanguage = {
-    {".cpp", Language::Cpp}, {".cc", Language::Cpp}, {".c", Language::C},
-    {".h", Language::Cpp},   {".s", Language::Asm},
-};
-
-Language Buffer::language() const {
-  auto ext = filename_.extension().string();
-  auto it = kExtToLanguage.find(ext);
-  if (it != kExtToLanguage.end()) return it->second;
-  return Language::Unknown;
-}
-
 void Buffer::AddCollaborator(AsyncCollaboratorPtr&& collaborator) {
   absl::MutexLock lock(&mu_);
   AsyncCollaborator* raw = collaborator.get();

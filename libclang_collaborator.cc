@@ -450,11 +450,10 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
 }
 
 IMPL_COLLABORATOR(LibClangCollaborator, buffer) {
-  switch (buffer->language()) {
-    case Language::C:
-    case Language::Cpp:
-      return true;
-    default:
-      return false;
+  auto fext = buffer->filename().extension();
+  for (auto mext : {".c", ".cxx", ".cpp", ".C", ".cc", ".h", ".H", ".hpp",
+                    ".hxx"}) {
+    if (fext == mext) return true;
   }
+  return false;
 }

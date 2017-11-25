@@ -25,7 +25,8 @@ class RegexHighlightCollaborator final : public SyncCollaborator {
       : SyncCollaborator("regex_highlight", absl::Seconds(0), absl::Seconds(0)),
         ed_(site()) {
     for (const auto& p : config) {
-      regex_to_scope_.emplace_back(std::unique_ptr<RE2>(new RE2(p.first)), p.second);
+      regex_to_scope_.emplace_back(std::unique_ptr<RE2>(new RE2(p.first)),
+                                   p.second);
     }
   }
 
@@ -46,7 +47,8 @@ class RegexHighlightCollaborator final : public SyncCollaborator {
     EditResponse r;
     AnnotationEditor::ScopedEdit edit(&ed_, &r.content_updates);
     while (!text.empty()) {
-        Log() << "SCAN c=" << (text.data() - orig.data()) << " l=" << text.length();
+      Log() << "SCAN c=" << (text.data() - orig.data())
+            << " l=" << text.length();
       for (const auto& p : regex_to_scope_) {
         auto bef = text;
         bool hit = RE2::Consume(&text, *p.first);
@@ -61,7 +63,7 @@ class RegexHighlightCollaborator final : public SyncCollaborator {
         }
       }
       text.remove_prefix(1);
-next:;
+    next:;
     }
 
     return r;

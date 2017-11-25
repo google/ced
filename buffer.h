@@ -103,13 +103,6 @@ class SyncCollaborator : public Collaborator {
 typedef std::unique_ptr<AsyncCollaborator> AsyncCollaboratorPtr;
 typedef std::unique_ptr<SyncCollaborator> SyncCollaboratorPtr;
 
-enum class Language {
-  Unknown,
-  C,
-  Cpp,
-  Asm,
-};
-
 class Buffer {
  public:
   Buffer(const boost::filesystem::path& filename,
@@ -128,7 +121,6 @@ class Buffer {
   }
 
   const boost::filesystem::path& filename() const { return filename_; }
-  Language language() const;
   bool read_only() const { return false; }
   bool synthetic() const { return synthetic_; }
 
