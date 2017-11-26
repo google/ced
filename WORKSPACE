@@ -222,3 +222,70 @@ cc_library(
 )
       """
 )
+
+#
+# gRPC bits
+#
+
+git_repository(
+  name = "grpc",
+  remote = 'https://github.com/grpc/grpc.git',
+  commit = 'de93112a3f70afa39d3e9aa87da165f9f737fdef'
+)
+
+new_http_archive(
+    name = "com_github_madler_zlib",
+    build_file = "BUILD.zlib",
+    strip_prefix = "zlib-cacf7f1d4e3d44d871b605da3b647f07d718623f",
+    url = "https://github.com/madler/zlib/archive/cacf7f1d4e3d44d871b605da3b647f07d718623f.tar.gz",
+)
+
+http_archive(
+    name = "boringssl",
+    # on the master-with-bazel branch
+    url = "https://boringssl.googlesource.com/boringssl/+archive/886e7d75368e3f4fab3f4d0d3584e4abfc557755.tar.gz",
+)
+
+new_http_archive(
+    name = "com_github_cares_cares",
+    build_file = "BUILD.cares",
+    strip_prefix = "c-ares-3be1924221e1326df520f8498d704a5c4c8d0cce",
+    url = "https://github.com/c-ares/c-ares/archive/3be1924221e1326df520f8498d704a5c4c8d0cce.tar.gz",
+)
+
+new_local_repository(
+    name = "cares_local_files",
+    build_file = "BUILD.cares_local_files",
+    path = 'third_party/cares'
+)
+
+# required binds...
+bind(
+    name = "protobuf",
+    actual = "@com_google_protobuf//:protobuf",
+)
+
+bind(
+    name = "protobuf_headers",
+    actual = "@com_google_protobuf//:protobuf_headers",
+)
+
+bind(
+    name = "zlib",
+    actual = "@com_github_madler_zlib//:z",
+)
+
+bind(
+    name = "libssl",
+    actual = "@boringssl//:ssl",
+)
+
+bind(
+    name = "cares",
+    actual = "@com_github_cares_cares//:ares",
+)
+
+bind(
+    name = "nanopb",
+    actual = "@grpc//third_party/nanopb",
+)
