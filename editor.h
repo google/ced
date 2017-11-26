@@ -67,10 +67,10 @@ class Editor : public std::enable_shared_from_this<Editor> {
   void InsChar(char c);
 
   template <class RC>
-  std::function<void(RC* ctx)> PrepareRender() {
+  std::function<void(RC* ctx)> PrepareRender(bool has_focus) {
     auto content = state_.content;
     std::shared_ptr<Editor> self = shared_from_this();
-    return [self, content](RC* ctx) {
+    return [self, content, has_focus](RC* ctx) {
       if (self->cursor_row_ < 0) {
         self->cursor_row_ = 0;
       } else if (self->cursor_row_ >= ctx->window->height()) {
@@ -174,7 +174,7 @@ class Editor : public std::enable_shared_from_this<Editor> {
             ncol++;
           }
           if (move_cursor) {
-            ctx->Move(nrow, ncol);
+            if (has_focus) ctx->Move(nrow, ncol);
             if ((base_flags & Theme::HIGHLIGHT_LINE) == 0) {
               ncol = 0;
               it = start_of_line;
