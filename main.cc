@@ -42,12 +42,14 @@ class Application : public std::enable_shared_from_this<Application> {
   void Quit() { done_ = true; }
 
   void Run() {
-    bool refresh = true;
+    bool was_invalidated = false;
     absl::Time last_key_press = absl::Now();
     std::unique_ptr<LogTimer> log_timer(new LogTimer("main_loop"));
     for (;;) {
       bool animating = false;
-      if (refresh) {
+      if (was_invalidated) {
+        animating = true;
+      } else {
         erase();
         animating = Render(log_timer.get(), last_key_press);
         log_timer->Mark("rendered");
@@ -59,12 +61,12 @@ class Application : public std::enable_shared_from_this<Application> {
       Log() << "GOTKEY: " << c;
       last_key_press = absl::Now();
 
-      refresh = true;
+      was_invalidated = false;
       switch (c) {
         case ERR:
           break;
         case KEY_RESIZE:
-          refresh = false;
+          was_invalidated = true;
           break;
         case 27:
           Quit();
@@ -77,9 +79,9 @@ class Application : public std::enable_shared_from_this<Application> {
 
       if (done_) return;
       bool expected = true;
-      refresh = invalidated.compare_exchange_strong(expected, false,
+      was_invalidated &= (invalidated.compare_exchange_strong(expected, false,
                                                     std::memory_order_relaxed,
-                                                    std::memory_order_relaxed);
+                                                    std::memory_order_relaxed));
 
       log_timer->Mark("signalled");
     }

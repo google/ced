@@ -29,7 +29,7 @@ std::vector<TerminalCollaborator*> TerminalCollaborator::all_;
 constexpr char ctrl(char c) { return c & 0x1f; }
 
 TerminalCollaborator::TerminalCollaborator(const Buffer* buffer)
-    : AsyncCollaborator("terminal", absl::Seconds(0), absl::Milliseconds(5)),
+    : AsyncCollaborator("terminal", absl::Seconds(0), absl::Seconds(0)),
       buffer_(buffer),
       editor_(Editor::Make(site())),
       recently_used_(false),
@@ -213,7 +213,7 @@ void TerminalCollaborator::ProcessKey(AppEnv* app_env, int key) {
       if (!MaybeProcessEditingKey(app_env, key, editor_)) {
         switch (key) {
           case ctrl('F'):
-            //state_ = State::FINDING;
+            // state_ = State::FINDING;
             break;
           case 10:
             editor_->InsNewLine();
@@ -221,7 +221,7 @@ void TerminalCollaborator::ProcessKey(AppEnv* app_env, int key) {
         }
       }
       break;
-#if 0      
+#if 0
     case State::FINDING:
       if (!MaybeProcessEditingKey(app_env, key, &find_editor_)) {
         switch (key) {

@@ -84,7 +84,7 @@ AnnotatedString AnnotatedString::Integrate(const CommandSet& commands) const {
 }
 
 void AnnotatedString::Integrate(const Command& cmd) {
-  Log() << "INTEGRATE: " << cmd.DebugString();
+  //Log() << "INTEGRATE: " << cmd.DebugString();
   switch (cmd.command_case()) {
     case Command::kInsert:
       IntegrateInsert(cmd.id(), cmd.insert());
@@ -142,8 +142,8 @@ void AnnotatedString::IntegrateInsertChar(ID id, char c, ID after, ID before) {
                 .Add(id, LineBreak{prev_line_id, prev_lb->next})
                 .Add(prev_lb->next, LineBreak{id, next_lb->next});
       }
-      Log() << "Woot " << after.id << " " << id.id << " " << before.id << " '"
-            << c << "'";
+      //Log() << "Woot " << after.id << " " << id.id << " " << before.id << " '"
+      //      << c << "'";
       chars_ = chars_
                    .Add(after,
                         CharInfo{caft->visible, caft->chr, id, caft->prev,
@@ -224,6 +224,7 @@ void AnnotatedString::IntegrateDelDecl(ID id) {
 
 void AnnotatedString::IntegrateMark(ID id, const Annotation& annotation) {
   if (graveyard_.Lookup(id)) return;
+  //Log() << "INTEGRATE_MARK: " << annotation.DebugString() << " into " << AsProto().DebugString();
   const auto* dc = attributes_.Lookup(annotation.attribute());
   assert(dc);
   annotations_ = annotations_.Add(id, *dc);
@@ -237,6 +238,8 @@ void AnnotatedString::IntegrateMark(ID id, const Annotation& annotation) {
     // ci->visible;
     assert(ci);
     auto next = ci->next;
+    //Log() << "loc=" << loc.id << " next=" << next.id;
+    assert(next != loc);
     if (ci->visible) {
       chars_ = chars_.Add(
           loc, CharInfo{ci->visible, ci->chr, ci->next, ci->prev, ci->after,
@@ -244,6 +247,7 @@ void AnnotatedString::IntegrateMark(ID id, const Annotation& annotation) {
     }
     loc = next;
   }
+  //Log() << "GOT: " << AsProto().DebugString();
 }
 
 void AnnotatedString::IntegrateDelMark(ID id) {
