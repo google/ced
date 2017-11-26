@@ -209,3 +209,16 @@ git_repository(
 
 load("@com_github_nelhage_boost//:boost/boost.bzl", "boost_deps")
 boost_deps()
+
+new_http_archive(
+      name = "dear_imgui",
+      urls = ['https://github.com/ocornut/imgui/archive/v1.52.tar.gz'],
+      strip_prefix = 'imgui-1.52',
+      build_file_content = """
+cc_library(
+  name = "imgui",
+  srcs = glob(['*.cpp']),
+  hdrs = glob(['*.h']),
+)
+      """
+)
