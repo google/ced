@@ -77,6 +77,23 @@ config_setting(
     visibility = ["//visibility:public"],
     )
 
+genrule(
+  name = 'src_hash_gen',
+  srcs = glob(['*', '**/*'], exclude=[
+    'bazel-*/*',
+    'bazel-*/**/*',
+    '.*/*',
+    '.*/**/*',
+  ]),
+  outs=['src_hash.cc'],
+  cmd='echo "const char* ced_src_hash=\\"`cat $(SRCS) | md5`\\";" > $(OUTS)',
+)
+
+cc_library(
+  name = 'src_hash',
+  srcs = ['src_hash.cc'],
+  hdrs = ['src_hash.h'],
+)
 
 cc_library(
   name = "avl",
@@ -98,6 +115,7 @@ cc_binary(
     ":standard_collaborator_types",
     ":buffer",
     ":terminal_collaborator",
+    ":src_hash",
     "@com_github_gflags_gflags//:gflags",
   ],
   linkopts = ["-lcurses", "-lpthread", "-ldl"]

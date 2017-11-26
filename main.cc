@@ -18,6 +18,7 @@
 #include "render.h"
 #include "terminal_collaborator.h"
 #include "terminal_color.h"
+#include "src_hash.h"
 
 constexpr char ctrl(char c) { return c & 037; }
 
@@ -139,7 +140,7 @@ void InvalidateTerminal() {
 
 int main(int argc, char** argv) {
   gflags::SetUsageMessage("ced <filename.{h,cc}>");
-  gflags::SetVersionString("0.0.0");
+  gflags::SetVersionString(ced_src_hash);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   if (argc != 2) {
     gflags::ShowUsageWithFlags(argv[0]);
