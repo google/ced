@@ -36,11 +36,22 @@ class AspectRegistry {
     fs_[-priority].push_back(f);
   }
 
+  void Register(std::function<ProjectAspectPtr(Project* project)> f,
+                int priority) {
+    fs_glob_[-priority].push_back(f);
+  }
+
   void ConstructInto(Project* project, const boost::filesystem::path& path,
                      std::vector<ProjectAspectPtr>* v) {
     for (const auto& pfs : fs_) {
       for (auto fn : pfs.second) {
         auto p = fn(project, path);
+        if (p) v->emplace_back(std::move(p));
+      }
+    }
+    for (const auto& pfs : fs_glob_) {
+      for (auto fn : pfs.second) {
+        auto p = fn(project);
         if (p) v->emplace_back(std::move(p));
       }
     }
@@ -50,6 +61,8 @@ class AspectRegistry {
   std::map<int, std::vector<std::function<ProjectAspectPtr(
                     Project*, const boost::filesystem::path& path)>>>
       fs_;
+  std::map<int, std::vector<std::function<ProjectAspectPtr(Project*)>>>
+      fs_glob_;
 };
 
 class SafeBackupAspect final : public ProjectAspect, public ProjectRoot {
@@ -69,6 +82,11 @@ void Project::RegisterAspectFactory(
                                    const boost::filesystem::path&)>
         f,
     int priority) {
+  AspectRegistry::Get().Register(f, priority);
+}
+
+void Project::RegisterGlobalAspectFactory(
+    std::function<ProjectAspectPtr(Project* project)> f, int priority) {
   AspectRegistry::Get().Register(f, priority);
 }
 

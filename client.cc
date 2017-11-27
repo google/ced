@@ -12,17 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <gflags/gflags.h>
-#include "application.h"
+#include "client.h"
+#include <grpc++/create_channel.h>
+#include <boost/filesystem.hpp>
+#include "project.h"
+#include "server.h"
 
-#define DEFAULT_MODE "CursesClient"
-DEFINE_string(mode, DEFAULT_MODE,
-              "Application mode (default " DEFAULT_MODE ")");
-
-int main(int argc, char** argv) {
-  gflags::SetUsageMessage("ced <filename.{h,cc}>");
-  gflags::SetVersionString("0.0.0");
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
-
-  return Application::RunMode(FLAGS_mode, argc, argv);
+Client::Client(const boost::filesystem::path& path) {
+  Project project(path);
+  auto root = project.aspect<ProjectRoot>();
+  if (!boost::filesystem::exists(root->LocalAddressPath())) {
+    SpawnServer(project);
+  }
+  auto channel = grpc::CreateChannel(root->LocalAddress(),
+                                     grpc::InsecureChannelCredentials());
+  project_stub_ = ProjectService::NewStub(channel);
 }

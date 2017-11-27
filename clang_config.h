@@ -19,10 +19,11 @@
 
 #include "project.h"
 
-boost::filesystem::path ClangToolPath(Project* project, const std::string& name);
+boost::filesystem::path ClangToolPath(Project* project,
+                                      const std::string& name);
 boost::filesystem::path ClangLibPath(Project* project, const std::string& name);
-boost::filesystem::path ClangCompileCommand(Project* project, 
-    const boost::filesystem::path& filename,
+boost::filesystem::path ClangCompileCommand(
+    Project* project, const boost::filesystem::path& filename,
     const boost::filesystem::path& src_file,
     const boost::filesystem::path& dst_file, std::vector<std::string>* args);
 void ClangCompileArgs(Project* project, const boost::filesystem::path& filename,

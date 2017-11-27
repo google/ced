@@ -11,18 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#pragma once
 
-#include <gflags/gflags.h>
-#include "application.h"
+#include <boost/filesystem/path.hpp>
+#include "proto/project_service.grpc.pb.h"
 
-#define DEFAULT_MODE "CursesClient"
-DEFINE_string(mode, DEFAULT_MODE,
-              "Application mode (default " DEFAULT_MODE ")");
+class Client {
+ public:
+  Client(const boost::filesystem::path& project_root_hint);
 
-int main(int argc, char** argv) {
-  gflags::SetUsageMessage("ced <filename.{h,cc}>");
-  gflags::SetVersionString("0.0.0");
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
-
-  return Application::RunMode(FLAGS_mode, argc, argv);
-}
+ private:
+  std::unique_ptr<ProjectService::Stub> project_stub_;
+};

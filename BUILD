@@ -112,14 +112,18 @@ cc_binary(
   deps = [
     ":standard_project_types",
     ":standard_collaborator_types",
-    ":buffer",
-    ":terminal_collaborator",
-    ":src_hash",
-    "//proto:project_service",
+    ":application_modes",
+    ":application",
     "@com_github_gflags_gflags//:gflags",
-    ":server",
   ],
   linkopts = ["-lcurses", "-lpthread", "-ldl"]
+)
+
+cc_library(
+  name = "application_modes",
+  deps = [
+    ":curses_client",
+  ]
 )
 
 cc_library(
@@ -549,4 +553,32 @@ cc_library(
   name = "server",
   hdrs = ["server.h"],
   deps = [":project"],
+)
+
+cc_library(
+  name = "application",
+  hdrs = ["application.h"],
+  srcs = ["application.cc"],
+)
+
+cc_library(
+  name = "client",
+  hdrs = ["client.h"],
+  srcs = ["client.cc"],
+  deps = [
+    "//proto:project_service",
+    ":server",
+  ]
+)
+
+cc_library(
+  name = "curses_client",
+  srcs = ["curses_client.cc"],
+  deps = [
+    ":buffer",
+    ":terminal_collaborator",
+    ":client",
+    ":application",
+  ],
+  alwayslink = 1,
 )

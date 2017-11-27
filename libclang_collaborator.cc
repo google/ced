@@ -40,7 +40,8 @@ namespace {
 
 class ClangEnv : public LibClang, public ProjectAspect {
  public:
-  ClangEnv(Project* project) : LibClang(ClangLibPath(project, "clang").c_str()) {
+  ClangEnv(Project* project)
+      : LibClang(ClangLibPath(project, "clang").c_str()) {
     if (!dlhdl) throw std::runtime_error("Failed opening libclang");
     index_ = this->clang_createIndex(1, 0);
   }

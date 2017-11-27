@@ -151,7 +151,7 @@ class Buffer {
   void UpdateState(Collaborator* collaborator, bool become_used,
                    std::function<void(EditNotification& new_state)>);
 
-Project* const project_;
+  Project* const project_;
   mutable absl::Mutex mu_;
   const bool synthetic_;
   uint64_t version_ GUARDED_BY(mu_);
