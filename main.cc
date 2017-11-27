@@ -16,9 +16,15 @@
 #include <signal.h>
 #include "buffer.h"
 #include "render.h"
+#include "src_hash.h"
 #include "terminal_collaborator.h"
 #include "terminal_color.h"
-#include "src_hash.h"
+#include "project.h"
+#include "server.h"
+
+#undef OK
+#include "proto/project_service.grpc.pb.h"
+#include <grpc++/create_channel.h>
 
 constexpr char ctrl(char c) { return c & 037; }
 
@@ -26,7 +32,7 @@ static std::atomic<bool> invalidated;
 
 class Application : public std::enable_shared_from_this<Application> {
  public:
-  Application(const char* filename) : done_(false), buffer_(filename) {
+  Application(const char* filename) : done_(false), buffer_(nullptr, filename) {
     auto theme = std::unique_ptr<Theme>(new Theme(Theme::DEFAULT));
     initscr();
     raw();
@@ -80,9 +86,9 @@ class Application : public std::enable_shared_from_this<Application> {
 
       if (done_) return;
       bool expected = true;
-      was_invalidated &= (invalidated.compare_exchange_strong(expected, false,
-                                                    std::memory_order_relaxed,
-                                                    std::memory_order_relaxed));
+      was_invalidated &= (invalidated.compare_exchange_strong(
+          expected, false, std::memory_order_relaxed,
+          std::memory_order_relaxed));
 
       log_timer->Mark("signalled");
     }
@@ -146,6 +152,18 @@ int main(int argc, char** argv) {
     gflags::ShowUsageWithFlags(argv[0]);
     return 1;
   }
+
+  std::unique_ptr<ProjectService::Stub> stub;
+  {
+    Project project(argv[1]);
+    auto root = project.aspect<ProjectRoot>();
+    if (!boost::filesystem::exists(root->LocalAddressPath())) {
+      SpawnServer(project);
+    }
+    auto channel = grpc::CreateChannel(root->LocalAddress(), grpc::InsecureChannelCredentials());
+    stub = ProjectService::NewStub(channel);
+  }
+
   try {
     Application(argv[1]).Run();
   } catch (std::exception& e) {

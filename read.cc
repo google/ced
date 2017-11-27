@@ -18,11 +18,11 @@
 #include <unistd.h>
 #include "wrap_syscall.h"
 
-std::string Read(const std::string& filename) {
+std::string Read(const boost::filesystem::path& filename) {
   std::string out;
 
-  int fd =
-      WrapSyscall("open", [&]() { return open(filename.c_str(), O_RDONLY); });
+  int fd = WrapSyscall(
+      "open", [&]() { return open(filename.string().c_str(), O_RDONLY); });
   char buf[16384];
   int n;
   do {

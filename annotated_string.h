@@ -16,9 +16,9 @@
 #include <stdint.h>
 #include <atomic>
 #include "absl/strings/string_view.h"
-#include "annotation.pb.h"
 #include "avl.h"
 #include "log.h"
+#include "proto/annotation.pb.h"
 
 union ID {
   ID() { id = 0; }

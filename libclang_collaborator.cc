@@ -38,11 +38,11 @@ class LibClangCollaborator final : public SyncCollaborator {
 
 namespace {
 
-class ClangEnv : public LibClang {
+class ClangEnv : public LibClang, public ProjectAspect {
  public:
-  static ClangEnv* Get() {
-    static ClangEnv env;
-    return &env;
+  ClangEnv(Project* project) : LibClang(ClangLibPath(project, "clang").c_str()) {
+    if (!dlhdl) throw std::runtime_error("Failed opening libclang");
+    index_ = this->clang_createIndex(1, 0);
   }
 
   ~ClangEnv() { clang_disposeIndex(index_); }
@@ -75,15 +75,14 @@ class ClangEnv : public LibClang {
   CXIndex index() const EXCLUSIVE_LOCKS_REQUIRED(mu_) { return index_; }
 
  private:
-  ClangEnv() : LibClang(ClangLibPath("clang").c_str()) {
-    if (!dlhdl) throw std::runtime_error("Failed opening libclang");
-    index_ = this->clang_createIndex(1, 0);
-  }
-
   absl::Mutex mu_;
   CXIndex index_ GUARDED_BY(mu_);
   std::unordered_map<std::string, std::string> unsaved_files_ GUARDED_BY(mu_);
 };
+
+IMPL_PROJECT_GLOBAL_ASPECT(ClangEnv, project, 0) {
+  return std::unique_ptr<ProjectAspect>(new ClangEnv(project));
+}
 
 }  // namespace
 
@@ -94,7 +93,7 @@ LibClangCollaborator::LibClangCollaborator(const Buffer* buffer)
       ed_(site()) {}
 
 LibClangCollaborator::~LibClangCollaborator() {
-  ClangEnv* env = ClangEnv::Get();
+  ClangEnv* env = buffer_->project()->aspect<ClangEnv>();
   absl::MutexLock lock(env->mu());
   env->ClearUnsavedFile(buffer_->filename());
 
@@ -183,7 +182,7 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
 
   auto filename = buffer_->filename();
 
-  ClangEnv* env = ClangEnv::Get();
+  ClangEnv* env = buffer_->project()->aspect<ClangEnv>();
 
   std::string str;
   std::vector<ID> ids;
@@ -208,7 +207,7 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
   absl::MutexLock lock(env->mu());
   env->UpdateUnsavedFile(filename, str);
   std::vector<std::string> cmd_args_strs;
-  ClangCompileArgs(filename, &cmd_args_strs);
+  ClangCompileArgs(buffer_->project(), filename, &cmd_args_strs);
   std::vector<const char*> cmd_args;
   for (auto& arg : cmd_args_strs) {
     cmd_args.push_back(arg.c_str());
@@ -353,14 +352,14 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
     env->clang_visitChildren(
         env->clang_getTranslationUnitCursor(tu),
         +[](CXCursor cursor, CXCursor parent, CXClientData client_data) {
-          ClangEnv* env = ClangEnv::Get();
+          LibClangCollaborator* self =
+              static_cast<LibClangCollaborator*>(client_data);
+          ClangEnv* env = self->buffer_->project()->aspect<ClangEnv>();
           if (env->clang_getCursorKind(cursor) == CXCursor_InclusionDirective) {
             CXFile file = env->clang_getIncludedFile(cursor);
             if (file) {
               CXString filename = env->clang_getFileName(file);
               const char* fn = env->clang_getCString(filename);
-              LibClangCollaborator* self =
-                  static_cast<LibClangCollaborator*>(client_data);
               Attribute attr;
               attr.mutable_dependency()->set_filename(fn);
               self->ed_.AttrID(attr);

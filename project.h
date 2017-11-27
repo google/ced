@@ -13,10 +13,13 @@
 // limitations under the License.
 #pragma once
 
+#include <boost/filesystem/path.hpp>
 #include <functional>
 #include <memory>
 #include <string>
 #include <vector>
+#include "absl/strings/str_cat.h"
+#include "src_hash.h"
 
 class ProjectAspect {
  public:
@@ -26,23 +29,32 @@ typedef std::unique_ptr<ProjectAspect> ProjectAspectPtr;
 
 class ProjectRoot {
  public:
-  virtual std::string Path() const = 0;
+  virtual boost::filesystem::path Path() const = 0;
+
+  boost::filesystem::path LocalAddressPath() const {
+    return (Path() / ".cedport." / ced_src_hash).string();
+  }
+
+  std::string LocalAddress() const {
+    return absl::StrCat("unix:", LocalAddressPath().string());
+  }
 };
 
 class ConfigFile {
  public:
-  virtual std::string Config() const = 0;
+  virtual boost::filesystem::path Config() const = 0;
 };
 
 class Project {
  public:
-  static Project& Get() {
-    static Project project;
-    return project;
-  }
+  Project(const boost::filesystem::path& path_hint);
 
   static void RegisterAspectFactory(
-      std::function<ProjectAspectPtr(const std::string& path)>, int priority);
+      std::function<ProjectAspectPtr(Project* project,
+                                     const boost::filesystem::path& path)>,
+      int priority);
+  static void RegisterGlobalAspectFactory(
+      std::function<ProjectAspectPtr(Project* project)>, int priority);
 
   template <class T>
   T* aspect() {
@@ -54,33 +66,39 @@ class Project {
   }
 
   template <class T>
-  static T* GetAspect() {
-    return Get().aspect<T>();
-  }
-
-  template <class T>
-  static void ForEachAspect(std::function<void(T*)> f) {
-    for (const auto& pa : Get().aspects_) {
+  void ForEachAspect(std::function<void(T*)> f) {
+    for (const auto& pa : aspects_) {
       T* pt = dynamic_cast<T*>(pa.get());
       if (pt != nullptr) f(pt);
     }
   }
 
  private:
-  Project();
-
   std::vector<ProjectAspectPtr> aspects_;
 };
 
-#define IMPL_PROJECT_ASPECT(name, path_arg, priority)                         \
+#define IMPL_PROJECT_ASPECT(name, proj_arg, path_arg, priority)               \
   namespace {                                                                 \
   class name##_impl {                                                         \
    public:                                                                    \
     static std::unique_ptr<ProjectAspect> Construct(                          \
-        const std::string& path_arg);                                         \
+        Project* proj_arg, const boost::filesystem::path& path_arg);          \
     name##_impl() { Project::RegisterAspectFactory(&Construct, (priority)); } \
   };                                                                          \
   name##_impl impl;                                                           \
   }                                                                           \
   std::unique_ptr<ProjectAspect> name##_impl::Construct(                      \
-      const std::string& path_arg)
+      Project* proj_arg, const boost::filesystem::path& path_arg)
+
+#define IMPL_PROJECT_GLOBAL_ASPECT(name, proj_arg, priority)            \
+  namespace {                                                           \
+  class name##_impl {                                                   \
+   public:                                                              \
+    static std::unique_ptr<ProjectAspect> Construct(Project* proj_arg); \
+    name##_impl() {                                                     \
+      Project::RegisterGlobalAspectFactory(&Construct, (priority));     \
+    }                                                                   \
+  };                                                                    \
+  name##_impl impl;                                                     \
+  }                                                                     \
+  std::unique_ptr<ProjectAspect> name##_impl::Construct(Project* proj_arg)

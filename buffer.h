@@ -21,6 +21,8 @@
 #include "annotated_string.h"
 #include "selector.h"
 
+class Project;
+
 struct EditNotification {
   bool fully_loaded = false;
   bool shutdown = false;
@@ -105,7 +107,7 @@ typedef std::unique_ptr<SyncCollaborator> SyncCollaboratorPtr;
 
 class Buffer {
  public:
-  Buffer(const boost::filesystem::path& filename,
+  Buffer(Project* project, const boost::filesystem::path& filename,
          absl::optional<AnnotatedString> initial_string =
              absl::optional<AnnotatedString>());
   ~Buffer();
@@ -119,6 +121,8 @@ class Buffer {
     AddCollaborator(std::unique_ptr<T>(p));
     return p;
   }
+
+  Project* project() const { return project_; }
 
   const boost::filesystem::path& filename() const { return filename_; }
   bool read_only() const { return false; }
@@ -147,6 +151,7 @@ class Buffer {
   void UpdateState(Collaborator* collaborator, bool become_used,
                    std::function<void(EditNotification& new_state)>);
 
+Project* const project_;
   mutable absl::Mutex mu_;
   const bool synthetic_;
   uint64_t version_ GUARDED_BY(mu_);

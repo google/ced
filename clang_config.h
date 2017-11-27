@@ -17,11 +17,13 @@
 #include <string>
 #include <vector>
 
-boost::filesystem::path ClangToolPath(const std::string& name);
-boost::filesystem::path ClangLibPath(const std::string& name);
-boost::filesystem::path ClangCompileCommand(
+#include "project.h"
+
+boost::filesystem::path ClangToolPath(Project* project, const std::string& name);
+boost::filesystem::path ClangLibPath(Project* project, const std::string& name);
+boost::filesystem::path ClangCompileCommand(Project* project, 
     const boost::filesystem::path& filename,
     const boost::filesystem::path& src_file,
     const boost::filesystem::path& dst_file, std::vector<std::string>* args);
-void ClangCompileArgs(const boost::filesystem::path& filename,
+void ClangCompileArgs(Project* project, const boost::filesystem::path& filename,
                       std::vector<std::string>* args);

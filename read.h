@@ -13,6 +13,7 @@
 // limitations under the License.
 #pragma once
 
+#include <boost/filesystem/path.hpp>
 #include <string>
 
-std::string Read(const std::string& filename);
+std::string Read(const boost::filesystem::path& filename);

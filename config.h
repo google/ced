@@ -15,6 +15,7 @@
 
 #include <boost/filesystem/path.hpp>
 #include "absl/synchronization/mutex.h"
+#include "project.h"
 #include "yaml-cpp/yaml.h"
 
 namespace YAML {
@@ -29,24 +30,27 @@ struct convert<boost::filesystem::path> {
 
 }  // namespace YAML
 
+class ConfigRegistry;
+
 class ConfigWatcher {
  public:
   ~ConfigWatcher();
 
  protected:
-  void RegisterWatcher(const std::string& path);
+  void RegisterWatcher(Project* project, const std::string& path);
 
  private:
   friend class ConfigRegistry;
+  ConfigRegistry* registry_ = nullptr;
   virtual void Set(YAML::Node node) = 0;
 };
 
 template <class T>
 class Config final : public ConfigWatcher {
  public:
-  Config(const std::string& path, const T& def = T())
+  Config(Project* project, const std::string& path, const T& def = T())
       : default_(def), value_(def) {
-    RegisterWatcher(path);
+    RegisterWatcher(project, path);
   }
 
   T get() const {
@@ -68,9 +72,10 @@ class Config final : public ConfigWatcher {
 template <>
 class Config<std::string> final : public ConfigWatcher {
  public:
-  Config(const std::string& path, const std::string& def = std::string())
+  Config(Project* project, const std::string& path,
+         const std::string& def = std::string())
       : default_(def), value_(def) {
-    RegisterWatcher(path);
+    RegisterWatcher(project, path);
   }
 
   std::string get() const {
@@ -92,8 +97,9 @@ class Config<std::string> final : public ConfigWatcher {
 template <class K, class V>
 class Config<std::map<K, V>> final : public ConfigWatcher {
  public:
-  Config(const std::string& path, const V& def = V()) : def_(def) {
-    RegisterWatcher(path);
+  Config(Project* project, const std::string& path, const V& def = V())
+      : def_(def) {
+    RegisterWatcher(project, path);
   }
 
   const V& get(const K& k) {

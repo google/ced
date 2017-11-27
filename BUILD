@@ -14,7 +14,6 @@
 
 load('//:rules.bzl', 'file2lib')
 load("@compiledb//:aspects.bzl", "compilation_database")
-load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
 
 compilation_database(
     name = "compilation_database",
@@ -116,7 +115,9 @@ cc_binary(
     ":buffer",
     ":terminal_collaborator",
     ":src_hash",
+    "//proto:project_service",
     "@com_github_gflags_gflags//:gflags",
+    ":server",
   ],
   linkopts = ["-lcurses", "-lpthread", "-ldl"]
 )
@@ -365,14 +366,18 @@ cc_library(
     name = "read",
     srcs = ["read.cc"],
     hdrs = ["read.h"],
-    deps = [":wrap_syscall"],
+    deps = [":wrap_syscall", "@boost//:filesystem"],
 )
 
 cc_library(
   name = "project",
   srcs = ["project.cc"],
   hdrs = ["project.h"],
-  deps = ["@com_google_absl//absl/strings"]
+  deps = [
+      "@com_google_absl//absl/strings", 
+      ":src_hash",
+      "@boost//:filesystem"
+  ]
 )
 
 cc_library(
@@ -533,16 +538,15 @@ cc_binary(
   linkopts = ["-lpthread"]
 )
 
-cc_proto_library(
-  name = "annotation",
-  srcs = ["annotation.proto"],
-  protoc = "@com_google_protobuf//:protoc",
-  default_runtime = "@com_google_protobuf//:protobuf",
-)
-
 cc_library(
   name = "annotated_string",
   hdrs = ["annotated_string.h"],
   srcs = ["annotated_string.cc"],
-  deps = [":annotation", ":avl", ":log", "@com_google_absl//absl/strings"]
+  deps = ["//proto:annotation", ":avl", ":log", "@com_google_absl//absl/strings"]
+)
+
+cc_library(
+  name = "server",
+  hdrs = ["server.h"],
+  deps = [":project"],
 )

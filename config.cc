@@ -18,7 +18,7 @@
 #include "project.h"
 #include "yaml-cpp/yaml.h"
 
-class ConfigRegistry {
+class ConfigRegistry : public ProjectAspect {
  public:
   void RegisterWatcher(ConfigWatcher* watcher, const std::string& path) {
     absl::MutexLock lock(&mu_);
@@ -31,27 +31,22 @@ class ConfigRegistry {
     paths_.erase(watcher);
   }
 
-  static ConfigRegistry& Get() {
-    static ConfigRegistry registry;
-    return registry;
-  }
-
- private:
-  ConfigRegistry() {
-    const char* home = getenv("HOME");
-    std::vector<std::string> cfg_paths{
-        absl::StrCat(home, "/.config/ced/config.yaml"),
+  ConfigRegistry(Project* project) {
+    boost::filesystem::path home = getenv("HOME");
+    std::vector<boost::filesystem::path> cfg_paths{
+        home / ".config" / "ced" / "config.yaml",
     };
     for (auto c : cfg_paths) {
       LoadConfig(c);
     }
-    Project::ForEachAspect<ConfigFile>(
+    project->ForEachAspect<ConfigFile>(
         [this](ConfigFile* a) { LoadConfig(a->Config()); });
   }
 
-  void LoadConfig(const std::string& filename) {
+ private:
+  void LoadConfig(const boost::filesystem::path& filename) {
     try {
-      configs_.push_back(YAML::LoadFile(filename));
+      configs_.push_back(YAML::LoadFile(filename.string()));
     } catch (std::exception& e) {
     }
   }
@@ -78,8 +73,14 @@ class ConfigRegistry {
   std::vector<YAML::Node> configs_;
 };
 
-void ConfigWatcher::RegisterWatcher(const std::string& path) {
-  ConfigRegistry::Get().RegisterWatcher(this, path);
+void ConfigWatcher::RegisterWatcher(Project* project, const std::string& path) {
+  assert(registry_ == nullptr);
+  registry_ = project->aspect<ConfigRegistry>();
+  registry_->RegisterWatcher(this, path);
 }
 
-ConfigWatcher::~ConfigWatcher() { ConfigRegistry::Get().RemoveWatcher(this); }
+ConfigWatcher::~ConfigWatcher() { registry_->RemoveWatcher(this); }
+
+IMPL_PROJECT_GLOBAL_ASPECT(ConfigRegistry, project, 0) {
+  return std::unique_ptr<ProjectAspect>(new ConfigRegistry(project));
+}

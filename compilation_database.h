@@ -23,7 +23,7 @@ class CompilationDatabase {
  public:
   CompilationDatabase();
   virtual ~CompilationDatabase();
-  virtual std::string CompileCommandsFile() const = 0;
+  virtual boost::filesystem::path CompileCommandsFile() const = 0;
 
   bool ClangCompileArgs(const boost::filesystem::path& filename,
                         std::vector<std::string>* args);

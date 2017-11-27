@@ -87,8 +87,9 @@ void TerminalCollaborator::Render(TerminalRenderContainers containers) {
    * edit item
    */
   (buffer_->synthetic() ? containers.side_bar : containers.main)
-      .AddItem(LAY_LEFT | LAY_VFILL,
-               editor_->PrepareRender<TerminalRenderContext>(!buffer_->synthetic()))
+      .AddItem(
+          LAY_LEFT | LAY_VFILL,
+          editor_->PrepareRender<TerminalRenderContext>(!buffer_->synthetic()))
       .FixSize(80, 0);
 
   if (FLAGS_buffer_profile_display) {

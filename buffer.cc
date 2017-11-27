@@ -39,9 +39,9 @@ class CollaboratorRegistry {
 
 }  // namespace
 
-Buffer::Buffer(const boost::filesystem::path& filename,
+Buffer::Buffer(Project* project, const boost::filesystem::path& filename,
                absl::optional<AnnotatedString> initial_string)
-    : synthetic_(initial_string),
+    : project_(project), synthetic_(initial_string),
       version_(0),
       updating_(false),
       last_used_(absl::Now() - absl::Seconds(1000000)),

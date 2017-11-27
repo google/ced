@@ -34,12 +34,6 @@
 #define PLAT_LIB_SFX ".so"
 #endif
 
-static Config<std::string> clang_version("project.clang-version");
-static ConfigMap<std::string, boost::filesystem::path> clang_location(
-    "clang.location");
-static Config<std::string> compile_commands_regen(
-    "project.compile-commands-regen");
-
 static std::vector<boost::filesystem::path> Path() {
   const char* path = getenv("PATH");
   std::vector<boost::filesystem::path> out;
@@ -49,7 +43,10 @@ static std::vector<boost::filesystem::path> Path() {
   return out;
 }
 
-boost::filesystem::path ClangToolPath(const std::string& tool_name) {
+boost::filesystem::path ClangToolPath(Project* project, const std::string& tool_name) {
+ Config<std::string> clang_version(project, "project.clang-version");
+ ConfigMap<std::string, boost::filesystem::path> clang_location(
+    project, "clang.location");
   auto version = clang_version.get();
   if (!version.empty()) {
     auto path = clang_location.get(version);
@@ -70,7 +67,10 @@ boost::filesystem::path ClangToolPath(const std::string& tool_name) {
       absl::StrCat("Clang tool '", tool_name, "' not found"));
 }
 
-boost::filesystem::path ClangLibPath(const std::string& lib_base) {
+boost::filesystem::path ClangLibPath(Project* project, const std::string& lib_base) {
+   Config<std::string> clang_version(project, "project.clang-version");
+ ConfigMap<std::string, boost::filesystem::path> clang_location(
+    project, "clang.location");
   auto lib_name = absl::StrCat(PLAT_LIB_PFX, lib_base, PLAT_LIB_SFX);
   auto version = clang_version.get();
   if (!version.empty()) {
@@ -128,9 +128,12 @@ End of search list.
   }
 }
 
-void ClangCompileArgs(const boost::filesystem::path& filename,
+void ClangCompileArgs(Project* project, const boost::filesystem::path& filename,
                       std::vector<std::string>* args) {
-  if (CompilationDatabase* db = Project::GetAspect<CompilationDatabase>()) {
+ Config<std::string> clang_version(project, "project.clang-version");
+ ConfigMap<std::string, boost::filesystem::path> clang_location(
+    project, "clang.location");
+  if (CompilationDatabase* db = project->aspect<CompilationDatabase>()) {
     if (db->ClangCompileArgs(filename, args)) {
       return;
     }
@@ -143,13 +146,13 @@ void ClangCompileArgs(const boost::filesystem::path& filename,
 #ifdef __APPLE__
   for (auto path : Path()) {
     auto cmd = path / "clang";
-    if (boost::filesystem::exists(cmd) && cmd != ClangToolPath("clang")) {
+    if (boost::filesystem::exists(cmd) && cmd != ClangToolPath(project, "clang")) {
       ExtractIncludePathsFromTool(cmd, args);
     }
   }
 #endif
 
-  ExtractIncludePathsFromTool(ClangToolPath("clang"), args);
+  ExtractIncludePathsFromTool(ClangToolPath(project, "clang"), args);
 
   char cwd[MAXPATHLEN];
   getcwd(cwd, sizeof(cwd));
@@ -169,11 +172,11 @@ void ClangCompileArgs(const boost::filesystem::path& filename,
   }
 }
 
-boost::filesystem::path ClangCompileCommand(
+boost::filesystem::path ClangCompileCommand(Project* project, 
     const boost::filesystem::path& filename,
     const boost::filesystem::path& src_file,
     const boost::filesystem::path& dst_file, std::vector<std::string>* args) {
-  ClangCompileArgs(filename, args);
+  ClangCompileArgs(project, filename, args);
 
   args->push_back("-g");
   args->push_back("-O2");
@@ -184,5 +187,5 @@ boost::filesystem::path ClangCompileCommand(
   args->push_back(dst_file.string());
   args->push_back(src_file.string());
 
-  return ClangToolPath("clang++");
+  return ClangToolPath(project, "clang++");
 }

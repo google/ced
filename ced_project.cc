@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include <boost/filesystem.hpp>
 #include "absl/strings/str_cat.h"
 #include "project.h"
 
@@ -18,19 +19,18 @@ class CedProject final : public ProjectAspect,
                          public ProjectRoot,
                          public ConfigFile {
  public:
-  CedProject(const std::string& root) : root_(root) {}
+  CedProject(const boost::filesystem::path& root) : root_(root) {}
 
-  std::string Path() const override { return root_; }
-  std::string Config() const override { return absl::StrCat(root_, "/.ced"); }
+  boost::filesystem::path Path() const override { return root_; }
+  boost::filesystem::path Config() const override { return root_ / ".ced"; }
 
  private:
-  std::string root_;
+  boost::filesystem::path root_;
 };
 
-IMPL_PROJECT_ASPECT(Ced, path, 1000) {
-  FILE* f = fopen(absl::StrCat(path, "/.ced").c_str(), "r");
-  if (!f) return nullptr;
-  fclose(f);
-
-  return std::unique_ptr<ProjectAspect>(new CedProject(path));
+IMPL_PROJECT_ASPECT(Ced, project, path, 1000) {
+  if (boost::filesystem::exists(path / ".ced")) {
+    return std::unique_ptr<ProjectAspect>(new CedProject(path));
+  }
+  return nullptr;
 }

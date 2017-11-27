@@ -96,7 +96,7 @@ void Editor::UpdateState(LogTimer* tmr, const EditNotification& state) {
           AnnotatedString s;
           s.Insert(site_, attr.buffer().contents(), AnnotatedString::Begin());
           new_buffers.emplace(id, BufferInfo{std::unique_ptr<Buffer>(new Buffer(
-                                                 attr.buffer().name(), s)),
+                                                 nullptr, attr.buffer().name(), s)),
                                              AnnotationEditor(site_)});
         }
       });

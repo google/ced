@@ -14,6 +14,7 @@
 #include "project.h"
 #include <sys/param.h>
 #include <unistd.h>
+#include <boost/filesystem.hpp>
 #include <iostream>
 #include <stdexcept>
 #include "absl/strings/str_join.h"
@@ -28,56 +29,58 @@ class AspectRegistry {
     return registry;
   }
 
-  void Register(std::function<ProjectAspectPtr(const std::string& path)> f,
+  void Register(std::function<ProjectAspectPtr(
+                    Project* project, const boost::filesystem::path& path)>
+                    f,
                 int priority) {
     fs_[-priority].push_back(f);
   }
 
-  void ConstructInto(const std::string& path,
+  void ConstructInto(Project* project, const boost::filesystem::path& path,
                      std::vector<ProjectAspectPtr>* v) {
     for (const auto& pfs : fs_) {
       for (auto fn : pfs.second) {
-        auto p = fn(path);
+        auto p = fn(project, path);
         if (p) v->emplace_back(std::move(p));
       }
     }
   }
 
  private:
-  std::map<int, std::vector<
-                    std::function<ProjectAspectPtr(const std::string& path)>>>
+  std::map<int, std::vector<std::function<ProjectAspectPtr(
+                    Project*, const boost::filesystem::path& path)>>>
       fs_;
 };
 
 class SafeBackupAspect final : public ProjectAspect, public ProjectRoot {
  public:
-  SafeBackupAspect(const std::string& cwd) : cwd_(cwd) {}
+  SafeBackupAspect(const boost::filesystem::path& cwd) : cwd_(cwd) {}
 
-  std::string Path() const override { return cwd_; }
+  boost::filesystem::path Path() const override { return cwd_; }
 
  private:
-  std::string cwd_;
+  boost::filesystem::path cwd_;
 };
 
 }  // namespace
 
 void Project::RegisterAspectFactory(
-    std::function<ProjectAspectPtr(const std::string&)> f, int priority) {
+    std::function<ProjectAspectPtr(Project* project,
+                                   const boost::filesystem::path&)>
+        f,
+    int priority) {
   AspectRegistry::Get().Register(f, priority);
 }
 
-Project::Project() {
-  // some path above this one is the root of the project... let's try to figure
-  // that out based on whatever hints we might see
-  char cwd[MAXPATHLEN];
-  if (nullptr == getcwd(cwd, sizeof(cwd))) {
-    throw std::runtime_error("Couldn't get cwd");
+Project::Project(const boost::filesystem::path& root_hint) {
+  boost::filesystem::path path = boost::filesystem::absolute(root_hint);
+  if (!boost::filesystem::is_directory(path)) {
+    path = path.parent_path();
   }
-  std::vector<absl::string_view> segments = absl::StrSplit(cwd, '/');
-  while (!segments.empty()) {
-    auto path = absl::StrJoin(segments, "/");
-    AspectRegistry::Get().ConstructInto(path, &aspects_);
-    segments.pop_back();
+  boost::filesystem::path bottom = path;
+  while (!path.empty()) {
+    AspectRegistry::Get().ConstructInto(this, path, &aspects_);
+    path = path.parent_path();
   }
-  aspects_.emplace_back(new SafeBackupAspect(cwd));
+  aspects_.emplace_back(new SafeBackupAspect(bottom));
 }

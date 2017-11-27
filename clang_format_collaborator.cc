@@ -37,7 +37,7 @@ EditResponse ClangFormatCollaborator::Edit(
   if (!notification.fully_loaded) return response;
   auto str = notification.content;
   auto text = str.Render();
-  auto clang_format = ClangToolPath("clang-format");
+  auto clang_format = ClangToolPath(buffer_->project(), "clang-format");
   Log() << "clang-format command: " << clang_format;
   auto res =
       run(clang_format,

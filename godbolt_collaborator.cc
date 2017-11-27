@@ -52,7 +52,7 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   auto text = str.Render();
   NamedTempFile tmpf;
   std::vector<std::string> args;
-  auto cmd = ClangCompileCommand(buffer_->filename().string(), "-",
+  auto cmd = ClangCompileCommand(buffer_->project(), buffer_->filename().string(), "-",
                                  tmpf.filename(), &args);
   Log() << cmd << " " << absl::StrJoin(args, " ");
   if (run(cmd, args, text).status != 0) {

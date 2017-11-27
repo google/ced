@@ -11,17 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include <iostream>
+#pragma once
+
 #include "project.h"
 
-int main(int argc, char** argv) {
-  Project proj(argc >= 2 ? argv[1] : ".");
-  std::cerr << proj.aspect<ProjectRoot>()->Path() << "\n";
-
-  std::cerr << "Project files:";
-  proj.ForEachAspect<ConfigFile>(
-      [](ConfigFile* f) { std::cerr << " " << f->Config(); });
-  std::cerr << "\n";
-
-  return 0;
-}
+void SpawnServer(const Project& project);

@@ -266,6 +266,31 @@ bind(
 )
 
 bind(
+    name = "protobuf_clib",
+    actual = "@com_google_protobuf//:protoc_lib",
+)
+
+bind(
+    name = "protocol_compiler",
+    actual = "@com_google_protobuf//:protoc",
+)
+
+bind(
+    name = "grpc_cpp_plugin",
+    actual = "@grpc//:grpc_cpp_plugin",
+)
+
+bind(
+    name = "grpc++",
+    actual = "@grpc//:grpc++",
+)
+
+bind(
+    name = "grpc++_codegen_proto",
+    actual = "@grpc//:grpc++_codegen_proto",
+)
+
+bind(
     name = "protobuf_headers",
     actual = "@com_google_protobuf//:protobuf_headers",
 )
