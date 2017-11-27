@@ -44,6 +44,7 @@ int Application::RunMode(const std::string& mode, int argc, char** argv) {
   if (mode == "list") {
     std::cout << "Available modes:\n";
     int n = 1;
+    std::cout << (n++) << ". list" << "\n";
     for (const auto& mi : m) {
       std::cout << (n++) << ". " << mi.first << "\n";
     }
