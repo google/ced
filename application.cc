@@ -41,6 +41,14 @@ int Application::Register(
 
 int Application::RunMode(const std::string& mode, int argc, char** argv) {
   const auto& m = Registry::Get().modes;
+  if (mode == "list") {
+    std::cout << "Available modes:\n";
+    int n = 1;
+    for (const auto& mi : m) {
+      std::cout << (n++) << ". " << mi.first << "\n";
+    }
+    return 0;
+  }
   auto it = m.find(mode);
   if (it == m.end()) {
     std::cerr << "Bad application mode: " << mode << std::endl;
