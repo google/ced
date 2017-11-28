@@ -32,7 +32,7 @@ class ProjectRoot {
   virtual boost::filesystem::path Path() const = 0;
 
   boost::filesystem::path LocalAddressPath() const {
-    return (Path() / ".cedport." / ced_src_hash).string();
+    return (Path() / absl::StrCat(".cedport.", ced_src_hash)).string();
   }
 
   std::string LocalAddress() const {
@@ -47,7 +47,7 @@ class ConfigFile {
 
 class Project {
  public:
-  Project(const boost::filesystem::path& path_hint);
+  Project(const boost::filesystem::path& path_hint, bool client_peek);
 
   static void RegisterAspectFactory(
       std::function<ProjectAspectPtr(Project* project,
@@ -55,6 +55,8 @@ class Project {
       int priority);
   static void RegisterGlobalAspectFactory(
       std::function<ProjectAspectPtr(Project* project)>, int priority);
+
+  bool client_peek() const { return client_peek_; }
 
   template <class T>
   T* aspect() {
@@ -75,6 +77,7 @@ class Project {
 
  private:
   std::vector<ProjectAspectPtr> aspects_;
+  const bool client_peek_;
 };
 
 #define IMPL_PROJECT_ASPECT(name, proj_arg, path_arg, priority)               \

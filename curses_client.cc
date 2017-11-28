@@ -32,10 +32,7 @@ void InvalidateTerminal() {
 
 class CursesClient : public Application {
  public:
-  CursesClient(int argc, char** argv) {
-    if (argc != 2) {
-      throw std::runtime_error("Expected filename to open");
-    }
+  CursesClient(int argc, char** argv) : client_(argv[0], FileFromCmdLine(argc, argv)) {
     auto theme = std::unique_ptr<Theme>(new Theme(Theme::DEFAULT));
     initscr();
     raw();
@@ -132,7 +129,15 @@ class CursesClient : public Application {
     return ctx.animating;
   }
 
+  static boost::filesystem::path FileFromCmdLine(int argc, char** argv) {
+    if (argc != 2) {
+      throw std::runtime_error("Expected filename to open");
+    }
+    return argv[1];
+  }
+
   // Buffer buffer_;
+  Client client_;
   std::unique_ptr<TerminalColor> color_;
   AppEnv app_env_;
 };

@@ -82,6 +82,7 @@ class ClangEnv : public LibClang, public ProjectAspect {
 };
 
 IMPL_PROJECT_GLOBAL_ASPECT(ClangEnv, project, 0) {
+  if (project->client_peek()) return nullptr;
   return std::unique_ptr<ProjectAspect>(new ClangEnv(project));
 }
 

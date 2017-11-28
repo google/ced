@@ -17,12 +17,25 @@
 #include <boost/filesystem.hpp>
 #include "project.h"
 #include "server.h"
+#include "absl/time/clock.h"
 
-Client::Client(const boost::filesystem::path& path) {
-  Project project(path);
+Client::Client(const boost::filesystem::path& ced_bin, const boost::filesystem::path& path) {
+  Project project(path, true);
   auto root = project.aspect<ProjectRoot>();
-  if (!boost::filesystem::exists(root->LocalAddressPath())) {
-    SpawnServer(project);
+  auto port_exists = [&](){
+    return boost::filesystem::exists(root->LocalAddressPath());
+  };
+  if (!port_exists()) {
+    SpawnServer(ced_bin, project);
+    int a = 1, b = 1;
+    while (!port_exists()) {
+      auto timeout = absl::Milliseconds(a);
+      std::cerr << "Sleeping for " << timeout << " while waiting for server @ " << root->LocalAddressPath() << "\n";
+      absl::SleepFor(timeout);
+      int c = a + b;
+      b = a;
+      a = c;
+    }
   }
   auto channel = grpc::CreateChannel(root->LocalAddress(),
                                      grpc::InsecureChannelCredentials());

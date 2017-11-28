@@ -11,20 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#pragma once
+#include "server.h"
+#include "run.h"
 
-#include <boost/filesystem/path.hpp>
-#include <string>
-#include <vector>
-
-struct RunResult {
-  std::string out;
-  std::string err;
-  int status;
-};
-
-RunResult run(const boost::filesystem::path& command,
-              const std::vector<std::string>& args, const std::string& input);
-
-void run_daemon(const boost::filesystem::path& command,
-                const std::vector<std::string>& args);
+void SpawnServer(const boost::filesystem::path& ced_bin, const Project& project) {
+    run_daemon(ced_bin, {
+        "-mode", "ProjectServer",
+        "-logfile", ".ced.serverlog",
+    });
+}
