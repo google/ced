@@ -18,7 +18,8 @@
 
 class Client {
  public:
-  Client(const boost::filesystem::path& ced_bin, const boost::filesystem::path& project_root_hint);
+  Client(const boost::filesystem::path& ced_bin,
+         const boost::filesystem::path& project_root_hint);
 
  private:
   std::unique_ptr<ProjectService::Stub> project_stub_;

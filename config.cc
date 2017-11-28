@@ -81,6 +81,6 @@ void ConfigWatcher::RegisterWatcher(Project* project, const std::string& path) {
 
 ConfigWatcher::~ConfigWatcher() { registry_->RemoveWatcher(this); }
 
-IMPL_PROJECT_GLOBAL_ASPECT(ConfigRegistry, project, 0) {
+IMPL_PROJECT_GLOBAL_ASPECT(ConfigRegistry, project, 100000) {
   return std::unique_ptr<ProjectAspect>(new ConfigRegistry(project));
 }

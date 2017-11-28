@@ -68,6 +68,15 @@ class Project {
   }
 
   template <class T>
+  const T* aspect() const {
+    for (const auto& pa : aspects_) {
+      const T* pt = dynamic_cast<const T*>(pa.get());
+      if (pt != nullptr) return pt;
+    }
+    return nullptr;
+  }
+
+  template <class T>
   void ForEachAspect(std::function<void(T*)> f) {
     for (const auto& pa : aspects_) {
       T* pt = dynamic_cast<T*>(pa.get());

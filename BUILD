@@ -83,6 +83,7 @@ genrule(
     'bazel-*/**/*',
     '.*/*',
     '.*/**/*',
+    '.*'
   ]),
   outs=['src_hash.cc'],
   cmd='echo "const char* ced_src_hash=\\"`cat $(SRCS) | md5`\\";" > $(OUTS)',
@@ -553,7 +554,15 @@ cc_library(
   name = "server",
   hdrs = ["server.h"],
   srcs = ["server.cc"],
-  deps = [":project", ":run"],
+  deps = [
+      ":project", 
+      ":run", 
+      ":application", 
+      ":log",
+      "@grpc//:grpc++",
+      "//proto:project_service",
+      "@com_google_absl//absl/synchronization",
+  ],
 )
 
 cc_library(

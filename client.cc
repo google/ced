@@ -15,15 +15,16 @@
 #include "client.h"
 #include <grpc++/create_channel.h>
 #include <boost/filesystem.hpp>
-#include "project.h"
-#include "server.h"
 #include "absl/time/clock.h"
 #include "log.h"
+#include "project.h"
+#include "server.h"
 
-Client::Client(const boost::filesystem::path& ced_bin, const boost::filesystem::path& path) {
+Client::Client(const boost::filesystem::path& ced_bin,
+               const boost::filesystem::path& path) {
   Project project(path, true);
   auto root = project.aspect<ProjectRoot>();
-  auto port_exists = [&](){
+  auto port_exists = [&]() {
     return boost::filesystem::exists(root->LocalAddressPath());
   };
   if (!port_exists()) {
@@ -31,7 +32,8 @@ Client::Client(const boost::filesystem::path& ced_bin, const boost::filesystem::
     int a = 1, b = 1;
     while (!port_exists()) {
       auto timeout = absl::Milliseconds(a);
-      Log() << "Sleeping for " << timeout << " while waiting for server @ " << root->LocalAddress();
+      Log() << "Sleeping for " << timeout << " while waiting for server @ "
+            << root->LocalAddress();
       absl::SleepFor(timeout);
       int c = a + b;
       b = a;

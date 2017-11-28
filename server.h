@@ -15,4 +15,5 @@
 
 #include "project.h"
 
-void SpawnServer(const boost::filesystem::path& ced_bin, const Project& project);
+void SpawnServer(const boost::filesystem::path& ced_bin,
+                 const Project& project);

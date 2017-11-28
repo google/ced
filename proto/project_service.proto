@@ -14,6 +14,27 @@
 
 syntax = "proto3";
 
-service ProjectService {
+import "proto/annotation.proto";
 
+message EditMessage {
+  message ClientHello { string buffer_name = 1; };
+
+  message ServerHello {
+    uint32 site_id = 1;
+    AnnotatedStringMsg current_state = 2;
+  };
+
+  oneof type {
+    // first message, client -> server
+    ClientHello client_hello = 1;
+    // second message, server -> client
+    ServerHello server_hello = 2;
+    // after server_hello sent/received, these can be sent
+    // any time in either direction
+    Command command = 3;
+  };
+};
+
+service ProjectService {
+  rpc Edit(stream EditMessage) returns (stream EditMessage) {};
 };

@@ -90,7 +90,8 @@ void Project::RegisterGlobalAspectFactory(
   AspectRegistry::Get().Register(f, priority);
 }
 
-Project::Project(const boost::filesystem::path& root_hint, bool client_peek) : client_peek_(client_peek) {
+Project::Project(const boost::filesystem::path& root_hint, bool client_peek)
+    : client_peek_(client_peek) {
   boost::filesystem::path path = boost::filesystem::absolute(root_hint);
   if (!boost::filesystem::is_directory(path)) {
     path = path.parent_path();
