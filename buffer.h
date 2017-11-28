@@ -107,10 +107,36 @@ typedef std::unique_ptr<SyncCollaborator> SyncCollaboratorPtr;
 
 class Buffer {
  public:
-  Buffer(Project* project, const boost::filesystem::path& filename,
-         absl::optional<AnnotatedString> initial_string =
-             absl::optional<AnnotatedString>());
   ~Buffer();
+
+  class Builder {
+   public:
+    Builder& SetFilename(const boost::filesystem::path& filename) {
+      filename_ = filename;
+      return *this;
+    }
+
+    Builder& SetInitialString(const AnnotatedString& initial_string) {
+      initial_string_ = initial_string;
+      return *this;
+    }
+
+    Builder& SetProject(Project* project) {
+      project_ = project;
+      return *this;
+    }
+
+    std::unique_ptr<Buffer> Make() {
+      assert(filename_);
+      return std::unique_ptr<Buffer>(
+          new Buffer(project_, *filename_, initial_string_));
+    }
+
+   private:
+    absl::optional<boost::filesystem::path> filename_;
+    absl::optional<AnnotatedString> initial_string_;
+    Project* project_ = nullptr;
+  };
 
   Buffer(const Buffer&) = delete;
   Buffer& operator=(const Buffer&) = delete;
@@ -137,6 +163,9 @@ class Buffer {
   AnnotatedString ContentSnapshot();
 
  private:
+  Buffer(Project* project, const boost::filesystem::path& filename,
+         absl::optional<AnnotatedString> initial_string);
+
   void AddCollaborator(AsyncCollaboratorPtr&& collaborator);
   void AddCollaborator(SyncCollaboratorPtr&& collaborator);
 
