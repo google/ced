@@ -33,6 +33,7 @@ void InvalidateTerminal() {
 class CursesClient : public Application {
  public:
   CursesClient(int argc, char** argv) : client_(argv[0], FileFromCmdLine(argc, argv)) {
+    Log::SetCerrLog(false);
     auto theme = std::unique_ptr<Theme>(new Theme(Theme::DEFAULT));
     initscr();
     raw();

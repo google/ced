@@ -16,7 +16,6 @@
 
 void SpawnServer(const boost::filesystem::path& ced_bin, const Project& project) {
     run_daemon(ced_bin, {
-        "-mode", "ProjectServer",
-        "-logfile", ".ced.serverlog",
+        "-mode", "ProjectServer"
     });
 }

@@ -15,6 +15,7 @@
 #include "application.h"
 #include <iostream>
 #include <unordered_map>
+#include "log.h"
 
 namespace {
 
@@ -44,8 +45,7 @@ int Application::RunMode(const std::string& mode, int argc, char** argv) {
   if (mode == "list") {
     std::cout << "Available modes:\n";
     int n = 1;
-    std::cout << (n++) << ". list"
-              << "\n";
+    std::cout << (n++) << ". list\n";
     for (const auto& mi : m) {
       std::cout << (n++) << ". " << mi.first << "\n";
     }
@@ -53,7 +53,7 @@ int Application::RunMode(const std::string& mode, int argc, char** argv) {
   }
   auto it = m.find(mode);
   if (it == m.end()) {
-    std::cerr << "Bad application mode: " << mode << std::endl;
+    Log() << "Bad application mode: " << mode;
     return 1;
   }
   return it->second(argc, argv)->Run();

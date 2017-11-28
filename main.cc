@@ -14,6 +14,7 @@
 
 #include <gflags/gflags.h>
 #include "application.h"
+#include "log.h"
 
 #define DEFAULT_MODE "CursesClient"
 DEFINE_string(mode, DEFAULT_MODE,
@@ -24,5 +25,13 @@ int main(int argc, char** argv) {
   gflags::SetVersionString("0.0.0");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  return Application::RunMode(FLAGS_mode, argc, argv);
+  try {
+    return Application::RunMode(FLAGS_mode, argc, argv);
+  } catch (std::exception& e) {
+    Log() << "FATAL EXCEPTION: " << e.what();
+    return 1;
+  } catch (...) {
+    Log() << "FATAL EXCEPTION";
+    return 1;
+  }
 }

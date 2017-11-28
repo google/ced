@@ -152,11 +152,13 @@ void run_daemon(const boost::filesystem::path& command,
     cargs.push_back(strdup(command.string().c_str()));
     for (auto& arg : args) cargs.push_back(strdup(arg.c_str()));
     cargs.push_back(nullptr);
+#if 0
     int rdf = WrapSyscall("open", []() { return open("/dev/null", O_RDONLY); });
     int wrf = WrapSyscall("open", []() { return open("/dev/null", O_RDONLY); });
     WrapSyscall("dup2", [&]() { return dup2(rdf, STDIN_FILENO); });
     WrapSyscall("dup2", [&]() { return dup2(wrf, STDOUT_FILENO); });
     WrapSyscall("dup2", [&]() { return dup2(wrf, STDERR_FILENO); });
+#endif
     CloseFDsAfter(STDERR_FILENO);
     execvp(cargs[0], cargs.data());
     abort();

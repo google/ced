@@ -560,6 +560,7 @@ cc_library(
   name = "application",
   hdrs = ["application.h"],
   srcs = ["application.cc"],
+  deps = [":log"],
 )
 
 cc_library(
@@ -570,6 +571,7 @@ cc_library(
     "//proto:project_service",
     ":server",
     "@com_google_absl//absl/time",
+    ":log",
   ]
 )
 

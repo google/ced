@@ -17,6 +17,7 @@
 #include <gflags/gflags.h>
 #include <unistd.h>
 #include <sstream>
+#include <iostream>
 #include <vector>
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
@@ -27,24 +28,32 @@ DECLARE_string(logfile);
 
 class Log : public std::ostringstream {
  public:
-  Log() {
-    if (FLAGS_logfile.empty()) {
+  Log() : cerr_(log_cerr_) {
+    if (FLAGS_logfile.empty() && !cerr_) {
       this->setstate(std::ios_base::badbit);
     }
   }
   ~Log() {
+    if (!cerr_ && FLAGS_logfile.empty()) return;
+    *this << '\n';
+    auto s = str();
     if (!FLAGS_logfile.empty()) {
       static LogFile file;
-      *this << '\n';
-      WrapSyscall("write", [this]() {
-        auto s = str();
+      WrapSyscall("write", [this, &s]() {
         return ::write(file.hdl(), s.data(), s.length());
+      });
+    }
+    if (cerr_) {
+      WrapSyscall("write", [this, &s]() {
+        return ::write(STDERR_FILENO, s.data(), s.length());
       });
     }
   }
 
   Log(const Log&) = delete;
   Log& operator=(const Log&) = delete;
+
+  static void SetCerrLog(bool x) { log_cerr_ = x; }
 
  private:
   class LogFile {
@@ -63,6 +72,9 @@ class Log : public std::ostringstream {
    private:
     int hdl_;
   };
+
+  static std::atomic<bool> log_cerr_;
+  const bool cerr_;
 };
 
 class LogTimer {

@@ -14,3 +14,4 @@
 #include "log.h"
 
 DEFINE_string(logfile, "", "Logging destination");
+std::atomic<bool> Log::log_cerr_{true};
