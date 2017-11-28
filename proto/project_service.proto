@@ -31,7 +31,7 @@ message EditMessage {
     ServerHello server_hello = 2;
     // after server_hello sent/received, these can be sent
     // any time in either direction
-    Command command = 3;
+    CommandSet commands = 3;
   };
 };
 

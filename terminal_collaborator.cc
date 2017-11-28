@@ -236,4 +236,4 @@ void TerminalCollaborator::ProcessKey(AppEnv* app_env, int key) {
   }
 }
 
-IMPL_COLLABORATOR(TerminalCollaborator, buffer) { return true; }
+CLIENT_COLLABORATOR(TerminalCollaborator, buffer) { return true; }

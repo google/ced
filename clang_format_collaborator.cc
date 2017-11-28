@@ -94,7 +94,7 @@ EditResponse ClangFormatCollaborator::Edit(
   return response;
 }
 
-IMPL_COLLABORATOR(ClangFormatCollaborator, buffer) {
+SERVER_COLLABORATOR(ClangFormatCollaborator, buffer) {
   auto fext = buffer->filename().extension();
   for (auto mext : {".c", ".cxx", ".cpp", ".C", ".cc", ".h", ".H", ".hpp",
                     ".hxx", ".proto", ".js", ".java", ".m"}) {

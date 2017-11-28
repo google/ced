@@ -153,6 +153,8 @@ class Buffer {
   const boost::filesystem::path& filename() const { return filename_; }
   bool read_only() const { return false; }
   bool synthetic() const { return synthetic_; }
+  bool is_server() const { return project_ != nullptr; }
+  bool is_client() const { return !is_server(); }
 
   std::vector<std::string> ProfileData() const;
 
@@ -161,6 +163,24 @@ class Buffer {
 
   void PushChanges(const CommandSet* cmds);
   AnnotatedString ContentSnapshot();
+
+  class Listener {
+   public:
+    Listener(Buffer* buffer);
+    ~Listener();
+
+    void Start();
+
+    virtual void Init(const AnnotatedString& initial_state) = 0;
+    virtual void Update(const CommandSet* updates) = 0;
+
+   private:
+    Buffer* const buffer_;
+  };
+
+  std::unique_ptr<Listener> Listen(
+      std::function<void(const AnnotatedString&)> initial,
+      std::function<void(const CommandSet*)> update);
 
  private:
   Buffer(Project* project, const boost::filesystem::path& filename,
@@ -179,6 +199,7 @@ class Buffer {
 
   void UpdateState(Collaborator* collaborator, bool become_used,
                    std::function<void(EditNotification& new_state)>);
+  void PublishToListeners(const CommandSet* command_set);
 
   Project* const project_;
   mutable absl::Mutex mu_;
@@ -186,6 +207,7 @@ class Buffer {
   uint64_t version_ GUARDED_BY(mu_);
   std::set<Collaborator*> declared_no_edit_collaborators_ GUARDED_BY(mu_);
   std::set<Collaborator*> done_collaborators_ GUARDED_BY(mu_);
+  std::set<Listener*> listeners_ GUARDED_BY(mu_);
   bool updating_ GUARDED_BY(mu_);
   absl::Time last_used_ GUARDED_BY(mu_);
   const boost::filesystem::path filename_;
@@ -195,19 +217,24 @@ class Buffer {
   std::thread init_thread_;
 };
 
-#define IMPL_COLLABORATOR(name, buffer_arg)             \
-  namespace {                                           \
-  class name##_impl {                                   \
-   public:                                              \
-    static bool ShouldAdd(const Buffer* buffer_arg);    \
-    name##_impl() {                                     \
-      Buffer::RegisterCollaborator([](Buffer* buffer) { \
-        if (ShouldAdd(buffer)) {                        \
-          buffer->MakeCollaborator<name>();             \
-        }                                               \
-      });                                               \
-    }                                                   \
-  };                                                    \
-  name##_impl impl;                                     \
-  }                                                     \
+#define IMPL_COLLABORATOR(name, buffer_arg, client_side)                 \
+  namespace {                                                            \
+  class name##_impl {                                                    \
+   public:                                                               \
+    static bool ShouldAdd(const Buffer* buffer_arg);                     \
+    name##_impl() {                                                      \
+      Buffer::RegisterCollaborator([](Buffer* buffer) {                  \
+        if (buffer->is_client() == (client_side) && ShouldAdd(buffer)) { \
+          buffer->MakeCollaborator<name>();                              \
+        }                                                                \
+      });                                                                \
+    }                                                                    \
+  };                                                                     \
+  name##_impl impl;                                                      \
+  }                                                                      \
   bool name##_impl::ShouldAdd(const Buffer* buffer_arg)
+
+#define CLIENT_COLLABORATOR(name, buffer_arg) \
+  IMPL_COLLABORATOR(name, buffer_arg, true)
+#define SERVER_COLLABORATOR(name, buffer_arg) \
+  IMPL_COLLABORATOR(name, buffer_arg, false)

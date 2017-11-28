@@ -98,7 +98,7 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   return response;
 }
 
-IMPL_COLLABORATOR(GodboltCollaborator, buffer) {
+SERVER_COLLABORATOR(GodboltCollaborator, buffer) {
   auto fext = buffer->filename().extension();
   for (auto mext :
        {".c", ".cxx", ".cpp", ".C", ".cc", ".h", ".H", ".hpp", ".hxx"}) {

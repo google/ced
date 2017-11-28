@@ -48,8 +48,10 @@ Buffer::Buffer(Project* project, const boost::filesystem::path& filename,
       last_used_(absl::Now() - absl::Seconds(1000000)),
       filename_(filename) {
   if (initial_string) state_.content = *initial_string;
-  init_thread_ =
-      std::thread([this]() { CollaboratorRegistry::Get().Run(this); });
+  if (is_server()) {
+    init_thread_ =
+        std::thread([this]() { CollaboratorRegistry::Get().Run(this); });
+  }
 }
 
 void Buffer::RegisterCollaborator(
@@ -197,6 +199,7 @@ void Buffer::UpdateState(Collaborator* collaborator, bool become_used,
 }
 
 void Buffer::PushChanges(const CommandSet* commands) {
+  PublishToListeners(commands);
   UpdateState(nullptr, false, [commands](EditNotification& state) {
     state.content = state.content.Integrate(*commands);
   });
@@ -215,6 +218,7 @@ void Buffer::SinkResponse(Collaborator* collaborator,
   }
 
   if (HasUpdates(response)) {
+    PublishToListeners(&response.content_updates);
     UpdateState(collaborator, response.become_used,
                 [&](EditNotification& state) {
                   Log() << collaborator->name() << " integrating";
@@ -233,6 +237,13 @@ void Buffer::SinkResponse(Collaborator* collaborator,
     absl::MutexLock lock(&mu_);
     done_collaborators_.insert(collaborator);
     throw Shutdown();
+  }
+}
+
+void Buffer::PublishToListeners(const CommandSet* commands) {
+  absl::MutexLock lock(&mu_);
+  for (auto* l : listeners_) {
+    l->Update(commands);
   }
 }
 
@@ -287,4 +298,40 @@ std::vector<std::string> Buffer::ProfileData() const {
     report("rqst", c->last_request());
   }
   return out;
+}
+
+Buffer::Listener::Listener(Buffer* buffer) : buffer_(buffer) {}
+
+Buffer::Listener::~Listener() {
+  absl::MutexLock lock(&buffer_->mu_);
+  buffer_->listeners_.erase(this);
+}
+
+void Buffer::Listener::Start() {
+  absl::MutexLock lock(&buffer_->mu_);
+  buffer_->listeners_.insert(this);
+  Init(buffer_->state_.content);
+}
+
+std::unique_ptr<Buffer::Listener> Buffer::Listen(
+    std::function<void(const AnnotatedString&)> initial,
+    std::function<void(const CommandSet*)> update) {
+  class FnListener final : public Listener {
+   public:
+    FnListener(Buffer* buffer,
+               std::function<void(const AnnotatedString&)> initial,
+               std::function<void(const CommandSet*)> update)
+        : Listener(buffer), initial_(initial), update_(update) {}
+
+    void Init(const AnnotatedString& initial_state) { initial_(initial_state); }
+    void Update(const CommandSet* updates) { update_(updates); }
+
+   private:
+    std::function<void(const AnnotatedString&)> initial_;
+    std::function<void(const CommandSet*)> update_;
+  };
+
+  std::unique_ptr<Listener> listener(new FnListener(this, initial, update));
+  listener->Start();
+  return listener;
 }

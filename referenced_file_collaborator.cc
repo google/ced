@@ -86,4 +86,4 @@ void ReferencedFileCollaborator::RestartWatch() {
       interest_vec, [this](bool shutdown) { ChangedFile(shutdown); }));
 }
 
-IMPL_COLLABORATOR(ReferencedFileCollaborator, buffer) { return true; }
+SERVER_COLLABORATOR(ReferencedFileCollaborator, buffer) { return true; }

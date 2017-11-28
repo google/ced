@@ -41,4 +41,4 @@ EditResponse FixitCollaborator::Edit(const EditNotification& notification) {
   return response;
 }
 
-IMPL_COLLABORATOR(FixitCollaborator, buffer) { return !buffer->read_only(); }
+SERVER_COLLABORATOR(FixitCollaborator, buffer) { return !buffer->read_only(); }

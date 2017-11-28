@@ -92,4 +92,4 @@ EditResponse IOCollaborator::Pull() {
   return r;
 }
 
-IMPL_COLLABORATOR(IOCollaborator, buffer) { return !buffer->synthetic(); }
+SERVER_COLLABORATOR(IOCollaborator, buffer) { return !buffer->synthetic(); }

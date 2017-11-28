@@ -562,6 +562,7 @@ cc_library(
       "@grpc//:grpc++",
       "//proto:project_service",
       "@com_google_absl//absl/synchronization",
+      ":buffer",
   ],
 )
 

@@ -79,6 +79,7 @@ class Register {
   Register Type(std::vector<std::string> ext,
                 std::vector<std::pair<std::string, std::string>> args) {
     Buffer::RegisterCollaborator([=](Buffer* buffer) {
+      if (buffer->is_client()) return;
       for (const auto& e : ext) {
         if (buffer->filename().extension() == e) {
           buffer->MakeCollaborator<RegexHighlightCollaborator>(args);
