@@ -94,6 +94,44 @@ void Buffer::AddCollaborator(AsyncCollaboratorPtr&& collaborator) {
   });
 }
 
+void Buffer::AddCollaborator(AsyncCommandCollaboratorPtr&& collaborator) {
+  class Listener : public BufferListener {
+   public:
+    Listener(Buffer* buffer, AsyncCommandCollaborator* collab)
+        : BufferListener(buffer), collab_(collab) {}
+
+    void Update(const CommandSet* updates) { collab_->Push(updates); }
+
+   private:
+    AsyncCommandCollaborator* const collab_;
+  };
+
+  absl::MutexLock lock(&mu_);
+  AsyncCommandCollaborator* raw = collaborator.get();
+  collaborators_.emplace_back(std::move(collaborator));
+  collaborator_threads_.emplace_back([this, raw]() {
+    try {
+      std::unique_ptr<Listener> listener(new Listener(this, raw));
+      listener->Start([](const AnnotatedString&) {});
+      bool shutdown = false;
+      while (!shutdown) {
+        CommandSet commands;
+        raw->Pull(&commands);
+        PublishToListeners(&commands);
+        UpdateState(raw, false, [&](EditNotification& state) {
+          Log() << raw->name() << " integrating";
+          state.content = state.content.Integrate(commands);
+          shutdown = state.shutdown;
+        });
+      }
+    } catch (std::exception& e) {
+      Log() << raw->name() << " collaborator pull broke: " << e.what();
+    }
+    absl::MutexLock lock(&mu_);
+    done_collaborators_.insert(raw);
+  });
+}
+
 void Buffer::AddCollaborator(SyncCollaboratorPtr&& collaborator) {
   absl::MutexLock lock(&mu_);
   SyncCollaborator* raw = collaborator.get();
@@ -302,38 +340,35 @@ std::vector<std::string> Buffer::ProfileData() const {
   return out;
 }
 
-Buffer::Listener::Listener(Buffer* buffer) : buffer_(buffer) {}
+BufferListener::BufferListener(Buffer* buffer) : buffer_(buffer) {}
 
-Buffer::Listener::~Listener() {
+BufferListener::~BufferListener() {
   absl::MutexLock lock(&buffer_->mu_);
   buffer_->listeners_.erase(this);
 }
 
-void Buffer::Listener::Start() {
+void BufferListener::Start(
+    std::function<void(const AnnotatedString&)> initial) {
   absl::MutexLock lock(&buffer_->mu_);
   buffer_->listeners_.insert(this);
-  Init(buffer_->state_.content);
+  initial(buffer_->state_.content);
 }
 
-std::unique_ptr<Buffer::Listener> Buffer::Listen(
+std::unique_ptr<BufferListener> Buffer::Listen(
     std::function<void(const AnnotatedString&)> initial,
     std::function<void(const CommandSet*)> update) {
-  class FnListener final : public Listener {
+  class FnListener final : public BufferListener {
    public:
-    FnListener(Buffer* buffer,
-               std::function<void(const AnnotatedString&)> initial,
-               std::function<void(const CommandSet*)> update)
-        : Listener(buffer), initial_(initial), update_(update) {}
+    FnListener(Buffer* buffer, std::function<void(const CommandSet*)> update)
+        : BufferListener(buffer), update_(update) {}
 
-    void Init(const AnnotatedString& initial_state) { initial_(initial_state); }
     void Update(const CommandSet* updates) { update_(updates); }
 
    private:
-    std::function<void(const AnnotatedString&)> initial_;
     std::function<void(const CommandSet*)> update_;
   };
 
-  std::unique_ptr<Listener> listener(new FnListener(this, initial, update));
-  listener->Start();
+  std::unique_ptr<BufferListener> listener(new FnListener(this, update));
+  listener->Start(initial);
   return listener;
 }

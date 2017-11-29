@@ -44,6 +44,7 @@ class CursesClient : public Application {
     color_.reset(new TerminalColor{std::move(theme)});
     bkgd(color_->Theme({}, 0));
     keypad(stdscr, true);
+    buffer_ = client_.MakeBuffer(argv[0]);
   }
 
   ~CursesClient() { endwin(); }
@@ -138,8 +139,8 @@ class CursesClient : public Application {
     return argv[1];
   }
 
-  // Buffer buffer_;
   Client client_;
+  std::unique_ptr<Buffer> buffer_;
   std::unique_ptr<TerminalColor> color_;
   AppEnv app_env_;
 };

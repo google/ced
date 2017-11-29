@@ -40,6 +40,21 @@ struct EditResponse {
 
 void IntegrateResponse(const EditResponse& response, EditNotification* state);
 
+class Buffer;
+
+class BufferListener {
+ public:
+  ~BufferListener();
+
+ private:
+  friend class Buffer;
+  virtual void Update(const CommandSet* updates) = 0;
+  void Start(std::function<void(const AnnotatedString&)> init);
+  BufferListener(Buffer* buffer);
+
+  Buffer* const buffer_;
+};
+
 class Collaborator {
  public:
   virtual ~Collaborator() {}
@@ -183,25 +198,13 @@ class Buffer {
   void PushChanges(const CommandSet* cmds);
   AnnotatedString ContentSnapshot();
 
-  class Listener {
-   public:
-    Listener(Buffer* buffer);
-    ~Listener();
-
-    void Start();
-
-    virtual void Init(const AnnotatedString& initial_state) = 0;
-    virtual void Update(const CommandSet* updates) = 0;
-
-   private:
-    Buffer* const buffer_;
-  };
-
-  std::unique_ptr<Listener> Listen(
+  std::unique_ptr<BufferListener> Listen(
       std::function<void(const AnnotatedString&)> initial,
       std::function<void(const CommandSet*)> update);
 
  private:
+  friend class BufferListener;
+
   Buffer(Project* project, const boost::filesystem::path& filename,
          absl::optional<AnnotatedString> initial_string,
          absl::optional<int> site_id);
@@ -228,7 +231,7 @@ class Buffer {
   uint64_t version_ GUARDED_BY(mu_);
   std::set<Collaborator*> declared_no_edit_collaborators_ GUARDED_BY(mu_);
   std::set<Collaborator*> done_collaborators_ GUARDED_BY(mu_);
-  std::set<Listener*> listeners_ GUARDED_BY(mu_);
+  std::set<BufferListener*> listeners_ GUARDED_BY(mu_);
   bool updating_ GUARDED_BY(mu_);
   absl::Time last_used_ GUARDED_BY(mu_);
   const boost::filesystem::path filename_;

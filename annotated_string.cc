@@ -322,6 +322,25 @@ AnnotatedStringMsg AnnotatedString::AsProto() const {
   return out;
 }
 
+AnnotatedString AnnotatedString::FromProto(const AnnotatedStringMsg& msg) {
+  AnnotatedString out;
+  for (const auto& chr : msg.chars()) {
+    out.chars_ = out.chars_.Add(
+        chr.id(), {chr.visible(), static_cast<char>(chr.chr()), chr.next(),
+                   chr.prev(), chr.after(), chr.before(), AVL<ID>()});
+  }
+  for (const auto& attr : msg.attributes()) {
+    out.IntegrateDecl(attr.id(), attr.attr());
+  }
+  for (const auto& anno : msg.annotations()) {
+    out.IntegrateMark(anno.id(), anno.anno());
+  }
+  for (auto id : msg.graveyard()) {
+    out.graveyard_ = out.graveyard_.Add(id);
+  }
+  return out;
+}
+
 int AnnotatedString::OrderIDs(ID a, ID b) const {
   // same id
   if (a == b) return 0;
