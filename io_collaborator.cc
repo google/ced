@@ -86,7 +86,7 @@ EditResponse IOCollaborator::Pull() {
   absl::MutexLock lock(&mu_);
 
   last_char_id_ = AnnotatedString::MakeRawInsert(
-      &r.content_updates, site(), std::string(buf, n), last_char_id_,
+      &r.content_updates, buffer_->site(), std::string(buf, n), last_char_id_,
       AnnotatedString::End());
 
   return r;

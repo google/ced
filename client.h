@@ -14,12 +14,15 @@
 #pragma once
 
 #include <boost/filesystem/path.hpp>
+#include "buffer.h"
 #include "proto/project_service.grpc.pb.h"
 
 class Client {
  public:
   Client(const boost::filesystem::path& ced_bin,
          const boost::filesystem::path& project_root_hint);
+
+  std::unique_ptr<Buffer> MakeBuffer(const boost::filesystem::path& path);
 
  private:
   std::unique_ptr<ProjectService::Stub> project_stub_;

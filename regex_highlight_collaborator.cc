@@ -23,7 +23,7 @@ class RegexHighlightCollaborator final : public SyncCollaborator {
       const Buffer* buffer,
       const std::vector<std::pair<std::string, std::string>>& config)
       : SyncCollaborator("regex_highlight", absl::Seconds(0), absl::Seconds(0)),
-        ed_(site()) {
+        ed_(buffer->site()) {
     for (const auto& p : config) {
       regex_to_scope_.emplace_back(std::unique_ptr<RE2>(new RE2(p.first)),
                                    p.second);

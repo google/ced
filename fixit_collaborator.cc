@@ -19,9 +19,13 @@ class FixitCollaborator final : public SyncCollaborator {
  public:
   FixitCollaborator(const Buffer* buffer)
       : SyncCollaborator("fixit", absl::Milliseconds(1500),
-                         absl::Milliseconds(100)) {}
+                         absl::Milliseconds(100)),
+        buffer_(buffer) {}
 
   EditResponse Edit(const EditNotification& notification) override;
+
+ private:
+  const Buffer* const buffer_;
 };
 
 EditResponse FixitCollaborator::Edit(const EditNotification& notification) {
@@ -35,7 +39,7 @@ EditResponse FixitCollaborator::Edit(const EditNotification& notification) {
         AnnotatedString::MakeDelMark(&response.content_updates, annid);
         notification.content.MakeDelete(&response.content_updates, beg, end);
         notification.content.MakeInsert(
-            &response.content_updates, site(), fixit.replacement(),
+            &response.content_updates, buffer_->site(), fixit.replacement(),
             AnnotatedString::Iterator(notification.content, beg).Prev().id());
       });
   return response;

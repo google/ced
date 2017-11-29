@@ -26,7 +26,7 @@ class GodboltCollaborator final : public SyncCollaborator {
       : SyncCollaborator("godbolt", absl::Seconds(0), absl::Milliseconds(300)),
         buffer_(buffer),
         content_latch_(buffer),
-        ed_(site()) {}
+        ed_(buffer->site()) {}
 
   EditResponse Edit(const EditNotification& notification) override;
 

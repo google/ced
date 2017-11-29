@@ -42,15 +42,13 @@ void IntegrateResponse(const EditResponse& response, EditNotification* state);
 
 class Collaborator {
  public:
-  virtual ~Collaborator(){};
+  virtual ~Collaborator() {}
 
   const char* name() const { return name_; }
   absl::Duration push_delay_from_idle() const { return push_delay_from_idle_; }
   absl::Duration push_delay_from_start() const {
     return push_delay_from_start_;
   }
-
-  Site* site() { return &site_; }
 
   void MarkRequest() { last_request_ = absl::Now(); }
   void MarkResponse() { last_response_ = absl::Now(); }
@@ -75,7 +73,6 @@ class Collaborator {
   absl::Time last_request_ = absl::Now();
   absl::Time last_change_ = absl::Now();
   absl::Duration last_notify_ = absl::Seconds(0);
-  Site site_;
 };
 
 typedef std::unique_ptr<Collaborator> CollaboratorPtr;
@@ -140,6 +137,8 @@ class Buffer {
 
   Buffer(const Buffer&) = delete;
   Buffer& operator=(const Buffer&) = delete;
+
+  Site* site() const { return &site_; }
 
   template <class T, typename... Args>
   T* MakeCollaborator(Args&&... args) {
@@ -215,6 +214,7 @@ class Buffer {
   std::vector<CollaboratorPtr> collaborators_ GUARDED_BY(mu_);
   std::vector<std::thread> collaborator_threads_ GUARDED_BY(mu_);
   std::thread init_thread_;
+  mutable Site site_;
 };
 
 #define IMPL_COLLABORATOR(name, buffer_arg, client_side)                 \

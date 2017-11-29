@@ -44,3 +44,14 @@ Client::Client(const boost::filesystem::path& ced_bin,
                                      grpc::InsecureChannelCredentials());
   project_stub_ = ProjectService::NewStub(channel);
 }
+
+std::unique_ptr<Buffer> Client::MakeBuffer(
+    const boost::filesystem::path& path) {
+  grpc::ClientContext ctx;
+  auto stream = project_stub_->Edit(&ctx);
+  EditMessage hello;
+  hello.mutable_client_hello()->set_buffer_name(path.string());
+  stream->Write(hello);
+  if (!stream->Read(&hello)) return nullptr;
+  if (hello.type_case() != EditMessage::kServerHello) return nullptr;
+}

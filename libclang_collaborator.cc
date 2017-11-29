@@ -92,7 +92,7 @@ LibClangCollaborator::LibClangCollaborator(const Buffer* buffer)
     : SyncCollaborator("libclang", absl::Seconds(0), absl::Milliseconds(1)),
       buffer_(buffer),
       content_latch_(true),
-      ed_(site()) {}
+      ed_(buffer->site()) {}
 
 LibClangCollaborator::~LibClangCollaborator() {
   ClangEnv* env = buffer_->project()->aspect<ClangEnv>();
