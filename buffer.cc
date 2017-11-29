@@ -50,10 +50,8 @@ Buffer::Buffer(Project* project, const boost::filesystem::path& filename,
       filename_(filename),
       site_(site_id) {
   if (initial_string) state_.content = *initial_string;
-  if (is_server()) {
-    init_thread_ =
-        std::thread([this]() { CollaboratorRegistry::Get().Run(this); });
-  }
+  init_thread_ =
+      std::thread([this]() { CollaboratorRegistry::Get().Run(this); });
 }
 
 void Buffer::RegisterCollaborator(
@@ -117,7 +115,7 @@ void Buffer::AddCollaborator(AsyncCommandCollaboratorPtr&& collaborator) {
       while (!shutdown) {
         CommandSet commands;
         raw->Pull(&commands);
-        PublishToListeners(&commands);
+        PublishToListeners(&commands, listener.get());
         UpdateState(raw, false, [&](EditNotification& state) {
           Log() << raw->name() << " integrating";
           state.content = state.content.Integrate(commands);
@@ -239,7 +237,7 @@ void Buffer::UpdateState(Collaborator* collaborator, bool become_used,
 }
 
 void Buffer::PushChanges(const CommandSet* commands) {
-  PublishToListeners(commands);
+  PublishToListeners(commands, nullptr);
   UpdateState(nullptr, false, [commands](EditNotification& state) {
     state.content = state.content.Integrate(*commands);
   });
@@ -258,7 +256,7 @@ void Buffer::SinkResponse(Collaborator* collaborator,
   }
 
   if (HasUpdates(response)) {
-    PublishToListeners(&response.content_updates);
+    PublishToListeners(&response.content_updates, nullptr);
     UpdateState(collaborator, response.become_used,
                 [&](EditNotification& state) {
                   Log() << collaborator->name() << " integrating";
@@ -280,9 +278,10 @@ void Buffer::SinkResponse(Collaborator* collaborator,
   }
 }
 
-void Buffer::PublishToListeners(const CommandSet* commands) {
+void Buffer::PublishToListeners(const CommandSet* commands, BufferListener* except) {
   absl::MutexLock lock(&mu_);
   for (auto* l : listeners_) {
+    if (l == except) continue;
     l->Update(commands);
   }
 }

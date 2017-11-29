@@ -223,7 +223,7 @@ class Buffer {
 
   void UpdateState(Collaborator* collaborator, bool become_used,
                    std::function<void(EditNotification& new_state)>);
-  void PublishToListeners(const CommandSet* command_set);
+  void PublishToListeners(const CommandSet* command_set, BufferListener* except);
 
   Project* const project_;
   mutable absl::Mutex mu_;
