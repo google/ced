@@ -88,6 +88,19 @@ class AsyncCollaborator : public Collaborator {
       : Collaborator(name, push_delay_from_idle, push_delay_from_start) {}
 };
 
+class AsyncCommandCollaborator : public Collaborator {
+ public:
+  // push nullptr ==> shutdown
+  virtual void Push(const CommandSet* commands) = 0;
+  virtual void Pull(CommandSet* commands) = 0;
+
+ protected:
+  AsyncCommandCollaborator(const char* name,
+                           absl::Duration push_delay_from_idle,
+                           absl::Duration push_delay_from_start)
+      : Collaborator(name, push_delay_from_idle, push_delay_from_start) {}
+};
+
 // a collaborator that only makes edits in response to edits
 class SyncCollaborator : public Collaborator {
  public:
@@ -100,6 +113,7 @@ class SyncCollaborator : public Collaborator {
 };
 
 typedef std::unique_ptr<AsyncCollaborator> AsyncCollaboratorPtr;
+typedef std::unique_ptr<AsyncCommandCollaborator> AsyncCommandCollaboratorPtr;
 typedef std::unique_ptr<SyncCollaborator> SyncCollaboratorPtr;
 
 class Buffer {
@@ -123,15 +137,21 @@ class Buffer {
       return *this;
     }
 
+    Builder& SetSiteID(int site_id) {
+      site_id_ = site_id;
+      return *this;
+    }
+
     std::unique_ptr<Buffer> Make() {
       assert(filename_);
       return std::unique_ptr<Buffer>(
-          new Buffer(project_, *filename_, initial_string_));
+          new Buffer(project_, *filename_, initial_string_, site_id_));
     }
 
    private:
     absl::optional<boost::filesystem::path> filename_;
     absl::optional<AnnotatedString> initial_string_;
+    absl::optional<int> site_id_;
     Project* project_ = nullptr;
   };
 
@@ -183,9 +203,11 @@ class Buffer {
 
  private:
   Buffer(Project* project, const boost::filesystem::path& filename,
-         absl::optional<AnnotatedString> initial_string);
+         absl::optional<AnnotatedString> initial_string,
+         absl::optional<int> site_id);
 
   void AddCollaborator(AsyncCollaboratorPtr&& collaborator);
+  void AddCollaborator(AsyncCommandCollaboratorPtr&& collaborator);
   void AddCollaborator(SyncCollaboratorPtr&& collaborator);
 
   EditNotification NextNotification(Collaborator* collaborator,

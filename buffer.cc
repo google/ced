@@ -40,13 +40,15 @@ class CollaboratorRegistry {
 }  // namespace
 
 Buffer::Buffer(Project* project, const boost::filesystem::path& filename,
-               absl::optional<AnnotatedString> initial_string)
+               absl::optional<AnnotatedString> initial_string,
+               absl::optional<int> site_id)
     : project_(project),
       synthetic_(initial_string),
       version_(0),
       updating_(false),
       last_used_(absl::Now() - absl::Seconds(1000000)),
-      filename_(filename) {
+      filename_(filename),
+      site_(site_id) {
   if (initial_string) state_.content = *initial_string;
   if (is_server()) {
     init_thread_ =

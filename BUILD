@@ -547,7 +547,13 @@ cc_library(
   name = "annotated_string",
   hdrs = ["annotated_string.h"],
   srcs = ["annotated_string.cc"],
-  deps = ["//proto:annotation", ":avl", ":log", "@com_google_absl//absl/strings"]
+  deps = [
+    "//proto:annotation", 
+    ":avl", 
+    ":log", 
+    "@com_google_absl//absl/strings",
+    "@com_google_absl//absl/types:optional",
+  ]
 )
 
 cc_library(

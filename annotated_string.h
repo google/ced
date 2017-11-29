@@ -16,6 +16,7 @@
 #include <stdint.h>
 #include <atomic>
 #include "absl/strings/string_view.h"
+#include "absl/types/optional.h"
 #include "avl.h"
 #include "log.h"
 #include "proto/annotation.pb.h"
@@ -43,7 +44,9 @@ inline bool operator!=(ID a, ID b) { return a.id != b.id; }
 
 class Site {
  public:
-  Site() : id_(id_gen_.fetch_add(1, std::memory_order_relaxed)) {
+  Site(absl::optional<int> site_id = absl::optional<int>())
+      : id_(site_id ? *site_id
+                    : id_gen_.fetch_add(1, std::memory_order_relaxed)) {
     if (id_ == 0) abort();
   }
 
@@ -162,6 +165,7 @@ class AnnotatedString {
   }
 
   AnnotatedStringMsg AsProto() const;
+  static AnnotatedString FromProto(const AnnotatedStringMsg& msg);
 
  private:
   void IntegrateInsert(ID id, const InsertCommand& cmd);

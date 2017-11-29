@@ -31,7 +31,7 @@ constexpr char ctrl(char c) { return c & 0x1f; }
 TerminalCollaborator::TerminalCollaborator(const Buffer* buffer)
     : AsyncCollaborator("terminal", absl::Seconds(0), absl::Seconds(0)),
       buffer_(buffer),
-      editor_(Editor::Make(site())),
+      editor_(Editor::Make(buffer_->site())),
       recently_used_(false),
       state_(State::EDITING) {
   absl::MutexLock lock(&mu_);
