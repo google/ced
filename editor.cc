@@ -61,7 +61,7 @@ void Editor::PublishCursor() {
           }
         }
         Log() << "Push changes " << cmds.DebugString();
-        it->second.buffer->PushChanges(&cmds);
+        it->second.buffer->PushChanges(&cmds, true);
         Log() << "Result: "
               << it->second.buffer->ContentSnapshot().AsProto().DebugString();
       });

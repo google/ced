@@ -236,9 +236,9 @@ void Buffer::UpdateState(Collaborator* collaborator, bool become_used,
   mu_.Unlock();
 }
 
-void Buffer::PushChanges(const CommandSet* commands) {
+void Buffer::PushChanges(const CommandSet* commands, bool become_used) {
   PublishToListeners(commands, nullptr);
-  UpdateState(nullptr, false, [commands](EditNotification& state) {
+  UpdateState(nullptr, become_used, [become_used, commands](EditNotification& state) {
     state.content = state.content.Integrate(*commands);
   });
 }

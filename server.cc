@@ -90,7 +90,7 @@ class ProjectServer : public Application, public ProjectService::Service {
         return grpc::Status(grpc::INVALID_ARGUMENT,
                             "Expected commands after greetings");
       }
-      buffer->PushChanges(&msg.commands());
+      buffer->PushChanges(&msg.commands(), true);
     }
     return grpc::Status::OK;
   }

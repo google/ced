@@ -201,7 +201,7 @@ class Buffer {
   static void RegisterCollaborator(
       std::function<void(Buffer*)> maybe_init_collaborator);
 
-  void PushChanges(const CommandSet* cmds);
+  void PushChanges(const CommandSet* cmds, bool become_used);
   AnnotatedString ContentSnapshot();
 
   std::unique_ptr<BufferListener> Listen(
