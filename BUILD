@@ -565,7 +565,7 @@ cc_library(
       ":run", 
       ":application", 
       ":log",
-      "@grpc//:grpc++",
+      "@grpc//:grpc++_unsecure",
       "//proto:project_service",
       "@com_google_absl//absl/synchronization",
       ":buffer",
