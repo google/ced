@@ -41,9 +41,9 @@ class CollaboratorRegistry {
 
 Buffer::Buffer(Project* project, const boost::filesystem::path& filename,
                absl::optional<AnnotatedString> initial_string,
-               absl::optional<int> site_id)
+               absl::optional<int> site_id, bool synthetic)
     : project_(project),
-      synthetic_(initial_string),
+      synthetic_(synthetic),
       version_(0),
       updating_(false),
       last_used_(absl::Now() - absl::Seconds(1000000)),
@@ -278,7 +278,8 @@ void Buffer::SinkResponse(Collaborator* collaborator,
   }
 }
 
-void Buffer::PublishToListeners(const CommandSet* commands, BufferListener* except) {
+void Buffer::PublishToListeners(const CommandSet* commands,
+                                BufferListener* except) {
   absl::MutexLock lock(&mu_);
   for (auto* l : listeners_) {
     if (l == except) continue;

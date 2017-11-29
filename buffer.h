@@ -157,10 +157,15 @@ class Buffer {
       return *this;
     }
 
+    Builder& SetSynthetic(bool synthetic = true) {
+      synthetic_ = synthetic;
+      return *this;
+    }
+
     std::unique_ptr<Buffer> Make() {
       assert(filename_);
-      return std::unique_ptr<Buffer>(
-          new Buffer(project_, *filename_, initial_string_, site_id_));
+      return std::unique_ptr<Buffer>(new Buffer(
+          project_, *filename_, initial_string_, site_id_, synthetic_));
     }
 
    private:
@@ -168,6 +173,7 @@ class Buffer {
     absl::optional<AnnotatedString> initial_string_;
     absl::optional<int> site_id_;
     Project* project_ = nullptr;
+    bool synthetic_ = false;
   };
 
   Buffer(const Buffer&) = delete;
@@ -207,7 +213,7 @@ class Buffer {
 
   Buffer(Project* project, const boost::filesystem::path& filename,
          absl::optional<AnnotatedString> initial_string,
-         absl::optional<int> site_id);
+         absl::optional<int> site_id, bool synthetic);
 
   void AddCollaborator(AsyncCollaboratorPtr&& collaborator);
   void AddCollaborator(AsyncCommandCollaboratorPtr&& collaborator);
@@ -223,7 +229,8 @@ class Buffer {
 
   void UpdateState(Collaborator* collaborator, bool become_used,
                    std::function<void(EditNotification& new_state)>);
-  void PublishToListeners(const CommandSet* command_set, BufferListener* except);
+  void PublishToListeners(const CommandSet* command_set,
+                          BufferListener* except);
 
   Project* const project_;
   mutable absl::Mutex mu_;

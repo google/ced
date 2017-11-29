@@ -99,6 +99,7 @@ void Editor::UpdateState(LogTimer* tmr, const EditNotification& state) {
                               BufferInfo{Buffer::Builder()
                                              .SetFilename(attr.buffer().name())
                                              .SetInitialString(s)
+                                             .SetSynthetic()
                                              .Make(),
                                          AnnotationEditor(site_)});
         }
