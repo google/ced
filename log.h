@@ -44,9 +44,12 @@ class Log : public std::ostringstream {
       });
     }
     if (cerr_) {
-      WrapSyscall("write", [this, &s]() {
-        return ::write(STDERR_FILENO, s.data(), s.length());
-      });
+      try {
+        WrapSyscall("write", [this, &s]() {
+          return ::write(STDERR_FILENO, s.data(), s.length());
+        });
+      } catch (...) {
+      }
     }
   }
 

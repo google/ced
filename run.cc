@@ -152,7 +152,7 @@ void run_daemon(const boost::filesystem::path& command,
     cargs.push_back(strdup(command.string().c_str()));
     for (auto& arg : args) cargs.push_back(strdup(arg.c_str()));
     cargs.push_back(nullptr);
-#if 0
+#if 1
     int rdf = WrapSyscall("open", []() { return open("/dev/null", O_RDONLY); });
     int wrf = WrapSyscall("open", []() { return open("/dev/null", O_RDONLY); });
     WrapSyscall("dup2", [&]() { return dup2(rdf, STDIN_FILENO); });

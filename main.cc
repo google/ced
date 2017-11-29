@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <gflags/gflags.h>
+#include <grpc/support/log.h>
 #include "application.h"
 #include "log.h"
 
@@ -24,6 +25,11 @@ int main(int argc, char** argv) {
   gflags::SetUsageMessage("ced <filename.{h,cc}>");
   gflags::SetVersionString("0.0.0");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+  gpr_set_log_verbosity(GPR_LOG_SEVERITY_DEBUG);
+  gpr_set_log_function([](gpr_log_func_args* args) {
+    Log() << args->file << ":" << args->line << ": " << args->message;
+  });
 
   try {
     return Application::RunMode(FLAGS_mode, argc, argv);

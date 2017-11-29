@@ -44,7 +44,7 @@ class CursesClient : public Application {
     color_.reset(new TerminalColor{std::move(theme)});
     bkgd(color_->Theme({}, 0));
     keypad(stdscr, true);
-    buffer_ = client_.MakeBuffer(argv[0]);
+    buffer_ = client_.MakeBuffer(FileFromCmdLine(argc, argv));
   }
 
   ~CursesClient() { endwin(); }

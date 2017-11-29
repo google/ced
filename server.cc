@@ -126,6 +126,8 @@ class ProjectServer : public Application, public ProjectService::Service {
   Buffer* GetBuffer(boost::filesystem::path path) {
     path = boost::filesystem::absolute(path);
     if (!IsChildOf(path, project_.aspect<ProjectRoot>()->Path())) {
+      Log() << "Attempt to access outside of project sandbox: " << path
+            << " in project root " << project_.aspect<ProjectRoot>()->Path();
       return nullptr;
     }
     absl::MutexLock lock(&mu_);
@@ -174,14 +176,15 @@ REGISTER_APPLICATION(ProjectServer);
 
 void SpawnServer(const boost::filesystem::path& ced_bin,
                  const Project& project) {
-  run_daemon(ced_bin,
-             {
-                 "-mode",
-                 "ProjectServer",
-                 "-logfile",
-                 (project.aspect<ProjectRoot>()->LocalAddressPath().parent_path() /
-                  absl::StrCat(".cedlog.server.", ced_src_hash))
-                     .string(),
-                 project.aspect<ProjectRoot>()->LocalAddressPath().string(),
-             });
+  run_daemon(
+      ced_bin,
+      {
+          "-mode",
+          "ProjectServer",
+          "-logfile",
+          (project.aspect<ProjectRoot>()->LocalAddressPath().parent_path() /
+           absl::StrCat(".cedlog.server.", ced_src_hash))
+              .string(),
+          project.aspect<ProjectRoot>()->LocalAddressPath().string(),
+      });
 }
