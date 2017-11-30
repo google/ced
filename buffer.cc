@@ -93,7 +93,7 @@ void Buffer::AddCollaborator(AsyncCollaboratorPtr&& collaborator) {
 }
 
 void Buffer::AddCollaborator(AsyncCommandCollaboratorPtr&& collaborator) {
-  class Listener : public BufferListener {
+  class Listener final : public BufferListener {
    public:
     Listener(Buffer* buffer, AsyncCommandCollaborator* collab)
         : BufferListener(buffer), collab_(collab) {}
@@ -107,19 +107,30 @@ void Buffer::AddCollaborator(AsyncCommandCollaboratorPtr&& collaborator) {
   absl::MutexLock lock(&mu_);
   AsyncCommandCollaborator* raw = collaborator.get();
   collaborators_.emplace_back(std::move(collaborator));
-  collaborator_threads_.emplace_back([this, raw]() {
+  Listener* listener = new Listener(this, raw);
+  collaborator_threads_.emplace_back([this, raw, listener]() {
+    Log() << raw->name() << " START LISTENER";
+    listener->Start([](const AnnotatedString&) {});
+    mu_.LockWhen(absl::Condition(&this->state_.shutdown));
+    mu_.Unlock();
+    Log() << raw->name() << " DELETE LISTENER";
+    delete listener;
+    Log() << raw->name() << " SHUTDOWN";
+    raw->Push(nullptr);
+  });
+  collaborator_threads_.emplace_back([this, raw, listener]() {
     try {
-      std::unique_ptr<Listener> listener(new Listener(this, raw));
-      listener->Start([](const AnnotatedString&) {});
       bool shutdown = false;
       while (!shutdown) {
         CommandSet commands;
-        raw->Pull(&commands);
-        PublishToListeners(&commands, listener.get());
+        Log() << raw->name() << " PULL";
+        shutdown = !raw->Pull(&commands);
+        Log() << raw->name() << " PULL -> shutdown=" << shutdown;
+        PublishToListeners(&commands, listener);
         UpdateState(raw, false, [&](EditNotification& state) {
           Log() << raw->name() << " integrating";
           state.content = state.content.Integrate(commands);
-          shutdown = state.shutdown;
+          Log() << raw->name() << " integrating done";
         });
       }
     } catch (std::exception& e) {
@@ -127,6 +138,7 @@ void Buffer::AddCollaborator(AsyncCommandCollaboratorPtr&& collaborator) {
     }
     absl::MutexLock lock(&mu_);
     done_collaborators_.insert(raw);
+    declared_no_edit_collaborators_.insert(raw);
   });
 }
 
@@ -228,6 +240,15 @@ void Buffer::UpdateState(Collaborator* collaborator, bool become_used,
   mu_.Lock();
   updating_ = false;
   version_++;
+
+  if (!done_collaborators_.empty()) {
+    std::string done_print;
+    for (auto x : done_collaborators_) {
+      absl::StrAppend(&done_print, " ", x->name());
+    }
+    Log() << "DONE:" << done_print;
+  }
+
   declared_no_edit_collaborators_ = done_collaborators_;
   state_ = state;
   if (become_used) {

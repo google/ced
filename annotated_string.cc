@@ -329,6 +329,23 @@ AnnotatedString AnnotatedString::FromProto(const AnnotatedStringMsg& msg) {
         chr.id(), {chr.visible(), static_cast<char>(chr.chr()), chr.next(),
                    chr.prev(), chr.after(), chr.before(), AVL<ID>()});
   }
+  //  line_breaks_ = line_breaks_.Add(Begin(), LineBreak{End(), End()})
+  //                     .Add(End(), LineBreak{Begin(), Begin()});
+  Iterator it(out, Begin());
+  it.MoveNext();
+  ID last_id = Begin();
+  while (!it.is_end()) {
+    if (it.value() == '\n') {
+      auto last_lb = *out.line_breaks_.Lookup(last_id);
+      auto next_lb = *out.line_breaks_.Lookup(last_lb.next);
+      assert(next_lb.prev == last_id);
+      out.line_breaks_ =
+          out.line_breaks_.Add(last_id, LineBreak{last_lb.prev, it.id()})
+              .Add(it.id(), LineBreak{last_id, last_lb.next})
+              .Add(last_lb.next, LineBreak{it.id(), next_lb.next});
+    }
+    it.MoveNext();
+  }
   for (const auto& attr : msg.attributes()) {
     out.IntegrateDecl(attr.id(), attr.attr());
   }

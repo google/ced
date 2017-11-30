@@ -36,7 +36,7 @@ class Log : public std::ostringstream {
   ~Log() {
     if (!cerr_ && FLAGS_logfile.empty()) return;
     *this << '\n';
-    auto s = str();
+    auto s = absl::StrCat(absl::FormatTime(absl::Now()), "  ", str());
     if (!FLAGS_logfile.empty()) {
       static LogFile file;
       WrapSyscall("write", [this, &s]() {

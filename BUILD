@@ -380,7 +380,6 @@ cc_library(
   hdrs = ["project.h"],
   deps = [
       "@com_google_absl//absl/strings", 
-      ":src_hash",
       "@boost//:filesystem"
   ]
 )
@@ -565,6 +564,7 @@ cc_library(
       ":run", 
       ":application", 
       ":log",
+      ":src_hash",
       "@grpc//:grpc++_unsecure",
       "//proto:project_service",
       "@com_google_absl//absl/synchronization",
@@ -586,6 +586,7 @@ cc_library(
   deps = [
     "//proto:project_service",
     ":server",
+    ":src_hash",
     "@com_google_absl//absl/time",
     ":log",
   ]
