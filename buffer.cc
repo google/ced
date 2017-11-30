@@ -238,9 +238,10 @@ void Buffer::UpdateState(Collaborator* collaborator, bool become_used,
 
 void Buffer::PushChanges(const CommandSet* commands, bool become_used) {
   PublishToListeners(commands, nullptr);
-  UpdateState(nullptr, become_used, [become_used, commands](EditNotification& state) {
-    state.content = state.content.Integrate(*commands);
-  });
+  UpdateState(nullptr, become_used,
+              [become_used, commands](EditNotification& state) {
+                state.content = state.content.Integrate(*commands);
+              });
 }
 
 AnnotatedString Buffer::ContentSnapshot() {

@@ -47,7 +47,10 @@ class CursesClient : public Application {
     buffer_ = client_.MakeBuffer(FileFromCmdLine(argc, argv));
   }
 
-  ~CursesClient() { endwin(); }
+  ~CursesClient() {
+    endwin();
+    Log::SetCerrLog(true);
+  }
 
   int Run() {
     bool was_invalidated = false;

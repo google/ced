@@ -19,6 +19,7 @@
 
 class Application {
  public:
+  virtual ~Application() {}
   static int Register(
       const std::string& mode,
       std::function<std::unique_ptr<Application>(int argc, char** argv)>
