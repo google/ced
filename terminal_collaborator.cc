@@ -79,6 +79,8 @@ EditResponse TerminalCollaborator::Pull() {
   mu_.Unlock();
   tmr.Mark("unlock");
 
+  InvalidateTerminal();
+
   return r;
 }
 

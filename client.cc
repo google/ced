@@ -117,7 +117,6 @@ class ClientCollaborator : public AsyncCommandCollaborator {
     } else {
       EditMessage msg;
       *msg.mutable_commands() = *commands;
-      Log() << "CLIENT_WRITE: " << msg.DebugString();
       stream_->Write(msg);
     }
   }
@@ -135,7 +134,6 @@ class ClientCollaborator : public AsyncCommandCollaborator {
       context_->TryCancel();
       return false;
     }
-    Log() << "CLIENT_READ: " << msg.DebugString();
     *commands = msg.commands();
     return true;
   }

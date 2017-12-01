@@ -14,6 +14,7 @@
 
 #include "test.h"
 
+// This is just an example struct
 struct A {
   double a;
   double b;

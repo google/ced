@@ -83,7 +83,6 @@ void Editor::UpdateState(LogTimer* tmr, const EditNotification& state) {
     }
   }
   unacknowledged_commands_.Swap(&unacked);
-  state_.content = s2;
 
   std::map<ID, BufferInfo> new_buffers;
   state_.content.ForEachAttribute(
@@ -111,8 +110,6 @@ void Editor::UpdateState(LogTimer* tmr, const EditNotification& state) {
     // thread
     std::thread([p]() { delete p; }).detach();
   }
-
-  PublishCursor();
 }
 
 void Editor::SelectLeft() {
@@ -171,7 +168,6 @@ void Editor::Backspace() {
   AnnotatedString::Iterator it(state_.content, cursor_);
   it.MovePrev();
   cursor_ = it.id();
-  PublishCursor();
 }
 
 void Editor::Copy(AppEnv* env) {
@@ -195,7 +191,6 @@ void Editor::Paste(AppEnv* env) {
   }
   cursor_ = state_.content.Insert(&unpublished_commands_, site_, env->clipboard,
                                   cursor_);
-  PublishCursor();
 }
 
 void Editor::InsChar(char c) {
@@ -204,7 +199,6 @@ void Editor::InsChar(char c) {
   cursor_ = state_.content.Insert(&unpublished_commands_, site_,
                                   absl::string_view(&c, 1), cursor_);
   cursor_row_ += (c == '\n');
-  PublishCursor();
 }
 
 void Editor::SetSelectMode(bool sel) {
@@ -221,7 +215,6 @@ void Editor::DeleteSelection() {
   AnnotatedString::Iterator it(state_.content, cursor_);
   it.MovePrev();
   cursor_ = it.id();
-  PublishCursor();
 }
 
 void Editor::CursorLeft() {
@@ -229,7 +222,6 @@ void Editor::CursorLeft() {
   cursor_row_ -= it.value() == '\n';
   it.MovePrev();
   cursor_ = it.id();
-  PublishCursor();
 }
 
 void Editor::CursorRight() {
@@ -237,11 +229,9 @@ void Editor::CursorRight() {
   it.MoveNext();
   cursor_row_ += it.value() == '\n';
   cursor_ = it.id();
-  PublishCursor();
 }
 
 void Editor::CursorDown() {
-  LogTimer tmr("cursor_down");
   AnnotatedString::Iterator it(state_.content, cursor_);
   int col = 0;
   auto edge = [&it]() {
@@ -263,9 +253,6 @@ void Editor::CursorDown() {
   it.MovePrev();
   cursor_ = it.id();
   cursor_row_++;
-  tmr.Mark("moved");
-  PublishCursor();
-  tmr.Mark("published");
 }
 
 void Editor::CursorUp() {
@@ -289,12 +276,10 @@ void Editor::CursorUp() {
   it.MovePrev();
   cursor_ = it.id();
   cursor_row_--;
-  PublishCursor();
 }
 
 void Editor::CursorStartOfLine() {
   cursor_ = AnnotatedString::LineIterator(state_.content, cursor_).id();
-  PublishCursor();
 }
 
 void Editor::CursorEndOfLine() {
@@ -303,5 +288,4 @@ void Editor::CursorEndOfLine() {
                 .AsIterator()
                 .Prev()
                 .id();
-  PublishCursor();
 }

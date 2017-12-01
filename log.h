@@ -36,7 +36,14 @@ class Log : public std::ostringstream {
   ~Log() {
     if (!cerr_ && FLAGS_logfile.empty()) return;
     *this << '\n';
-    auto s = absl::StrCat(absl::FormatTime(absl::Now()), "  ", str());
+#ifdef __APPLE__
+    uint64_t thread_id;
+    pthread_threadid_np(NULL, &thread_id);
+#else
+    int thread_id = -1;
+#endif
+    auto s = absl::StrCat("[", thread_id, "] ", absl::FormatTime(absl::Now()),
+                          "  ", str());
     if (!FLAGS_logfile.empty()) {
       static LogFile file;
       WrapSyscall("write", [this, &s]() {

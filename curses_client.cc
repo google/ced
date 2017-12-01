@@ -26,6 +26,7 @@
 
 static std::atomic<bool> invalidated;
 void InvalidateTerminal() {
+  Log() << "InvalidatedTerminal";
   invalidated = true;
   kill(getpid(), SIGWINCH);
 }
@@ -60,22 +61,24 @@ class CursesClient : public Application {
       bool animating = false;
       if (was_invalidated) {
         animating = true;
+        log_timer->Mark("animating_due_to_invalidated");
       } else {
         erase();
         animating = Render(log_timer.get(), last_key_press);
         log_timer->Mark("rendered");
       }
       timeout(animating ? 10 : -1);
-      log_timer.reset();
-      int c = getch();
-      log_timer.reset(new LogTimer("main_loop"));
+      if (!was_invalidated) log_timer.reset();
+      int c = invalidated ? -1 : getch();
+      if (!was_invalidated) log_timer.reset(new LogTimer("main_loop"));
       Log() << "GOTKEY: " << c;
-      last_key_press = absl::Now();
+      if (!was_invalidated) last_key_press = absl::Now();
+
+      log_timer->Mark("XXX");
 
       was_invalidated = false;
       switch (c) {
         case ERR:
-          break;
         case KEY_RESIZE:
           was_invalidated = true;
           break;
@@ -88,11 +91,17 @@ class CursesClient : public Application {
       log_timer->Mark("input_processed");
 
       bool expected = true;
-      was_invalidated &= (invalidated.compare_exchange_strong(
-          expected, false, std::memory_order_relaxed,
-          std::memory_order_relaxed));
+      if (!invalidated.compare_exchange_strong(expected, false,
+                                               std::memory_order_relaxed,
+                                               std::memory_order_relaxed)) {
+        was_invalidated = false;
+      }
 
-      log_timer->Mark("signalled");
+      if (was_invalidated) {
+        log_timer->Mark("signalled");
+      } else {
+        log_timer->Mark("next_loop");
+      }
     }
   }
 
