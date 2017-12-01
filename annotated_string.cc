@@ -75,6 +75,21 @@ ID AnnotatedString::MakeMark(CommandSet* commands, Site* site,
   return id;
 }
 
+void AnnotatedString::MakeDeleteAttributesBySite(CommandSet* commands, const Site& site) {
+  annotations_by_type_.ForEach([&](Attribute::DataCase dc, AVL<ID, Annotation> by_type) {
+    by_type.ForEach([&](ID id, const Annotation& an) {
+      if (site.CreatedID(id) || site.CreatedID(an.attribute())) {
+        MakeDelMark(commands, id);
+      }
+    });
+  });
+  attributes_.ForEach([&](ID id, Attribute::DataCase dc) {
+    if (site.CreatedID(id)) {
+      MakeDelDecl(commands, id);
+    }
+  });
+}
+
 AnnotatedString AnnotatedString::Integrate(const CommandSet& commands) const {
   AnnotatedString s = *this;
   for (const auto& cmd : commands.commands()) {

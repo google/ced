@@ -64,7 +64,8 @@ Client::Client(const boost::filesystem::path& ced_bin,
                                        grpc::InsecureChannelCredentials());
     project_stub_ = ProjectService::NewStub(channel);
 
-    gpr_timespec hello_deadline = gpr_time_add(gpr_now(GPR_CLOCK_MONOTONIC), gpr_time_from_seconds(5, GPR_TIMESPAN));
+    gpr_timespec hello_deadline = gpr_time_add(
+        gpr_now(GPR_CLOCK_MONOTONIC), gpr_time_from_seconds(5, GPR_TIMESPAN));
 
     ConnectionHelloRequest hello_request;
     ConnectionHelloResponse hello_response;

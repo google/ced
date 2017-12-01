@@ -51,15 +51,16 @@ class ProjectServer : public Application, public ProjectService::Service {
 
   int Run() override {
     auto done = [this]() {
-        mu_.AssertHeld();
+      mu_.AssertHeld();
       return active_requests_ == 0 &&
              (quit_requested_ ||
               (absl::Now() - last_activity_ > absl::Hours(1)));
     };
     {
-       absl::MutexLock lock(&mu_);
-       while (!mu_.AwaitWithTimeout(absl::Condition(&done), 
-       absl::Duration(absl::Minutes(1))));
+      absl::MutexLock lock(&mu_);
+      while (!mu_.AwaitWithTimeout(absl::Condition(&done),
+                                   absl::Duration(absl::Minutes(1))))
+        ;
     }
     server_->Shutdown();
     return 0;
@@ -118,6 +119,10 @@ class ProjectServer : public Application, public ProjectService::Service {
       }
       buffer->PushChanges(&msg.commands(), true);
     }
+    CommandSet cleanup_commands;
+    buffer->ContentSnapshot().MakeDeleteAttributesBySite(&cleanup_commands,
+                                                         site);
+    buffer->PushChanges(&msg.commands(), false);
     return grpc::Status::OK;
   }
 

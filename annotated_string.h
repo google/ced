@@ -65,6 +65,10 @@ class Site {
 
   uint16_t site_id() const { return id_; }
 
+  bool CreatedID(ID id) const {
+    return id.site == id_;
+  }
+
  private:
   Site(uint16_t id) : id_(id) {}
   const uint16_t id_;
@@ -117,6 +121,8 @@ class AnnotatedString {
                      const Attribute& attribute);
   static ID MakeMark(CommandSet* commands, Site* site,
                      const Annotation& annotation);
+
+  void MakeDeleteAttributesBySite(CommandSet* commands, const Site& site);
 
   AnnotatedString Integrate(const CommandSet& commands) const;
   void Integrate(const Command& command);
