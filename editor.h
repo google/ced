@@ -44,6 +44,8 @@ class Editor : public std::enable_shared_from_this<Editor> {
   }
   EditResponse MakeResponse();
 
+  std::vector<std::string> DebugData() const;
+
   // editor commands
   void SelectLeft();
   void MoveLeft();
@@ -98,7 +100,7 @@ class Editor : public std::enable_shared_from_this<Editor> {
         gutter_annotations.push_back(s);
       };
       while (it.id() != line_fw.id()) {
-        if (it.is_visible()) {
+        if (it.is_visible() || it.is_begin()) {
           uint32_t chr_flags = base_flags;
           std::vector<std::string> tags;
           bool move_cursor = false;
@@ -149,29 +151,31 @@ class Editor : public std::enable_shared_from_this<Editor> {
           if (has_diagnostic) {
             tags.push_back("invalid");
           }
-          if (it.value() == '\n') {
-            auto fill_attr = ctx->color->Theme(::Theme::Tag(), base_flags);
-            while (ncol < ctx->window->width()) {
-              ctx->Put(nrow, ncol, ' ', fill_attr);
+          if (it.is_visible()) {
+            if (it.value() == '\n') {
+              auto fill_attr = ctx->color->Theme(::Theme::Tag(), base_flags);
+              while (ncol < ctx->window->width()) {
+                ctx->Put(nrow, ncol, ' ', fill_attr);
+                ncol++;
+              }
+              std::string gutter = absl::StrJoin(gutter_annotations, ",");
+              ncol = ctx->window->width() - gutter.length();
+              fill_attr =
+                  ctx->color->Theme(::Theme::Tag{"comment.gutter"}, base_flags);
+              for (auto c : gutter) {
+                ctx->Put(nrow, ncol, c, fill_attr);
+                ncol++;
+              }
+              gutter_annotations.clear();
+              nrow++;
+              ncol = 0;
+              start_of_line = it;
+              base_flags = 0;
+            } else {
+              ctx->Put(nrow, ncol, it.value(),
+                       ctx->color->Theme(tags, chr_flags));
               ncol++;
             }
-            std::string gutter = absl::StrJoin(gutter_annotations, ",");
-            ncol = ctx->window->width() - gutter.length();
-            fill_attr =
-                ctx->color->Theme(::Theme::Tag{"comment.gutter"}, base_flags);
-            for (auto c : gutter) {
-              ctx->Put(nrow, ncol, c, fill_attr);
-              ncol++;
-            }
-            gutter_annotations.clear();
-            nrow++;
-            ncol = 0;
-            start_of_line = it;
-            base_flags = 0;
-          } else {
-            ctx->Put(nrow, ncol, it.value(),
-                     ctx->color->Theme(tags, chr_flags));
-            ncol++;
           }
           if (move_cursor) {
             if (has_focus) ctx->Move(nrow, ncol);

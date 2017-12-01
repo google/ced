@@ -65,9 +65,7 @@ class Site {
 
   uint16_t site_id() const { return id_; }
 
-  bool CreatedID(ID id) const {
-    return id.site == id_;
-  }
+  bool CreatedID(ID id) const { return id.site == id_; }
 
  private:
   Site(uint16_t id) : id_(id) {}
@@ -195,6 +193,10 @@ class AnnotatedString {
     // cache of which annotations are on this character
     AVL<ID> annotations;
   };
+
+  static bool IsMarkable(ID id, const CharInfo* info) {
+    return info->visible || id == Begin();
+  }
 
   struct LineBreak {
     ID prev;

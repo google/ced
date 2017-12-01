@@ -94,6 +94,7 @@ class CursesClient : public Application {
       if (!invalidated.compare_exchange_strong(expected, false,
                                                std::memory_order_relaxed,
                                                std::memory_order_relaxed)) {
+        log_timer->Mark("clear_invalidated");
         was_invalidated = false;
       }
 

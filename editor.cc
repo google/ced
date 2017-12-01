@@ -12,6 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "editor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
+
+std::vector<std::string> Editor::DebugData() const {
+  std::vector<std::string> r;
+  r.push_back(absl::StrCat("cursor_row ", cursor_row_));
+  r.push_back(absl::StrCat("cursor ", absl::Hex(cursor_.id, absl::kZeroPad16)));
+  r.push_back(absl::StrCat("cursor_reported ",
+                           absl::Hex(cursor_reported_.id, absl::kZeroPad16)));
+  r.push_back(absl::StrCat("selection_anchor ",
+                           absl::Hex(selection_anchor_.id, absl::kZeroPad16)));
+  auto add_proto = [&r](const std::string& name,
+                        const google::protobuf::Message& msg) {
+    r.push_back(absl::StrCat(name, ":"));
+    auto dbg = msg.DebugString();
+    for (auto line : absl::StrSplit(dbg, '\n')) {
+      r.push_back(absl::StrCat("  ", line));
+    }
+  };
+  add_proto("unpublished_commands", unpublished_commands_);
+  add_proto("unacknowledged_commands", unacknowledged_commands_);
+  return r;
+}
 
 EditResponse Editor::MakeResponse() {
   PublishCursor();

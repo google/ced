@@ -70,8 +70,8 @@ class Log : public std::ostringstream {
    public:
     LogFile() {
       hdl_ = WrapSyscall("open", []() {
-        return open(FLAGS_logfile.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC,
-                    0777);
+        return open(FLAGS_logfile.c_str(),
+                    O_WRONLY | O_CREAT | O_CLOEXEC | O_TRUNC, 0777);
       });
     }
 

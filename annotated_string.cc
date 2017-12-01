@@ -75,14 +75,16 @@ ID AnnotatedString::MakeMark(CommandSet* commands, Site* site,
   return id;
 }
 
-void AnnotatedString::MakeDeleteAttributesBySite(CommandSet* commands, const Site& site) {
-  annotations_by_type_.ForEach([&](Attribute::DataCase dc, AVL<ID, Annotation> by_type) {
-    by_type.ForEach([&](ID id, const Annotation& an) {
-      if (site.CreatedID(id) || site.CreatedID(an.attribute())) {
-        MakeDelMark(commands, id);
-      }
-    });
-  });
+void AnnotatedString::MakeDeleteAttributesBySite(CommandSet* commands,
+                                                 const Site& site) {
+  annotations_by_type_.ForEach(
+      [&](Attribute::DataCase dc, AVL<ID, Annotation> by_type) {
+        by_type.ForEach([&](ID id, const Annotation& an) {
+          if (site.CreatedID(id) || site.CreatedID(an.attribute())) {
+            MakeDelMark(commands, id);
+          }
+        });
+      });
   attributes_.ForEach([&](ID id, Attribute::DataCase dc) {
     if (site.CreatedID(id)) {
       MakeDelDecl(commands, id);
@@ -257,7 +259,7 @@ void AnnotatedString::IntegrateMark(ID id, const Annotation& annotation) {
     auto next = ci->next;
     // Log() << "loc=" << loc.id << " next=" << next.id;
     assert(next != loc);
-    if (ci->visible) {
+    if (IsMarkable(loc, ci)) {
       chars_ = chars_.Add(
           loc, CharInfo{ci->visible, ci->chr, ci->next, ci->prev, ci->after,
                         ci->before, ci->annotations.Add(id)});
@@ -279,7 +281,7 @@ void AnnotatedString::IntegrateDelMark(ID id) {
     // Log() << "Unmark " << loc.id << " with " << id.id << " vis:" <<
     // ci->visible;
     auto next = ci->next;
-    if (ci->visible) {
+    if (IsMarkable(loc, ci)) {
       chars_ = chars_.Add(
           loc, CharInfo{ci->visible, ci->chr, ci->next, ci->prev, ci->after,
                         ci->before, ci->annotations.Remove(id)});
