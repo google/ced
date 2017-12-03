@@ -18,6 +18,8 @@
 std::vector<std::string> Editor::DebugData() const {
   std::vector<std::string> r;
   r.push_back(absl::StrCat("cursor_row ", cursor_row_));
+  r.push_back(absl::StrCat("nrow_before_sub ", debug_.nrow_before_sub));
+  r.push_back(absl::StrCat("window_height ", debug_.window_height));
   r.push_back(absl::StrCat("cursor ", absl::Hex(cursor_.id, absl::kZeroPad16)));
   r.push_back(absl::StrCat("cursor_reported ",
                            absl::Hex(cursor_reported_.id, absl::kZeroPad16)));
