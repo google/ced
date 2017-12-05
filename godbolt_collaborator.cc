@@ -61,18 +61,16 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   }
 
   Log() << "objdump: " << tmpf.filename();
-  auto dump = run(
-      OBJDUMP_BIN,
-      {"-d", "-l", "-M", "intel", "-C", "--no-show-raw-insn", tmpf.filename()},
-      "");
+  auto dump = run(OBJDUMP_BIN, {"-d", "-l", "-M", "intel", "-C",
+                                "--no-show-raw-insn", tmpf.filename()},
+                  "");
 
   Log() << dump.out;
   AsmParseResult parsed_asm = AsmParse(dump.out);
 
   AnnotationEditor::ScopedEdit edit(&ed_, &response.content_updates);
   Attribute side_buf;
-  auto s = buffer_->filename();
-  s.replace_extension("s");
+  auto s = buffer_->filename() / "godbolt.s";
   side_buf.mutable_buffer()->set_name(s.string());
   side_buf.mutable_buffer()->set_contents(parsed_asm.body);
   ID side_buf_id = ed_.AttrID(side_buf);

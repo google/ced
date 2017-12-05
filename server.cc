@@ -167,6 +167,9 @@ class ProjectServer : public Application, public ProjectService::Service {
     if (it != buffers_.end()) {
       return it->second.get();
     }
+    if (!boost::filesystem::exists(path)) {
+      return nullptr;
+    }
     return buffers_
         .emplace(
             path,
@@ -205,9 +208,7 @@ void SpawnServer(const boost::filesystem::path& ced_bin,
   run_daemon(
       ced_bin,
       {
-          "-mode",
-          "ProjectServer",
-          "-logfile",
+          "-mode", "ProjectServer", "-logfile",
           (project.aspect<ProjectRoot>()->LocalAddressPath().parent_path() /
            absl::StrCat(".cedlog.server.", ced_src_hash))
               .string(),
