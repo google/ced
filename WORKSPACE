@@ -201,6 +201,10 @@ git_repository(
     remote = "https://github.com/gflags/gflags.git"
 )
 
+#
+#  boost
+#
+
 git_repository(
     name = "com_github_nelhage_boost",
     commit = 'd6446dc9de6e43b039af07482a9361bdc6da5237',
@@ -209,6 +213,10 @@ git_repository(
 
 load("@com_github_nelhage_boost//:boost/boost.bzl", "boost_deps")
 boost_deps()
+
+#
+# imgui
+#
 
 new_http_archive(
       name = "dear_imgui",
@@ -221,6 +229,93 @@ cc_library(
   hdrs = glob(['*.h']),
 )
       """
+)
+
+#
+# Skia
+#
+
+new_git_repository(
+  name = "skia",
+  remote = "https://github.com/google/skia.git",
+  commit = "f9ec4707ee13db1cb76b368762ad551fe0cd3555",
+  build_file_content = """
+load(
+  ":public.bzl",
+  "base_copts",
+  "base_defines",
+  "base_linkopts",
+  "codec_srcs",
+  "dm_srcs",
+  "opts_cflags",
+  "opts_rest_srcs",
+  "opts_srcs",
+  "skia_all_hdrs",
+  "skia_opts_deps",
+  "skia_public_hdrs",
+  "skia_select",
+  "skia_srcs",
+  # SKIA_OPTS_*
+  "SKIA_OPTS_SSE2",
+  "SKIA_OPTS_SSSE3",
+  "SKIA_OPTS_SSE41",
+  "SKIA_OPTS_SSE42",
+  "SKIA_OPTS_AVX",
+  "SKIA_OPTS_NEON",
+  "SKIA_OPTS_CRC32",
+  # SKIA_CPU_*
+  "SKIA_CPU_ARM",
+  "SKIA_CPU_ARM64",
+  "SKIA_CPU_X86",
+  "SKIA_CPU_OTHER",
+  # INCLUDES
+  "INCLUDES",
+  # DM_INCLUDES
+  "DM_INCLUDES",
+)
+
+config_setting(name = "android")
+config_setting(name = "ios")
+
+CONDITIONS = ["//conditions:default", ":android", ":ios"]
+
+config_setting(
+    name = "linux_x86_64",
+    values = {"cpu": "k8"},
+    visibility = ["//visibility:public"],
+    )
+
+cc_library(
+    name = "opts_rest",
+    srcs = select({
+        ":linux_x86_64": skia_opts_deps(SKIA_CPU_X86),
+        "//conditions:default": opts_rest_srcs(SKIA_CPU_OTHER),
+    }) + skia_all_hdrs(),
+    copts = base_copts(CONDITIONS),
+    defines = base_defines(CONDITIONS),
+    includes = INCLUDES,
+)
+
+cc_library(
+  name = "skia",
+  srcs = skia_srcs(CONDITIONS),
+  hdrs = skia_public_hdrs(),
+  copts = base_copts(CONDITIONS),
+  defines = base_defines(CONDITIONS),
+  includes = INCLUDES,
+  linkopts = base_linkopts(CONDITIONS),
+  visibility = [
+      "//visibility:public",
+  ],
+  deps = [
+
+  ] + select({
+        ":linux_x86_64": skia_opts_deps(SKIA_CPU_X86),
+        "//conditions:default": skia_opts_deps(SKIA_CPU_OTHER),
+  }),
+  alwayslink = 1,
+)
+  """
 )
 
 #
