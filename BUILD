@@ -116,6 +116,8 @@ cc_binary(
     ":application_modes",
     ":application",
     "@com_github_gflags_gflags//:gflags",
+    # for now, testing
+    "@skia//:skia",
   ],
   linkopts = ["-lcurses", "-lpthread", "-ldl"]
 )
@@ -273,7 +275,7 @@ cc_library(
   srcs = ["log.cc"],
   hdrs = ["log.h"],
   deps = [
-    ":wrap_syscall", 
+    ":wrap_syscall",
     '@com_google_absl//absl/strings',
     "@com_google_absl//absl/time",
     "@com_github_gflags_gflags//:gflags",
@@ -360,9 +362,9 @@ cc_library(
     srcs = ["run.cc"],
     hdrs = ["run.h"],
     deps = [
-      ":wrap_syscall", 
-      ":log", 
-      "@com_google_absl//absl/strings",      
+      ":wrap_syscall",
+      ":log",
+      "@com_google_absl//absl/strings",
       "@boost//:filesystem",
     ]
 )
@@ -379,7 +381,7 @@ cc_library(
   srcs = ["project.cc"],
   hdrs = ["project.h"],
   deps = [
-      "@com_google_absl//absl/strings", 
+      "@com_google_absl//absl/strings",
       "@boost//:filesystem"
   ]
 )
@@ -547,9 +549,9 @@ cc_library(
   hdrs = ["annotated_string.h"],
   srcs = ["annotated_string.cc"],
   deps = [
-    "//proto:annotation", 
-    ":avl", 
-    ":log", 
+    "//proto:annotation",
+    ":avl",
+    ":log",
     "@com_google_absl//absl/strings",
     "@com_google_absl//absl/types:optional",
   ]
@@ -560,9 +562,9 @@ cc_library(
   hdrs = ["server.h"],
   srcs = ["server.cc"],
   deps = [
-      ":project", 
-      ":run", 
-      ":application", 
+      ":project",
+      ":run",
+      ":application",
       ":log",
       ":src_hash",
       "@grpc//:grpc++_unsecure",

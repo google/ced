@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+workspace(name = "ced")
+
 git_repository(
   name="com_google_absl",
   commit="6cf9c731027f4d8aebe3c60df8e64317e6870870",
@@ -235,87 +238,77 @@ cc_library(
 # Skia
 #
 
+git_repository(
+  name = "skia",
+  remote = "https://github.com/ctiller/skia.git",
+  commit = "1d23964639fad8869f7bdd9cda10a6257f62b9b5",
+)
+
+new_http_archive(
+    name = "jpeg",
+    urls = [
+        "https://mirror.bazel.build/github.com/libjpeg-turbo/libjpeg-turbo/archive/1.5.1.tar.gz",
+        "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/1.5.1.tar.gz",
+    ],
+    sha256 = "c15a9607892113946379ccea3ca8b85018301b200754f209453ab21674268e77",
+    strip_prefix = "libjpeg-turbo-1.5.1",
+    build_file = "BUILD.libjpeg",
+)
+
+new_http_archive(
+    name = "freetype",
+    urls = [
+        "https://download.savannah.gnu.org/releases/freetype/freetype-2.8.1.tar.bz2",
+    ],
+    strip_prefix = "freetype-2.8.1",
+    build_file = "BUILD.freetype",
+)
+
 new_git_repository(
-  name = "skia",
-  remote = "https://github.com/google/skia.git",
-  commit = "f9ec4707ee13db1cb76b368762ad551fe0cd3555",
-  build_file_content = """
-load(
-  ":public.bzl",
-  "base_copts",
-  "base_defines",
-  "base_linkopts",
-  "codec_srcs",
-  "dm_srcs",
-  "opts_cflags",
-  "opts_rest_srcs",
-  "opts_srcs",
-  "skia_all_hdrs",
-  "skia_opts_deps",
-  "skia_public_hdrs",
-  "skia_select",
-  "skia_srcs",
-  # SKIA_OPTS_*
-  "SKIA_OPTS_SSE2",
-  "SKIA_OPTS_SSSE3",
-  "SKIA_OPTS_SSE41",
-  "SKIA_OPTS_SSE42",
-  "SKIA_OPTS_AVX",
-  "SKIA_OPTS_NEON",
-  "SKIA_OPTS_CRC32",
-  # SKIA_CPU_*
-  "SKIA_CPU_ARM",
-  "SKIA_CPU_ARM64",
-  "SKIA_CPU_X86",
-  "SKIA_CPU_OTHER",
-  # INCLUDES
-  "INCLUDES",
-  # DM_INCLUDES
-  "DM_INCLUDES",
+    name = "fontconfig",
+    remote = "https://anongit.freedesktop.org/git/fontconfig",
+    tag = "2.12.6",
+    build_file = "BUILD.fontconfig"
 )
 
-config_setting(name = "android")
-config_setting(name = "ios")
-
-CONDITIONS = ["//conditions:default", ":android", ":ios"]
-
-config_setting(
-    name = "linux_x86_64",
-    values = {"cpu": "k8"},
-    visibility = ["//visibility:public"],
-    )
-
-cc_library(
-    name = "opts_rest",
-    srcs = select({
-        ":linux_x86_64": skia_opts_deps(SKIA_CPU_X86),
-        "//conditions:default": opts_rest_srcs(SKIA_CPU_OTHER),
-    }) + skia_all_hdrs(),
-    copts = base_copts(CONDITIONS),
-    defines = base_defines(CONDITIONS),
-    includes = INCLUDES,
+new_git_repository(
+    name = "sfntly",
+    remote = "https://github.com/rillig/sfntly",
+    commit = "71b36ba9b512ddae85be6f9a3f6a3e808ae3ba82",
+    build_file = "BUILD.sfntly",
 )
 
-cc_library(
-  name = "skia",
-  srcs = skia_srcs(CONDITIONS),
-  hdrs = skia_public_hdrs(),
-  copts = base_copts(CONDITIONS),
-  defines = base_defines(CONDITIONS),
-  includes = INCLUDES,
-  linkopts = base_linkopts(CONDITIONS),
-  visibility = [
-      "//visibility:public",
-  ],
-  deps = [
+#git_repository(
+#    name = "com_github_spinorx_icu",
+#    remote = "https://github.com/spinorx/icu.git",
+#    tag = "v59.1.use"
+#)
 
-  ] + select({
-        ":linux_x86_64": skia_opts_deps(SKIA_CPU_X86),
-        "//conditions:default": skia_opts_deps(SKIA_CPU_OTHER),
-  }),
-  alwayslink = 1,
+new_http_archive(
+    name = "icu",
+    urls = [
+        "http://download.icu-project.org/files/icu4c/60.1/icu4c-60_1-src.tgz"
+    ],
+    strip_prefix = "icu",
+    build_file = "BUILD.icu",
 )
-  """
+
+new_http_archive(
+    name = "libpng",
+    urls = [
+        "https://mirror.bazel.build/github.com/glennrp/libpng/archive/v1.2.53.tar.gz",
+        "https://github.com/glennrp/libpng/archive/v1.2.53.tar.gz",
+    ],
+    sha256 = "716c59c7dfc808a4c368f8ada526932be72b2fcea11dd85dc9d88b1df1dfe9c2",
+    strip_prefix = "libpng-1.2.53",
+    build_file = "BUILD.libpng",
+)
+
+new_git_repository(
+    name = "webp",
+    remote = "https://chromium.googlesource.com/webm/libwebp.git",
+    tag = "v0.6.1",
+    build_file = "BUILD.libwebp",
 )
 
 #
