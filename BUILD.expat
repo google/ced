@@ -1,0 +1,14 @@
+cc_library(
+  name = "expat_c",
+  textual_hdrs = glob(['lib/xml*.c']),
+)
+
+cc_library(
+  name = "expat",
+  hdrs = glob(['lib/*.h']),
+  srcs = glob(['lib/xml*.c']),
+  defines = ['XML_POOR_ENTROPY', 'HAVE_MEMMOVE'],
+  includes = ['lib'],
+  deps = [':expat_c'],
+  visibility = ['//visibility:public']
+)

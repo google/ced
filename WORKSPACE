@@ -311,6 +311,15 @@ new_git_repository(
     build_file = "BUILD.libwebp",
 )
 
+new_http_archive(
+    name = "expat",
+    urls = [
+        "https://github.com/libexpat/libexpat/releases/download/R_2_2_5/expat-2.2.5.tar.bz2"
+    ],
+    strip_prefix = "expat-2.2.5",
+    build_file = "BUILD.expat",
+)
+
 #
 # gRPC bits
 #
