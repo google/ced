@@ -89,7 +89,7 @@ genrule(
   outs=['src_hash.cc'],
   cmd= select({
     '//:darwin': SRC_HASH_CMD % 'md5',
-    '//conditions:default': SRC_HASH_CMD % 'md5sum',
+    '//conditions:default': SRC_HASH_CMD % 'md5sum | awk \'{print $$1}\'',
   }),
 )
 

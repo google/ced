@@ -361,9 +361,16 @@ genrule(
   cmd = './$(location :fc-glyphname) $(location fc-glyphname/zapfdingbats.txt) < $(location fc-glyphname/fcglyphname.tmpl.h) > $(OUTS)'
 )
 
+# fake urllib2.py to keep build hermetic
+genrule(
+  name = 'fakeurl',
+  outs = ['fc-blanks/urllib2.py'],
+  cmd = 'echo "class URLError: pass; def urlopen(*args): raise URLError();" > $(OUTS)'
+)
+
 genrule(
   name = 'fcblanks_rule',
-  srcs = ['fc-blanks/fcblanks.tmpl.h', 'fc-blanks/fc-blanks.py'],
+  srcs = ['fc-blanks/fcblanks.tmpl.h', 'fc-blanks/fc-blanks.py', 'fc-blanks/urllib2.py'],
   outs = ['fc-blanks/fcblanks.h'],
   cmd = './$(location fc-blanks/fc-blanks.py) < $(location fc-blanks/fcblanks.tmpl.h) > $(OUTS)'
 )

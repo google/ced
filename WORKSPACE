@@ -333,8 +333,8 @@ new_http_archive(
 
 new_git_repository(
     name = "xmp_sdk",
-    remote = "https://github.com/yanburman/xmp_sdk.git",
-    commit = "708e4c3a4059dc4d59d69eb9a675f422a1a027fd",
+    remote = "https://github.com/hfiguiere/exempi.git",
+    commit = "b1859382628b5ba961548980e3b0725d6f934b20",
     build_file = "BUILD.xmp_sdk"
 )
 

@@ -6,14 +6,13 @@ cc_library(
     "source/*.cpp",
     "XMPFiles/**/*.cpp",
     "XMPCore/**/*.cpp",
-    "XMPFilesPlugins/**/*.cpp",
+#    "XMPFilesPlugins/**/*.cpp",
+    "third-party/zuid/interfaces/MD5.cpp",
   ], exclude=[
     "source/Host_IO-Win.cpp",
     "XMPFiles/source/PluginHandler/OS_Utils_WIN.cpp",
     "XMPFiles/source/PluginHandler/OS_Utils_Mac.cpp",
     "XMPFiles/source/PluginHandler/OS_Utils_Linux.cpp",
-    "XMPFiles/source/FormatSupport/RIFF_Support.cpp",
-    "XMPFiles/source/FormatSupport/ID3_Support.cpp",
   ]) + select({
     ':darwin': ['XMPFiles/source/PluginHandler/OS_Utils_Mac.cpp'],
     '//conditions:default': ['XMPFiles/source/PluginHandler/OS_Utils_Linux.cpp'],
@@ -22,7 +21,13 @@ cc_library(
   defines = select({
     ':darwin': ['MAC_ENV'],
     '//conditions:default': ['UNIX_ENV'],
-  })
+  }) + [
+    'EnablePluginManager=0',
+    'EnableDynamicMediaHandlers=0',
+    'XMP_StaticBuild=1',
+    'XMP_COMPONENT_INT_NAMESPACE=AdobeXMPCore_Int',
+  ],
+  copts=['-D__GNUC__=8'],
 )
 
 config_setting(
