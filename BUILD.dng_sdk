@@ -1,0 +1,9 @@
+cc_library(
+  name = 'dng_sdk',
+  srcs = glob(['source/*.cpp']),
+  hdrs = glob(['source/*.h']),
+  includes = ['source'],
+  visibility = ['//visibility:public'],
+  deps = ['@xmp_sdk//:xmp', '@com_github_madler_zlib//:z'],
+)
+

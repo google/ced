@@ -5,6 +5,18 @@ genrule(
 )
 
 genrule(
+  name="alias",
+  cmd='echo "" > $(OUTS)',
+  outs=['src/fcalias.h']
+)
+
+genrule(
+  name="alias2",
+  cmd='echo "" > $(OUTS)',
+  outs=['src/fcftalias.h']
+)
+
+genrule(
   name="aliastail",
   cmd='echo "" > $(OUTS)',
   outs=['src/fcaliastail.h']
@@ -36,6 +48,8 @@ DEFINES = [
 cc_library(
   name = 'src_hdrs',
   hdrs = glob(['fontconfig/*.h', 'src/*.h']) + [
+    'src/fcalias.h',
+    'src/fcftalias.h',
     'src/fcstdint.h',
     'src/fcaliastail.h',
     'src/fcftaliastail.h',

@@ -19,6 +19,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <atomic>
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -28,7 +29,7 @@ DECLARE_string(logfile);
 
 class Log : public std::ostringstream {
  public:
-  Log() : cerr_(log_cerr_) {
+  Log() : cerr_(log_cerr_.load()) {
     if (FLAGS_logfile.empty() && !cerr_) {
       this->setstate(std::ios_base::badbit);
     }

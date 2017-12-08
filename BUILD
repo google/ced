@@ -76,6 +76,7 @@ config_setting(
     visibility = ["//visibility:public"],
     )
 
+SRC_HASH_CMD = 'echo "const char* ced_src_hash=\\"`cat $(SRCS) | %s`\\";" > $(OUTS)'
 genrule(
   name = 'src_hash_gen',
   srcs = glob(['*', '**/*'], exclude=[
@@ -86,7 +87,10 @@ genrule(
     '.*'
   ]),
   outs=['src_hash.cc'],
-  cmd='echo "const char* ced_src_hash=\\"`cat $(SRCS) | md5`\\";" > $(OUTS)',
+  cmd= select({
+    '//:darwin': SRC_HASH_CMD % 'md5',
+    '//conditions:default': SRC_HASH_CMD % 'md5sum',
+  }),
 )
 
 cc_library(

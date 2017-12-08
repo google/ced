@@ -241,7 +241,7 @@ cc_library(
 git_repository(
   name = "skia",
   remote = "https://github.com/ctiller/skia.git",
-  commit = "1d23964639fad8869f7bdd9cda10a6257f62b9b5",
+  commit = "8ad7387b772b5d8d51d41bfe05eab27b9b2d7634",
 )
 
 new_http_archive(
@@ -319,6 +319,39 @@ new_http_archive(
     strip_prefix = "expat-2.2.5",
     build_file = "BUILD.expat",
 )
+
+new_http_archive(
+    name = "nasm",
+    urls = [
+        "https://mirror.bazel.build/www.nasm.us/pub/nasm/releasebuilds/2.12.02/nasm-2.12.02.tar.bz2",
+        "http://pkgs.fedoraproject.org/repo/pkgs/nasm/nasm-2.12.02.tar.bz2/d15843c3fb7db39af80571ee27ec6fad/nasm-2.12.02.tar.bz2",
+    ],
+    sha256 = "00b0891c678c065446ca59bcee64719d0096d54d6886e6e472aeee2e170ae324",
+    strip_prefix = "nasm-2.12.02",
+    build_file = "BUILD.nasm",
+)
+
+new_git_repository(
+    name = "xmp_sdk",
+    remote = "https://github.com/yanburman/xmp_sdk.git",
+    commit = "708e4c3a4059dc4d59d69eb9a675f422a1a027fd",
+    build_file = "BUILD.xmp_sdk"
+)
+
+new_git_repository(
+    name = "dng_sdk",
+    remote = "https://github.com/yanburman/dng_sdk.git",
+    commit = "ae301a57b4e14a6826914e29daf6d40459ef6acf",
+    build_file = "BUILD.dng_sdk"
+)
+
+new_git_repository(
+    name = 'piex',
+    remote = 'https://github.com/google/piex.git',
+    commit = '473434f2dd974978b329faf5c87ae8aa09a2714d',
+    build_file = 'BUILD.piex'
+)
+
 
 #
 # gRPC bits

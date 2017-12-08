@@ -1,0 +1,32 @@
+cc_library(
+  name = "xmp",
+  visibility = ["//visibility:public"],
+  hdrs = glob(["public/**", "source/**", "XMP*/**", "build/*.h", "third-party/**"]),
+  srcs = glob([
+    "source/*.cpp",
+    "XMPFiles/**/*.cpp",
+    "XMPCore/**/*.cpp",
+    "XMPFilesPlugins/**/*.cpp",
+  ], exclude=[
+    "source/Host_IO-Win.cpp",
+    "XMPFiles/source/PluginHandler/OS_Utils_WIN.cpp",
+    "XMPFiles/source/PluginHandler/OS_Utils_Mac.cpp",
+    "XMPFiles/source/PluginHandler/OS_Utils_Linux.cpp",
+    "XMPFiles/source/FormatSupport/RIFF_Support.cpp",
+    "XMPFiles/source/FormatSupport/ID3_Support.cpp",
+  ]) + select({
+    ':darwin': ['XMPFiles/source/PluginHandler/OS_Utils_Mac.cpp'],
+    '//conditions:default': ['XMPFiles/source/PluginHandler/OS_Utils_Linux.cpp'],
+  }),
+  includes = ['public/include', '.', 'XMPFilesPlugins/api/source'],
+  defines = select({
+    ':darwin': ['MAC_ENV'],
+    '//conditions:default': ['UNIX_ENV'],
+  })
+)
+
+config_setting(
+    name = "darwin",
+    values = {"cpu": "darwin"},
+)
+
