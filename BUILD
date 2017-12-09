@@ -123,7 +123,10 @@ cc_binary(
     # for now, testing
     "@skia//:skia",
   ],
-  linkopts = ["-lcurses", "-lpthread", "-ldl"]
+  linkopts = ["-lcurses", "-ldl"] + select({
+    ':darwin': ['-framework CoreServices'],
+    '//conditions:default': ['-lpthread'],
+  })
 )
 
 cc_library(
