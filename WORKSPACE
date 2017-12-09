@@ -241,7 +241,7 @@ cc_library(
 git_repository(
   name = "skia",
   remote = "https://github.com/ctiller/skia.git",
-  commit = "3d81a57d00438a21c794a6aac78cc05f032056d0",
+  commit = "34e5fd86a339aa20ba273e37ce1cf87ac32963cf",
 )
 
 new_http_archive(
