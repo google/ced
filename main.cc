@@ -17,7 +17,6 @@
 #include "application.h"
 #include "log.h"
 
-#define DEFAULT_MODE "CursesClient"
 DEFINE_string(mode, DEFAULT_MODE,
               "Application mode (default " DEFAULT_MODE ")");
 

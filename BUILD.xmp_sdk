@@ -15,11 +15,13 @@ cc_library(
     "XMPFiles/source/PluginHandler/OS_Utils_Linux.cpp",
   ]) + select({
     ':darwin': ['XMPFiles/source/PluginHandler/OS_Utils_Mac.cpp'],
+    ':darwin_x86_64': ['XMPFiles/source/PluginHandler/OS_Utils_Mac.cpp'],
     '//conditions:default': ['XMPFiles/source/PluginHandler/OS_Utils_Linux.cpp'],
   }),
   includes = ['public/include', '.', 'XMPFilesPlugins/api/source'],
   copts = select({
     ':darwin': ['-DMAC_ENV'],
+    ':darwin_x86_64': ['-DMAC_ENV'],
     '//conditions:default': ['-DUNIX_ENV'],
   }) + [
     '-DEnablePluginManager=0',
@@ -35,3 +37,8 @@ config_setting(
     values = {"cpu": "darwin"},
 )
 
+config_setting(
+    name = "darwin_x86_64",
+    values = {"cpu": "darwin_x86_64"},
+    visibility = ["//visibility:public"],
+    )

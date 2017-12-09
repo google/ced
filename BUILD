@@ -89,6 +89,7 @@ genrule(
   outs=['src_hash.cc'],
   cmd= select({
     '//:darwin': SRC_HASH_CMD % 'md5',
+    '//:darwin_x86_64': SRC_HASH_CMD % 'md5',
     '//conditions:default': SRC_HASH_CMD % 'md5sum | awk \'{print $$1}\'',
   }),
 )
@@ -110,30 +111,71 @@ cc_test(
   deps = [":avl", "@com_google_googletest//:gtest_main"]
 )
 
-cc_binary(
-  name = "ced",
-  linkstatic = 1,
-  srcs = ["main.cc"],
+apple_binary(
+  name = 'cedmac',
   deps = [
-    ":standard_project_types",
-    ":standard_collaborator_types",
-    ":application_modes",
-    ":application",
-    "@com_github_gflags_gflags//:gflags",
-    # for now, testing
-    "@skia//:skia",
+    ':ced_main_gui',
+    ":gui_client",
   ],
+  platform_type = 'macos',
+  sdk_frameworks = [
+    'CoreServices',
+    'CoreAudio',
+    'Cocoa',
+    'AudioToolbox',
+    'CoreVideo',
+    'ForceFeedback',
+    'IOKit',
+    'Carbon',
+    'OpenGL',
+  ]
+)
+
+cc_binary(
+  name = 'ced',
+  deps = [
+    ":curses_client",
+  ] + select({
+    ':darwin': [':ced_main_curses'],
+    ':darwin_x86_64': [':ced_main_curses'],
+    '//conditions:default': [':ced_main_gui', ':gui_client'],
+  }),
+  linkstatic = 1,
   linkopts = ["-lcurses", "-ldl"] + select({
     ':darwin': ['-framework CoreServices'],
+    ':darwin_x86_64': ['-framework CoreServices'],
     '//conditions:default': ['-lpthread'],
   })
 )
 
 cc_library(
-  name = "application_modes",
+  name = "ced_common",
   deps = [
-    ":curses_client",
+    ":standard_project_types",
+    ":standard_collaborator_types",
   ]
+)
+
+cc_library(
+  name = "ced_main_gui",
+  srcs = ["main.cc"],
+  copts = ['-DDEFAULT_MODE=\\"GUI\\"'],
+  deps = [
+    ":application",
+    ":ced_common",
+    "@com_github_gflags_gflags//:gflags",
+  ],
+)
+
+cc_library(
+  name = "ced_main_curses",
+  srcs = ["main.cc"],
+  copts = ['-DDEFAULT_MODE=\\"Curses\\"'],
+  deps = [
+    ":application",
+    ":ced_common",
+    "@com_github_gflags_gflags//:gflags",
+  ],
 )
 
 cc_library(
@@ -609,6 +651,19 @@ cc_library(
     ":terminal_collaborator",
     ":client",
     ":application",
+  ],
+  alwayslink = 1,
+)
+
+cc_library(
+  name = "gui_client",
+  srcs = ["gui_client.cc"],
+  deps = [
+    ":buffer",
+    ":client",
+    ":application",
+    "@skia//:skia",
+    "@SDL2//:sdl2",
   ],
   alwayslink = 1,
 )

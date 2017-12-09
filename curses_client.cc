@@ -31,9 +31,9 @@ void InvalidateTerminal() {
   kill(getpid(), SIGWINCH);
 }
 
-class CursesClient : public Application {
+class Curses : public Application {
  public:
-  CursesClient(int argc, char** argv)
+  Curses(int argc, char** argv)
       : client_(argv[0], FileFromCmdLine(argc, argv)) {
     Log::SetCerrLog(false);
     auto theme = std::unique_ptr<Theme>(new Theme(Theme::DEFAULT));
@@ -48,7 +48,7 @@ class CursesClient : public Application {
     buffer_ = client_.MakeBuffer(FileFromCmdLine(argc, argv));
   }
 
-  ~CursesClient() {
+  ~Curses() {
     endwin();
     Log::SetCerrLog(true);
   }
@@ -158,4 +158,4 @@ class CursesClient : public Application {
   AppEnv app_env_;
 };
 
-REGISTER_APPLICATION(CursesClient);
+REGISTER_APPLICATION(Curses);

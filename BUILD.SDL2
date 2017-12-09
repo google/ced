@@ -1,0 +1,42 @@
+cc_library(
+  name = 'includarama',
+  textual_hdrs = glob(['src/**']),
+  includes = ['include'],
+)
+
+objc_library(
+  name = 'cocomo',
+  hdrs = glob(['include/*.h']),
+  srcs = glob([
+    'src/**/*.m',
+  ], exclude=[
+    'src/**/iphoneos/**',
+  ]),
+  deps = [':includarama'],
+  sdk_frameworks = [
+    'Cocoa',
+    'CoreAudio',
+  ],
+  copts = ['-fno-objc-arc'],
+)
+
+cc_library(
+  name = 'sdl2',
+  hdrs = glob(['include/*.h']),
+  srcs = glob([
+    'src/*.h',
+    'src/*.c',
+    'src/**/*.h',
+    'src/**/*.c'
+  ], exclude=[
+    'src/**/windows/**',
+    'src/**/qnx/**',
+    'src/**/linux/**',
+    'src/thread/generic/**',
+  ]),
+  deps = [
+    ':includarama',
+    ':cocomo'
+  ],
+  visibility = ['//visibility:public'],
+)

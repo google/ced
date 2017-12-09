@@ -241,7 +241,7 @@ cc_library(
 git_repository(
   name = "skia",
   remote = "https://github.com/ctiller/skia.git",
-  commit = "674e3e09ab7041f109f9100eb1003e4b61b50a7b",
+  commit = "ea37626ab7d2b76e3858d37623771d7d4eb06fb4",
 )
 
 new_http_archive(
@@ -350,6 +350,20 @@ new_git_repository(
     remote = 'https://github.com/google/piex.git',
     commit = '473434f2dd974978b329faf5c87ae8aa09a2714d',
     build_file = 'BUILD.piex'
+)
+
+
+#
+# SDL
+#
+
+new_http_archive(
+    name = 'SDL2',
+    urls = [
+      'https://www.libsdl.org/release/SDL2-2.0.7.tar.gz',
+    ],
+    build_file = 'BUILD.SDL2',
+    strip_prefix = 'SDL2-2.0.7',
 )
 
 
