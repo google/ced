@@ -5,5 +5,16 @@ cc_library(
   includes = ['source'],
   visibility = ['//visibility:public'],
   deps = ['@xmp_sdk//:xmp', '@com_github_madler_zlib//:z'],
+  copts = select({
+    ':darwin': ['-DqMacOS=1', '-DMAC_ENV'],
+    '//conditions:default': ['-DqLinux=1', '-DUNIX_ENV'],
+  }) + [
+    '-DqDNGThreadSafe=1',
+    '-DqDNGXMPDocOps=0',
+  ]
 )
 
+config_setting(
+    name = "darwin",
+    values = {"cpu": "darwin"},
+)

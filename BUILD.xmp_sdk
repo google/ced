@@ -18,16 +18,16 @@ cc_library(
     '//conditions:default': ['XMPFiles/source/PluginHandler/OS_Utils_Linux.cpp'],
   }),
   includes = ['public/include', '.', 'XMPFilesPlugins/api/source'],
-  defines = select({
-    ':darwin': ['MAC_ENV'],
-    '//conditions:default': ['UNIX_ENV'],
+  copts = select({
+    ':darwin': ['-DMAC_ENV'],
+    '//conditions:default': ['-DUNIX_ENV'],
   }) + [
-    'EnablePluginManager=0',
-    'EnableDynamicMediaHandlers=0',
-    'XMP_StaticBuild=1',
-    'XMP_COMPONENT_INT_NAMESPACE=AdobeXMPCore_Int',
+    '-DEnablePluginManager=0',
+    '-DEnableDynamicMediaHandlers=0',
+    '-DXMP_StaticBuild=1',
+    '-DXMP_COMPONENT_INT_NAMESPACE=AdobeXMPCore_Int',
+    '-D__GNUC__=8', '-DNDEBUG', '-UDEBUG'
   ],
-  copts=['-D__GNUC__=8'],
 )
 
 config_setting(

@@ -340,8 +340,8 @@ new_git_repository(
 
 new_git_repository(
     name = "dng_sdk",
-    remote = "https://github.com/yanburman/dng_sdk.git",
-    commit = "ae301a57b4e14a6826914e29daf6d40459ef6acf",
+    remote = "https://github.com/ctiller/dng_sdk.git",
+    commit = "679d38be04af4f6d1c35fa9e09fed96f291843bd",
     build_file = "BUILD.dng_sdk"
 )
 
