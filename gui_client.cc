@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <OpenGL/gl.h>
+#include "SDL_opengl.h"
 #include <signal.h>
 #include <atomic>
 #include "GrBackendSurface.h"
@@ -27,6 +27,7 @@
 #include "client.h"
 #include "gl/GrGLInterface.h"
 #include "gl/GrGLUtil.h"
+#include "gl/GrGLAssembleInterface.h"
 
 static const int kMsaaSampleCount = 0;  // 4;
 static const int kStencilBits = 8;      // Skia needs 8 stencil bits
@@ -61,7 +62,9 @@ class GUICtx {
     return info;
   }
   const WinSz winsz_;
-  const sk_sp<const GrGLInterface> interface_{GrGLCreateNativeInterface()};
+  const sk_sp<const GrGLInterface> interface_{GrGLAssembleInterface(nullptr, +[](void* ctx, const char* name) {
+    return (GrGLFuncPtr)SDL_GL_GetProcAddress(name);
+  })};
   const sk_sp<GrContext> grcontext_{GrContext::MakeGL(interface_.get())};
   GrBackendRenderTarget target_;
   SkSurfaceProps props_{SkSurfaceProps::kLegacyFontHost_InitType};
