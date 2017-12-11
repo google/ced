@@ -20,7 +20,7 @@ class SDLInfo final : public Application {
  public:
   SDLInfo(int argc, char** argv) {}
   int Run() {
-    if (SDL_GetNumVideoDrivers()) {
+    if (SDL_GetNumVideoDrivers() == 0) {
       printf("NO VIDEO DRIVERS\n");
     } else {
       printf("VIDEO DRIVERS:\n");
