@@ -21,6 +21,7 @@
 #include "SkCanvas.h"
 #include "SkRandom.h"
 #include "SkSurface.h"
+#include "SkTypeface.h"
 #include "application.h"
 #include "buffer.h"
 #include "client.h"
@@ -163,6 +164,10 @@ class GUI : public Application {
     canvas->clear(SK_ColorWHITE);
     SkPaint paint;
     paint.setColor(SK_ColorBLACK);
+    paint.setTypeface(SkTypeface::MakeFromName("Fira Code", SkFontStyle()));
+    paint.setAntiAlias(true);
+    paint.setFlags(paint.getFlags() | SkPaint::kSubpixelText_Flag |
+                   SkPaint::kLCDRenderText_Flag);
     std::string hello = "Hello world!";
     canvas->drawText(hello.c_str(), hello.length(), SkIntToScalar(100),
                      SkIntToScalar(100), paint);

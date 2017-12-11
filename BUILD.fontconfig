@@ -36,7 +36,7 @@ DEFINES = [
   'SIZEOF_DOUBLE=8',
   'FC_GPERF_SIZE_T=unsigned',
   'FC_DEFAULT_FONTS=\\"/usr/share/fonts\\"',
-  'FC_CACHEDIR=\\"/var/cache/fontconfig\\"',
+  'FC_CACHEDIR=\\"~/.fontconfig_cache\\"',
   'FONTCONFIG_PATH=\\"/etc/fonts\\"',
   'HAVE_MKSTEMP',
   'HAVE_SYS_TYPES_H',
@@ -61,7 +61,7 @@ cc_binary(
   name = 'fc-case',
   srcs = ['fc-case/fc-case.c'],
   deps = [':src_hdrs'],
-  defines = DEFINES,
+  copts = ['-D%s' % d for d in DEFINES],
 )
 
 genrule(
@@ -81,7 +81,7 @@ cc_binary(
   name = 'fc-lang',
   srcs = ['fc-lang/fc-lang.c'],
   deps = [':src_hdrs', ':fclangdeps', ':fccase_h'],
-  defines = DEFINES,
+  copts = ['-D%s' % d for d in DEFINES],
 )
 
 # NOTE:
@@ -350,7 +350,7 @@ cc_binary(
   name = 'fc-glyphname',
   srcs = ['fc-glyphname/fc-glyphname.c'],
   deps = [':src_hdrs'],
-  defines = DEFINES
+  copts = ['-D%s' % d for d in DEFINES],
 )
 
 genrule(
@@ -417,8 +417,8 @@ cc_library(
 cc_library(
   name = "fontconfig_lib",
   hdrs = glob(['fontconfig/*.h']),
-  srcs = glob(['src/*.c']),
-  defines = DEFINES,
+  srcs = glob(['src/*.c'], exclude=['src/fcarch.c']),
+  copts = ['-D%s' % d for d in DEFINES],
   deps = [
     '@freetype//:freetype',
     ':src_hdrs',
