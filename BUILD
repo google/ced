@@ -135,7 +135,6 @@ cc_binary(
   name = 'ced',
   deps = [
     ":curses_client",
-    ":scan_fonts",
   ] + select({
     ':darwin': [':ced_main_curses'],
     ':darwin_x86_64': [':ced_main_curses'],
@@ -665,6 +664,8 @@ cc_library(
     ":application",
     "@skia//:skia",
     "@SDL2//:sdl2",
+    ":scan_fonts",
+    ":sdl_info",
   ],
   alwayslink = 1,
 )
@@ -675,6 +676,16 @@ cc_library(
   deps = [
     ":application",
     "@fontconfig//:fontconfig_lib",
+  ],
+  alwayslink = 1,
+)
+
+cc_library(
+  name = "sdl_info",
+  srcs = ["sdl_info.cc"],
+  deps = [
+    ":application",
+    "@SDL2//:sdl2",
   ],
   alwayslink = 1,
 )
