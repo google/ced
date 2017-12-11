@@ -121,7 +121,7 @@ class GUI : public Application {
       throw std::runtime_error(SDL_GetError());
     }
 
-    window_ = SDL_CreateWindow("SDL Window", SDL_WINDOWPOS_CENTERED,
+    window_ = SDL_CreateWindow("ced", SDL_WINDOWPOS_CENTERED,
                                SDL_WINDOWPOS_CENTERED, dm.w, dm.h, windowFlags);
 
     if (!window_) {
