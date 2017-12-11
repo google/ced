@@ -241,7 +241,7 @@ cc_library(
 git_repository(
   name = "skia",
   remote = "https://github.com/ctiller/skia.git",
-  commit = "b6c9785633",
+  commit = "d87da72",
 )
 
 new_http_archive(
@@ -351,7 +351,6 @@ new_git_repository(
     commit = '473434f2dd974978b329faf5c87ae8aa09a2714d',
     build_file = 'BUILD.piex'
 )
-
 
 #
 # SDL
