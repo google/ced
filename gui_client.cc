@@ -15,10 +15,58 @@
 #include <OpenGL/gl.h>
 #include <signal.h>
 #include <atomic>
+#include "GrBackendSurface.h"
+#include "GrContext.h"
 #include "SDL.h"
+#include "SkCanvas.h"
+#include "SkRandom.h"
+#include "SkSurface.h"
 #include "application.h"
 #include "buffer.h"
 #include "client.h"
+#include "gl/GrGLInterface.h"
+#include "gl/GrGLUtil.h"
+
+static const int kMsaaSampleCount = 0;  // 4;
+static const int kStencilBits = 8;      // Skia needs 8 stencil bits
+
+class GUICtx {
+ public:
+  explicit GUICtx(SDL_Window* window)
+      : winsz_(window),
+        target_(winsz_.width, winsz_.height, kMsaaSampleCount, kStencilBits,
+                kSkia8888_GrPixelConfig, MakeFrameBufferInfo()),
+        surface_(SkSurface::MakeFromBackendRenderTarget(
+            grcontext_.get(), target_, kBottomLeft_GrSurfaceOrigin, nullptr,
+            &props_)),
+        canvas_(surface_->getCanvas()) {
+    SkASSERT(grcontext_);
+  }
+
+  SkCanvas* canvas() const { return canvas_; }
+
+ private:
+  struct WinSz {
+    int width, height;
+    WinSz(SDL_Window* window) {
+      SDL_GL_GetDrawableSize(window, &width, &height);
+    }
+  };
+  GrGLFramebufferInfo MakeFrameBufferInfo() {
+    GrGLint buffer;
+    GR_GL_GetIntegerv(interface_.get(), GR_GL_FRAMEBUFFER_BINDING, &buffer);
+    GrGLFramebufferInfo info;
+    info.fFBOID = (GrGLuint)buffer;
+    return info;
+  }
+  const WinSz winsz_;
+  const sk_sp<const GrGLInterface> interface_{GrGLCreateNativeInterface()};
+  const sk_sp<GrContext> grcontext_{GrContext::MakeGL(interface_.get())};
+  GrBackendRenderTarget target_;
+  SkSurfaceProps props_{SkSurfaceProps::kLegacyFontHost_InitType};
+  const sk_sp<SkSurface> surface_;
+  SkCanvas* canvas_;
+};
 
 class GUI : public Application {
  public:
@@ -43,7 +91,6 @@ class GUI : public Application {
 
     windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE;
 #endif
-    static const int kStencilBits = 8;  // Skia needs 8 stencil bits
     SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
     SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
     SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
@@ -53,11 +100,10 @@ class GUI : public Application {
 
     SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
 
-    // If you want multisampling, uncomment the below lines and set a sample
-    // count
-    static const int kMsaaSampleCount = 0;  // 4;
-    // SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-    // SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, kMsaaSampleCount);
+    if (kMsaaSampleCount != 0) {
+      SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+      SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, kMsaaSampleCount);
+    }
 
     /*
      * In a real application you might want to initialize more subsystems
@@ -109,12 +155,26 @@ class GUI : public Application {
 
  private:
   void Render() {
+    if (!ctx_) {
+      ctx_.reset(new GUICtx(window_));
+    }
+    SkCanvas* canvas = ctx_->canvas();
+    canvas->scale(1, 1);
+    canvas->clear(SK_ColorWHITE);
+    SkPaint paint;
+    paint.setColor(SK_ColorBLACK);
+    std::string hello = "Hello world!";
+    canvas->drawText(hello.c_str(), hello.length(), SkIntToScalar(100),
+                     SkIntToScalar(100), paint);
+    canvas->flush();
+#if 0
     int dw, dh;
     SDL_GL_GetDrawableSize(window_, &dw, &dh);
     glViewport(0, 0, dw, dh);
     glClearColor(1, 1, 1, 1);
     glClearStencil(0);
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+#endif
     SDL_GL_SwapWindow(window_);
   }
 
@@ -129,6 +189,14 @@ class GUI : public Application {
           SDL_Keycode key = event.key.keysym.sym;
           if (key == SDLK_ESCAPE) {
             done_ = true;
+          }
+          break;
+        }
+        case SDL_WINDOWEVENT: {
+          switch (event.window.event) {
+            case SDL_WINDOWEVENT_SIZE_CHANGED:
+              ctx_.reset();
+              break;
           }
           break;
         }
@@ -154,6 +222,7 @@ class GUI : public Application {
   bool animating_ = false;
   SDL_Window* window_ = nullptr;
   Client client_;
+  std::unique_ptr<GUICtx> ctx_;
 };
 
 REGISTER_APPLICATION(GUI);
