@@ -22,11 +22,15 @@
 #include "log.h"
 #include "proto/project_service.grpc.pb.h"
 #include "run.h"
+#include "src_hash.h"
 
 class ProjectServer : public Application, public ProjectService::Service {
  public:
   ProjectServer(int argc, char** argv)
-      : project_(PathFromArgs(argc, argv), false) {
+      : project_(PathFromArgs(argc, argv), false),
+        active_requests_(0),
+        last_activity_(absl::Now()),
+        quit_requested_(false) {
     if (PathFromArgs(argc, argv) !=
         project_.aspect<ProjectRoot>()->LocalAddressPath()) {
       throw std::runtime_error(absl::StrCat(
@@ -45,17 +49,40 @@ class ProjectServer : public Application, public ProjectService::Service {
           << project_.aspect<ProjectRoot>()->LocalAddress();
   }
 
-  int Run() {
-    while (!Done()) {
-      absl::SleepFor(absl::Seconds(10));
+  int Run() override {
+    auto done = [this]() {
+      mu_.AssertHeld();
+      return active_requests_ == 0 &&
+             (quit_requested_ ||
+              (absl::Now() - last_activity_ > absl::Hours(1)));
+    };
+    {
+      absl::MutexLock lock(&mu_);
+      while (!mu_.AwaitWithTimeout(absl::Condition(&done),
+                                   absl::Duration(absl::Minutes(1))))
+        ;
     }
     server_->Shutdown();
     return 0;
   }
 
-  virtual grpc::Status Edit(
+  grpc::Status ConnectionHello(grpc::ServerContext* context,
+                               const ConnectionHelloRequest* req,
+                               ConnectionHelloResponse* rsp) override {
+    rsp->set_src_hash(ced_src_hash);
+    return grpc::Status::OK;
+  }
+
+  grpc::Status Quit(grpc::ServerContext* context, const Empty* req,
+                    Empty* rsp) override {
+    absl::MutexLock lock(&mu_);
+    quit_requested_ = true;
+    return grpc::Status::OK;
+  }
+
+  grpc::Status Edit(
       grpc::ServerContext* context,
-      grpc::ServerReaderWriter<EditMessage, EditMessage>* stream) {
+      grpc::ServerReaderWriter<EditMessage, EditMessage>* stream) override {
     ScopedRequest scoped_request(this);
     EditMessage msg;
     if (!stream->Read(&msg)) {
@@ -92,6 +119,10 @@ class ProjectServer : public Application, public ProjectService::Service {
       }
       buffer->PushChanges(&msg.commands(), true);
     }
+    CommandSet cleanup_commands;
+    buffer->ContentSnapshot().MakeDeleteAttributesBySite(&cleanup_commands,
+                                                         site);
+    buffer->PushChanges(&msg.commands(), false);
     return grpc::Status::OK;
   }
 
@@ -104,6 +135,7 @@ class ProjectServer : public Application, public ProjectService::Service {
   absl::Time last_activity_ GUARDED_BY(mu_);
   std::map<boost::filesystem::path, std::unique_ptr<Buffer>> buffers_
       GUARDED_BY(mu_);
+  bool quit_requested_ GUARDED_BY(mu_);
 
   static bool IsChildOf(boost::filesystem::path needle,
                         boost::filesystem::path haystack) {
@@ -135,17 +167,14 @@ class ProjectServer : public Application, public ProjectService::Service {
     if (it != buffers_.end()) {
       return it->second.get();
     }
+    if (!boost::filesystem::exists(path)) {
+      return nullptr;
+    }
     return buffers_
         .emplace(
             path,
             Buffer::Builder().SetFilename(path).SetProject(&project_).Make())
         .first->second.get();
-  }
-
-  bool Done() {
-    absl::MutexLock lock(&mu_);
-    return active_requests_ == 0 &&
-           absl::Now() - last_activity_ > absl::Hours(1);
   }
 
   class ScopedRequest {
@@ -179,9 +208,7 @@ void SpawnServer(const boost::filesystem::path& ced_bin,
   run_daemon(
       ced_bin,
       {
-          "-mode",
-          "ProjectServer",
-          "-logfile",
+          "-mode", "ProjectServer", "-logfile",
           (project.aspect<ProjectRoot>()->LocalAddressPath().parent_path() /
            absl::StrCat(".cedlog.server.", ced_src_hash))
               .string(),

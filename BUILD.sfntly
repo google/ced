@@ -1,0 +1,31 @@
+SFNTLY_DIRS = ['src/sfntly',
+               'src/sfntly/port',
+               'src/sfntly/data',
+               'src/sfntly/math',
+               'src/sfntly/table',
+               'src/sfntly/table/bitmap',
+               'src/sfntly/table/core',
+               'src/sfntly/table/truetype']
+cc_library(
+  name = "sfntly",
+  srcs = glob(['cpp/%s/*.cc' % d for d in SFNTLY_DIRS]),
+  hdrs = glob(['cpp/%s/*.h' % d for d in SFNTLY_DIRS]),
+  includes = ['cpp/src'],
+  defines = ['SFNTLY_NO_EXCEPTION'],
+  deps = ['@icu//:icu'],
+  visibility = ['//visibility:public'],
+)
+
+cc_library(
+  name = "chrome_subsetter",
+  srcs = [
+    'cpp/src/sample/chromium/subsetter_impl.cc',
+    'cpp/src/sample/chromium/font_subsetter.cc',
+  ],
+  hdrs = [
+    'cpp/src/sample/chromium/subsetter_impl.h',
+    'cpp/src/sample/chromium/font_subsetter.h',
+  ],
+  deps = [':sfntly'],
+  visibility = ['//visibility:public'],
+)

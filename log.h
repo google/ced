@@ -29,7 +29,7 @@ DECLARE_string(logfile);
 
 class Log : public std::ostringstream {
  public:
-  Log() : cerr_(log_cerr_) {
+  Log() : cerr_(log_cerr_.load()) {
     if (FLAGS_logfile.empty() && !cerr_) {
       this->setstate(std::ios_base::badbit);
     }
@@ -37,7 +37,14 @@ class Log : public std::ostringstream {
   ~Log() {
     if (!cerr_ && FLAGS_logfile.empty()) return;
     *this << '\n';
-    auto s = str();
+#ifdef __APPLE__
+    uint64_t thread_id;
+    pthread_threadid_np(NULL, &thread_id);
+#else
+    int thread_id = -1;
+#endif
+    auto s = absl::StrCat("[", thread_id, "] ", absl::FormatTime(absl::Now()),
+                          "  ", str());
     if (!FLAGS_logfile.empty()) {
       static LogFile file;
       WrapSyscall("write", [this, &s]() {
@@ -64,8 +71,8 @@ class Log : public std::ostringstream {
    public:
     LogFile() {
       hdl_ = WrapSyscall("open", []() {
-        return open(FLAGS_logfile.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC,
-                    0777);
+        return open(FLAGS_logfile.c_str(),
+                    O_WRONLY | O_CREAT | O_CLOEXEC | O_TRUNC, 0777);
       });
     }
 

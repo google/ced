@@ -83,7 +83,12 @@ class ClangEnv : public LibClang, public ProjectAspect {
 
 IMPL_PROJECT_GLOBAL_ASPECT(ClangEnv, project, 0) {
   if (project->client_peek()) return nullptr;
-  return std::unique_ptr<ProjectAspect>(new ClangEnv(project));
+  try {
+    return std::unique_ptr<ProjectAspect>(new ClangEnv(project));
+  } catch (std::exception& e) {
+    Log() << "Error starting clang environment: " << e.what();
+    return nullptr;
+  }
 }
 
 }  // namespace
@@ -451,6 +456,8 @@ EditResponse LibClangCollaborator::Edit(const EditNotification& notification) {
 }
 
 SERVER_COLLABORATOR(LibClangCollaborator, buffer) {
+  ClangEnv* env = buffer->project()->aspect<ClangEnv>();
+  if (env == nullptr) return false;
   auto fext = buffer->filename().extension();
   for (auto mext :
        {".c", ".cxx", ".cpp", ".C", ".cc", ".h", ".H", ".hpp", ".hxx"}) {

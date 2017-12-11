@@ -12,6 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "editor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
+
+std::vector<std::string> Editor::DebugData() const {
+  std::vector<std::string> r;
+  r.push_back(absl::StrCat("cursor_row ", cursor_row_));
+  r.push_back(absl::StrCat("nrow_before_sub ", debug_.nrow_before_sub));
+  r.push_back(absl::StrCat("window_height ", debug_.window_height));
+  r.push_back(absl::StrCat("cursor ", absl::Hex(cursor_.id, absl::kZeroPad16)));
+  r.push_back(absl::StrCat("cursor_reported ",
+                           absl::Hex(cursor_reported_.id, absl::kZeroPad16)));
+  r.push_back(absl::StrCat("selection_anchor ",
+                           absl::Hex(selection_anchor_.id, absl::kZeroPad16)));
+  auto add_proto = [&r](const std::string& name,
+                        const google::protobuf::Message& msg) {
+    r.push_back(absl::StrCat(name, ":"));
+    auto dbg = msg.DebugString();
+    for (auto line : absl::StrSplit(dbg, '\n')) {
+      r.push_back(absl::StrCat("  ", line));
+    }
+  };
+  add_proto("unpublished_commands", unpublished_commands_);
+  add_proto("unacknowledged_commands", unacknowledged_commands_);
+  return r;
+}
 
 EditResponse Editor::MakeResponse() {
   PublishCursor();
@@ -83,7 +108,6 @@ void Editor::UpdateState(LogTimer* tmr, const EditNotification& state) {
     }
   }
   unacknowledged_commands_.Swap(&unacked);
-  state_.content = s2;
 
   std::map<ID, BufferInfo> new_buffers;
   state_.content.ForEachAttribute(
@@ -111,8 +135,6 @@ void Editor::UpdateState(LogTimer* tmr, const EditNotification& state) {
     // thread
     std::thread([p]() { delete p; }).detach();
   }
-
-  PublishCursor();
 }
 
 void Editor::SelectLeft() {
@@ -171,7 +193,6 @@ void Editor::Backspace() {
   AnnotatedString::Iterator it(state_.content, cursor_);
   it.MovePrev();
   cursor_ = it.id();
-  PublishCursor();
 }
 
 void Editor::Copy(AppEnv* env) {
@@ -195,7 +216,6 @@ void Editor::Paste(AppEnv* env) {
   }
   cursor_ = state_.content.Insert(&unpublished_commands_, site_, env->clipboard,
                                   cursor_);
-  PublishCursor();
 }
 
 void Editor::InsChar(char c) {
@@ -204,7 +224,6 @@ void Editor::InsChar(char c) {
   cursor_ = state_.content.Insert(&unpublished_commands_, site_,
                                   absl::string_view(&c, 1), cursor_);
   cursor_row_ += (c == '\n');
-  PublishCursor();
 }
 
 void Editor::SetSelectMode(bool sel) {
@@ -221,7 +240,6 @@ void Editor::DeleteSelection() {
   AnnotatedString::Iterator it(state_.content, cursor_);
   it.MovePrev();
   cursor_ = it.id();
-  PublishCursor();
 }
 
 void Editor::CursorLeft() {
@@ -229,7 +247,6 @@ void Editor::CursorLeft() {
   cursor_row_ -= it.value() == '\n';
   it.MovePrev();
   cursor_ = it.id();
-  PublishCursor();
 }
 
 void Editor::CursorRight() {
@@ -237,11 +254,9 @@ void Editor::CursorRight() {
   it.MoveNext();
   cursor_row_ += it.value() == '\n';
   cursor_ = it.id();
-  PublishCursor();
 }
 
 void Editor::CursorDown() {
-  LogTimer tmr("cursor_down");
   AnnotatedString::Iterator it(state_.content, cursor_);
   int col = 0;
   auto edge = [&it]() {
@@ -263,9 +278,6 @@ void Editor::CursorDown() {
   it.MovePrev();
   cursor_ = it.id();
   cursor_row_++;
-  tmr.Mark("moved");
-  PublishCursor();
-  tmr.Mark("published");
 }
 
 void Editor::CursorUp() {
@@ -289,12 +301,10 @@ void Editor::CursorUp() {
   it.MovePrev();
   cursor_ = it.id();
   cursor_row_--;
-  PublishCursor();
 }
 
 void Editor::CursorStartOfLine() {
   cursor_ = AnnotatedString::LineIterator(state_.content, cursor_).id();
-  PublishCursor();
 }
 
 void Editor::CursorEndOfLine() {
@@ -303,5 +313,4 @@ void Editor::CursorEndOfLine() {
                 .AsIterator()
                 .Prev()
                 .id();
-  PublishCursor();
 }

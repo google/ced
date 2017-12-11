@@ -23,6 +23,8 @@
 DEFINE_bool(buffer_profile_display, false,
             "Show buffer collaborator latency HUD");
 
+DEFINE_bool(editor_debug_display, false, "Show editor debug information");
+
 absl::Mutex TerminalCollaborator::mu_;
 std::vector<TerminalCollaborator*> TerminalCollaborator::all_;
 
@@ -79,6 +81,8 @@ EditResponse TerminalCollaborator::Pull() {
   mu_.Unlock();
   tmr.Mark("unlock");
 
+  InvalidateTerminal();
+
   return r;
 }
 
@@ -94,6 +98,20 @@ void TerminalCollaborator::Render(TerminalRenderContainers containers) {
 
   if (FLAGS_buffer_profile_display) {
     std::vector<std::string> profile = buffer_->ProfileData();
+    containers.side_bar
+        .AddItem(LAY_TOP | LAY_HFILL,
+                 [profile](TerminalRenderContext* context) {
+                   context->animating = true;
+                   int row = 0;
+                   for (const auto& s : profile) {
+                     context->Put(row++, 0, s, context->color->Theme({}, 0));
+                   }
+                 })
+        .FixSize(0, profile.size());
+  }
+
+  if (FLAGS_editor_debug_display) {
+    std::vector<std::string> profile = editor_->DebugData();
     containers.side_bar
         .AddItem(LAY_TOP | LAY_HFILL,
                  [profile](TerminalRenderContext* context) {

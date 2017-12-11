@@ -35,6 +35,14 @@ message EditMessage {
   };
 };
 
+message ConnectionHelloRequest {};
+message ConnectionHelloResponse { string src_hash = 1; };
+
+message Empty {};
+
 service ProjectService {
+  rpc ConnectionHello(ConnectionHelloRequest)
+      returns (ConnectionHelloResponse) {};
   rpc Edit(stream EditMessage) returns (stream EditMessage) {};
+  rpc Quit(Empty) returns (Empty) {};
 };

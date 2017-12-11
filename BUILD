@@ -76,6 +76,7 @@ config_setting(
     visibility = ["//visibility:public"],
     )
 
+SRC_HASH_CMD = 'echo "const char* ced_src_hash=\\"`cat $(SRCS) | %s`\\";" > $(OUTS)'
 genrule(
   name = 'src_hash_gen',
   srcs = glob(['*', '**/*'], exclude=[
@@ -86,7 +87,11 @@ genrule(
     '.*'
   ]),
   outs=['src_hash.cc'],
-  cmd='echo "const char* ced_src_hash=\\"`cat $(SRCS) | md5`\\";" > $(OUTS)',
+  cmd= select({
+    '//:darwin': SRC_HASH_CMD % 'md5',
+    '//:darwin_x86_64': SRC_HASH_CMD % 'md5',
+    '//conditions:default': SRC_HASH_CMD % 'md5sum | awk \'{print $$1}\'',
+  }),
 )
 
 cc_library(
@@ -106,25 +111,72 @@ cc_test(
   deps = [":avl", "@com_google_googletest//:gtest_main"]
 )
 
-cc_binary(
-  name = "ced",
-  linkstatic = 1,
-  srcs = ["main.cc"],
+apple_binary(
+  name = 'cedmac',
   deps = [
-    ":standard_project_types",
-    ":standard_collaborator_types",
-    ":application_modes",
-    ":application",
-    "@com_github_gflags_gflags//:gflags",
+    ':ced_main_gui',
+    ":gui_client",
   ],
-  linkopts = ["-lcurses", "-lpthread", "-ldl"]
+  platform_type = 'macos',
+  sdk_frameworks = [
+    'CoreServices',
+    'CoreAudio',
+    'Cocoa',
+    'AudioToolbox',
+    'CoreVideo',
+    'ForceFeedback',
+    'IOKit',
+    'Carbon',
+    'OpenGL',
+  ]
+)
+
+cc_binary(
+  name = 'ced',
+  deps = [
+    ":curses_client",
+    ":scan_fonts",
+  ] + select({
+    ':darwin': [':ced_main_curses'],
+    ':darwin_x86_64': [':ced_main_curses'],
+    '//conditions:default': [':ced_main_gui', ':gui_client'],
+  }),
+  linkstatic = 1,
+  linkopts = ["-lcurses", "-ldl"] + select({
+    ':darwin': ['-framework CoreServices'],
+    ':darwin_x86_64': ['-framework CoreServices'],
+    '//conditions:default': ['-lpthread'],
+  })
 )
 
 cc_library(
-  name = "application_modes",
+  name = "ced_common",
   deps = [
-    ":curses_client",
+    ":standard_project_types",
+    ":standard_collaborator_types",
   ]
+)
+
+cc_library(
+  name = "ced_main_gui",
+  srcs = ["main.cc"],
+  copts = ['-DDEFAULT_MODE=\\"GUI\\"'],
+  deps = [
+    ":application",
+    ":ced_common",
+    "@com_github_gflags_gflags//:gflags",
+  ],
+)
+
+cc_library(
+  name = "ced_main_curses",
+  srcs = ["main.cc"],
+  copts = ['-DDEFAULT_MODE=\\"Curses\\"'],
+  deps = [
+    ":application",
+    ":ced_common",
+    "@com_github_gflags_gflags//:gflags",
+  ],
 )
 
 cc_library(
@@ -273,7 +325,7 @@ cc_library(
   srcs = ["log.cc"],
   hdrs = ["log.h"],
   deps = [
-    ":wrap_syscall", 
+    ":wrap_syscall",
     '@com_google_absl//absl/strings',
     "@com_google_absl//absl/time",
     "@com_github_gflags_gflags//:gflags",
@@ -360,9 +412,9 @@ cc_library(
     srcs = ["run.cc"],
     hdrs = ["run.h"],
     deps = [
-      ":wrap_syscall", 
-      ":log", 
-      "@com_google_absl//absl/strings",      
+      ":wrap_syscall",
+      ":log",
+      "@com_google_absl//absl/strings",
       "@boost//:filesystem",
     ]
 )
@@ -379,8 +431,7 @@ cc_library(
   srcs = ["project.cc"],
   hdrs = ["project.h"],
   deps = [
-      "@com_google_absl//absl/strings", 
-      ":src_hash",
+      "@com_google_absl//absl/strings",
       "@boost//:filesystem"
   ]
 )
@@ -548,9 +599,9 @@ cc_library(
   hdrs = ["annotated_string.h"],
   srcs = ["annotated_string.cc"],
   deps = [
-    "//proto:annotation", 
-    ":avl", 
-    ":log", 
+    "//proto:annotation",
+    ":avl",
+    ":log",
     "@com_google_absl//absl/strings",
     "@com_google_absl//absl/types:optional",
   ]
@@ -561,10 +612,11 @@ cc_library(
   hdrs = ["server.h"],
   srcs = ["server.cc"],
   deps = [
-      ":project", 
-      ":run", 
-      ":application", 
+      ":project",
+      ":run",
+      ":application",
       ":log",
+      ":src_hash",
       "@grpc//:grpc++_unsecure",
       "//proto:project_service",
       "@com_google_absl//absl/synchronization",
@@ -586,6 +638,7 @@ cc_library(
   deps = [
     "//proto:project_service",
     ":server",
+    ":src_hash",
     "@com_google_absl//absl/time",
     ":log",
   ]
@@ -599,6 +652,29 @@ cc_library(
     ":terminal_collaborator",
     ":client",
     ":application",
+  ],
+  alwayslink = 1,
+)
+
+cc_library(
+  name = "gui_client",
+  srcs = ["gui_client.cc"],
+  deps = [
+    ":buffer",
+    ":client",
+    ":application",
+    "@skia//:skia",
+    "@SDL2//:sdl2",
+  ],
+  alwayslink = 1,
+)
+
+cc_library(
+  name = "scan_fonts",
+  srcs = ["scan_fonts.cc"],
+  deps = [
+    ":application",
+    "@fontconfig//:fontconfig_lib",
   ],
   alwayslink = 1,
 )

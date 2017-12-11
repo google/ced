@@ -19,7 +19,6 @@
 #include <string>
 #include <vector>
 #include "absl/strings/str_cat.h"
-#include "src_hash.h"
 
 class ProjectAspect {
  public:
@@ -32,7 +31,7 @@ class ProjectRoot {
   virtual boost::filesystem::path Path() const = 0;
 
   boost::filesystem::path LocalAddressPath() const {
-    return (Path() / absl::StrCat(".cedport.", ced_src_hash)).string();
+    return (Path() / ".cedport").string();
   }
 
   std::string LocalAddress() const {

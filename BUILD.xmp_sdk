@@ -1,0 +1,44 @@
+cc_library(
+  name = "xmp",
+  visibility = ["//visibility:public"],
+  hdrs = glob(["public/**", "source/**", "XMP*/**", "build/*.h", "third-party/**"]),
+  srcs = glob([
+    "source/*.cpp",
+    "XMPFiles/**/*.cpp",
+    "XMPCore/**/*.cpp",
+#    "XMPFilesPlugins/**/*.cpp",
+    "third-party/zuid/interfaces/MD5.cpp",
+  ], exclude=[
+    "source/Host_IO-Win.cpp",
+    "XMPFiles/source/PluginHandler/OS_Utils_WIN.cpp",
+    "XMPFiles/source/PluginHandler/OS_Utils_Mac.cpp",
+    "XMPFiles/source/PluginHandler/OS_Utils_Linux.cpp",
+  ]) + select({
+    ':darwin': ['XMPFiles/source/PluginHandler/OS_Utils_Mac.cpp'],
+    ':darwin_x86_64': ['XMPFiles/source/PluginHandler/OS_Utils_Mac.cpp'],
+    '//conditions:default': ['XMPFiles/source/PluginHandler/OS_Utils_Linux.cpp'],
+  }),
+  includes = ['public/include', '.', 'XMPFilesPlugins/api/source'],
+  copts = select({
+    ':darwin': ['-DMAC_ENV'],
+    ':darwin_x86_64': ['-DMAC_ENV'],
+    '//conditions:default': ['-DUNIX_ENV'],
+  }) + [
+    '-DEnablePluginManager=0',
+    '-DEnableDynamicMediaHandlers=0',
+    '-DXMP_StaticBuild=1',
+    '-DXMP_COMPONENT_INT_NAMESPACE=AdobeXMPCore_Int',
+    '-D__GNUC__=8', '-DNDEBUG', '-UDEBUG'
+  ],
+)
+
+config_setting(
+    name = "darwin",
+    values = {"cpu": "darwin"},
+)
+
+config_setting(
+    name = "darwin_x86_64",
+    values = {"cpu": "darwin_x86_64"},
+    visibility = ["//visibility:public"],
+    )

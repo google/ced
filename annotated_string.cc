@@ -75,6 +75,23 @@ ID AnnotatedString::MakeMark(CommandSet* commands, Site* site,
   return id;
 }
 
+void AnnotatedString::MakeDeleteAttributesBySite(CommandSet* commands,
+                                                 const Site& site) {
+  annotations_by_type_.ForEach(
+      [&](Attribute::DataCase dc, AVL<ID, Annotation> by_type) {
+        by_type.ForEach([&](ID id, const Annotation& an) {
+          if (site.CreatedID(id) || site.CreatedID(an.attribute())) {
+            MakeDelMark(commands, id);
+          }
+        });
+      });
+  attributes_.ForEach([&](ID id, Attribute::DataCase dc) {
+    if (site.CreatedID(id)) {
+      MakeDelDecl(commands, id);
+    }
+  });
+}
+
 AnnotatedString AnnotatedString::Integrate(const CommandSet& commands) const {
   AnnotatedString s = *this;
   for (const auto& cmd : commands.commands()) {
@@ -242,7 +259,7 @@ void AnnotatedString::IntegrateMark(ID id, const Annotation& annotation) {
     auto next = ci->next;
     // Log() << "loc=" << loc.id << " next=" << next.id;
     assert(next != loc);
-    if (ci->visible) {
+    if (IsMarkable(loc, ci)) {
       chars_ = chars_.Add(
           loc, CharInfo{ci->visible, ci->chr, ci->next, ci->prev, ci->after,
                         ci->before, ci->annotations.Add(id)});
@@ -264,7 +281,7 @@ void AnnotatedString::IntegrateDelMark(ID id) {
     // Log() << "Unmark " << loc.id << " with " << id.id << " vis:" <<
     // ci->visible;
     auto next = ci->next;
-    if (ci->visible) {
+    if (IsMarkable(loc, ci)) {
       chars_ = chars_.Add(
           loc, CharInfo{ci->visible, ci->chr, ci->next, ci->prev, ci->after,
                         ci->before, ci->annotations.Remove(id)});
@@ -328,6 +345,23 @@ AnnotatedString AnnotatedString::FromProto(const AnnotatedStringMsg& msg) {
     out.chars_ = out.chars_.Add(
         chr.id(), {chr.visible(), static_cast<char>(chr.chr()), chr.next(),
                    chr.prev(), chr.after(), chr.before(), AVL<ID>()});
+  }
+  //  line_breaks_ = line_breaks_.Add(Begin(), LineBreak{End(), End()})
+  //                     .Add(End(), LineBreak{Begin(), Begin()});
+  Iterator it(out, Begin());
+  it.MoveNext();
+  ID last_id = Begin();
+  while (!it.is_end()) {
+    if (it.value() == '\n') {
+      auto last_lb = *out.line_breaks_.Lookup(last_id);
+      auto next_lb = *out.line_breaks_.Lookup(last_lb.next);
+      assert(next_lb.prev == last_id);
+      out.line_breaks_ =
+          out.line_breaks_.Add(last_id, LineBreak{last_lb.prev, it.id()})
+              .Add(it.id(), LineBreak{last_id, last_lb.next})
+              .Add(last_lb.next, LineBreak{it.id(), next_lb.next});
+    }
+    it.MoveNext();
   }
   for (const auto& attr : msg.attributes()) {
     out.IntegrateDecl(attr.id(), attr.attr());

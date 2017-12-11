@@ -30,3 +30,11 @@ FUTURE PLANS
 * Project configuration discovery: source control, build system, etc... should
   be auto-discovered and used
 
+
+BUILD REQUIREMENTS
+------------------
+
+- libncurses-dev
+- pip install lxml
+- gperf
+

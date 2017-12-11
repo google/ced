@@ -107,7 +107,8 @@ class AsyncCommandCollaborator : public Collaborator {
  public:
   // push nullptr ==> shutdown
   virtual void Push(const CommandSet* commands) = 0;
-  virtual void Pull(CommandSet* commands) = 0;
+  // return true if successful, false if done
+  virtual bool Pull(CommandSet* commands) = 0;
 
  protected:
   AsyncCommandCollaborator(const char* name,

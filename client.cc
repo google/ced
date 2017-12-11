@@ -19,6 +19,12 @@
 #include "log.h"
 #include "project.h"
 #include "server.h"
+#include "src_hash.h"
+
+DEFINE_bool(check_server_version, false,
+            "Check the version of the server is the same as the client "
+            "version, quit it otherwise");
+DEFINE_bool(restart_server, false, "Force the server to restart");
 
 Client::Client(const boost::filesystem::path& ced_bin,
                const boost::filesystem::path& path) {
@@ -27,22 +33,67 @@ Client::Client(const boost::filesystem::path& ced_bin,
   auto port_exists = [&]() {
     return boost::filesystem::exists(root->LocalAddressPath());
   };
-  if (!port_exists()) {
-    SpawnServer(ced_bin, project);
-    int a = 1, b = 1;
-    while (!port_exists()) {
-      auto timeout = absl::Milliseconds(a);
-      Log() << "Sleeping for " << timeout << " while waiting for server @ "
-            << root->LocalAddress();
-      absl::SleepFor(timeout);
-      int c = a + b;
-      b = a;
-      a = c;
+  auto unlink_port = [&]() {
+    if (!boost::filesystem::remove(root->LocalAddressPath())) {
+      throw std::runtime_error(
+          absl::StrCat("Failed to remove ", root->LocalAddressPath().string()));
     }
+  };
+
+  bool force_restart = FLAGS_restart_server;
+
+  for (int attempt = 1; attempt <= 3; attempt++) {
+    if (!port_exists()) {
+      force_restart = false;
+      SpawnServer(ced_bin, project);
+      int a = 1, b = 1;
+      while (!port_exists()) {
+        auto timeout = absl::Milliseconds(a);
+        if (timeout > absl::Seconds(2)) {
+          throw std::runtime_error("Failed starting server");
+        }
+        Log() << "Sleeping for " << timeout << " while waiting for server @ "
+              << root->LocalAddress();
+        absl::SleepFor(timeout);
+        int c = a + b;
+        b = a;
+        a = c;
+      }
+    }
+    auto channel = grpc::CreateChannel(root->LocalAddress(),
+                                       grpc::InsecureChannelCredentials());
+    project_stub_ = ProjectService::NewStub(channel);
+
+    gpr_timespec hello_deadline = gpr_time_add(
+        gpr_now(GPR_CLOCK_MONOTONIC), gpr_time_from_seconds(5, GPR_TIMESPAN));
+
+    ConnectionHelloRequest hello_request;
+    ConnectionHelloResponse hello_response;
+    grpc::ClientContext hello_ctx;
+    hello_ctx.set_deadline(hello_deadline);
+    auto hello_status = project_stub_->ConnectionHello(
+        &hello_ctx, hello_request, &hello_response);
+    if (!hello_status.ok()) {
+      Log() << "ConnectionHello failed with status: "
+            << hello_status.error_code() << " " << hello_status.error_message();
+      unlink_port();
+      continue;
+    }
+
+    if (force_restart || (FLAGS_check_server_version &&
+                          hello_response.src_hash() != ced_src_hash)) {
+      Log() << "Requesting server to quit";
+      Empty req, rsp;
+      grpc::ClientContext quit_ctx;
+      quit_ctx.set_deadline(hello_deadline);
+      project_stub_->Quit(&quit_ctx, req, &rsp);
+      unlink_port();
+      continue;
+    }
+
+    // if we get here, everything looks good to go!
+    break;
   }
-  auto channel = grpc::CreateChannel(root->LocalAddress(),
-                                     grpc::InsecureChannelCredentials());
-  project_stub_ = ProjectService::NewStub(channel);
 }
 
 namespace {
@@ -61,22 +112,30 @@ class ClientCollaborator : public AsyncCommandCollaborator {
 
   void Push(const CommandSet* commands) {
     if (commands == nullptr) {
+      Log() << "Cancel context";
       context_->TryCancel();
     } else {
       EditMessage msg;
       *msg.mutable_commands() = *commands;
-      Log() << "CLIENT_WRITE: " << msg.DebugString();
       stream_->Write(msg);
     }
   }
 
-  void Pull(CommandSet* commands) {
+  bool Pull(CommandSet* commands) {
     commands->Clear();
     EditMessage msg;
-    if (!stream_->Read(&msg)) return;
-    if (msg.type_case() != EditMessage::kCommands) return;
-    Log() << "CLIENT_READ: " << msg.DebugString();
+    Log() << "Read";
+    if (!stream_->Read(&msg)) {
+      Log() << "Read failed";
+      return false;
+    }
+    if (msg.type_case() != EditMessage::kCommands) {
+      Log() << "Protocol error";
+      context_->TryCancel();
+      return false;
+    }
     *commands = msg.commands();
+    return true;
   }
 
  private:
