@@ -13,112 +13,120 @@
 // limitations under the License.
 #pragma once
 
+#include <city.h>
 #include <functional>
 #include <ostream>
+#include <unordered_map>
 #include <vector>
-#include "layout.h"
+#include "absl/container/inlined_vector.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/optional.h"
 
-// deferred text renderer: pass layout constraints, draw function
-// it figures out how to satisfy constraints and calls draw functions
-template <class Context>
-class Renderer {
+class Renderer;
+
+enum class WidgetType {
+  TEXT,
+  BUTTON,
+  CONTAINER,
+};
+
+class Widget {
  public:
-  class Rect {
-   public:
-    explicit Rect(lay_vec4 v) : rect_(v) {}
-
-    lay_scalar column() const { return rect_[0]; }
-    lay_scalar row() const { return rect_[1]; }
-    lay_scalar width() const { return rect_[2]; }
-    lay_scalar height() const { return rect_[3]; }
-
-    friend inline std::ostream& operator<<(std::ostream& out,
-                                           typename Renderer<Context>::Rect r) {
-      return out << "(" << r.column() << "," << r.row() << ")+(" << r.width()
-                 << "," << r.height() << ")";
-    }
-
-   private:
-    lay_vec4 rect_;
-  };
-
-  class ItemRef {
-   public:
-    ItemRef() : renderer_(nullptr), id_(0) {}
-    ItemRef(Renderer* renderer, lay_id id) : renderer_(renderer), id_(id) {}
-
-    ItemRef& FixSize(lay_scalar width, lay_scalar height) {
-      lay_set_size_xy(&renderer_->ctx_, id_, width, height);
-      return *this;
-    }
-
-    operator bool() const { return renderer_ != nullptr; }
-
-    // available post-Renderer::Layout
-    Rect GetRect() { return Rect(lay_get_rect(&renderer_->ctx_, id_)); }
-
-   private:
-    Renderer* renderer_;
-    lay_id id_;
-  };
-
-  class ContainerRef {
-   public:
-    ContainerRef(Renderer* renderer, lay_id id)
-        : renderer_(renderer), id_(id) {}
-
-    ContainerRef& FixSize(lay_scalar width, lay_scalar height) {
-      lay_set_size_xy(&renderer_->ctx_, id_, width, height);
-      return *this;
-    }
-
-    template <class F>
-    ItemRef AddItem(uint32_t behave, F&& draw) {
-      lay_id id = lay_item(&renderer_->ctx_);
-      lay_set_behave(&renderer_->ctx_, id, behave);
-      lay_insert(&renderer_->ctx_, id_, id);
-      renderer_->draw_.emplace_back(DrawCall{id, std::move(draw)});
-      return ItemRef{renderer_, id};
-    }
-
-    ContainerRef AddContainer(uint32_t behave, uint32_t flags) {
-      lay_id id = lay_item(&renderer_->ctx_);
-      lay_set_behave(&renderer_->ctx_, id, behave);
-      lay_set_contain(&renderer_->ctx_, id, flags);
-      lay_insert(&renderer_->ctx_, id_, id);
-      return ContainerRef{renderer_, id};
-    }
-
-   private:
-    Renderer* renderer_;
-    lay_id id_;
-  };
-
-  Renderer() { lay_init_context(&ctx_); }
-  ~Renderer() { lay_destroy_context(&ctx_); }
-
-  ContainerRef AddContainer(uint32_t flags) {
-    lay_id id = lay_item(&ctx_);
-    lay_set_contain(&ctx_, id, flags);
-    return ContainerRef{this, id};
+  template <class T>
+  T as() {
+    T r;
+    GetValue(&r);
+    return r;
   }
 
-  void Layout() { lay_run_context(&ctx_); }
-
-  void Draw(Context* ctx) {
-    for (const auto& draw : draw_) {
-      Rect rect(lay_get_rect(&ctx_, draw.id));
-      ctx->window = &rect;
-      draw.cb(ctx);
-    }
+  // set label to label
+  Widget& Labelled(absl::string_view& label) {
+    new_->label = std::string(label.data(), label.length());
+    return *this;
   }
+  // reparent to widget
+  Widget& ContainedBy(Widget& widget) {
+    new_->parent = &widget;
+    return *this;
+  }
+  // float above all widgets
+  Widget& Floats() {
+    new_->parent = nullptr;
+    return *this;
+  }
+
+  WidgetType type() const { return type_; }
+  Widget(WidgetType type) : type_(type) {}
 
  private:
-  struct DrawCall {
-    lay_id id;
-    std::function<void(Context* context)> cb;
+  friend class Renderer;
+
+  void EnterFrame(Renderer* renderer);
+  bool EndFrame();
+
+  struct State {
+    std::string label;
+    Widget* parent = nullptr;
   };
 
-  lay_context ctx_;
-  std::vector<DrawCall> draw_;
+  const WidgetType type_;
+  absl::optional<State> new_;
+  absl::optional<State> prev_;
+};
+
+class Renderer {
+ public:
+  typedef absl::optional<absl::string_view> OptionalStableID;
+
+  Widget& Text(OptionalStableID id = OptionalStableID()) {
+    return Materialize(WidgetType::TEXT, id, nullptr);
+  }
+  Widget& Button(OptionalStableID id = OptionalStableID()) {
+    return Materialize(WidgetType::BUTTON, id, nullptr);
+  }
+
+  // Use class Container
+  Widget& BeginContainer(OptionalStableID id = OptionalStableID()) {
+    uint64_t uid;
+    Widget& w = Materialize(WidgetType::CONTAINER, id, &uid);
+    stack_.push_back({&w, uid * 257});
+    return w;
+  }
+  void EndContainer(Widget& w) {
+    assert(stack_.back().container == &w);
+    stack_.pop_back();
+  }
+
+  void FinishFrame();
+
+ private:
+  friend class Widget;
+
+  typedef uint64_t WidgetID;
+
+  struct Scope {
+    Widget* container;
+    uint64_t nextid;
+  };
+  absl::InlinedVector<Scope, 4> stack_ = {{nullptr, 1}};
+
+  WidgetID GenUID(OptionalStableID id);
+  Widget& Materialize(WidgetType type, OptionalStableID id, uint64_t* uid);
+
+  std::unordered_map<WidgetID, Widget> widgets_;
+};
+
+class Container {
+ public:
+  explicit Container(Renderer& renderer, Renderer::OptionalStableID id =
+                                             Renderer::OptionalStableID())
+      : renderer_(renderer), widget_(renderer.BeginContainer(id)) {}
+  ~Container() { renderer_.EndContainer(widget_); }
+
+  Widget& widget() { return widget_; }
+  const Widget& widget() const { return widget_; }
+
+ private:
+  Renderer& renderer_;
+  Widget& widget_;
 };

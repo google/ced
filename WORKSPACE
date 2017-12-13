@@ -204,6 +204,27 @@ git_repository(
     remote = "https://github.com/gflags/gflags.git"
 )
 
+new_git_repository(
+    name = "cityhash",
+    remote = "https://github.com/google/cityhash.git",
+    commit = "8af9b8c",
+    build_file_content = """
+genrule(
+  name = 'cnfig',
+  outs = ['config.h'],
+  cmd = 'echo > $(OUTS)'
+)
+
+cc_library(
+  name = "city",
+  hdrs = ['src/city.h'],
+  srcs = ['src/city.cc', 'src/citycrc.h', 'config.h'],
+  includes = ['src'],
+  visibility = ['//visibility:public'],
+)
+    """
+)
+
 #
 #  boost
 #

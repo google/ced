@@ -546,7 +546,13 @@ cc_test(
 cc_library(
   name = "render",
   hdrs = ["render.h"],
-  deps = ["@layout//:layout"],
+  srcs = ["render.cc"],
+  deps = [
+    "@com_google_absl//absl/strings",
+    "@com_google_absl//absl/types:optional",
+    "@com_google_absl//absl/container:inlined_vector",
+    "@cityhash//:city"
+  ],
 )
 
 cc_library(
