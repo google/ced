@@ -41,7 +41,7 @@ float TerminalColor::RGBDistance(RGB a, RGB b) {
   return sqdiff<0>(la, lb) + sqdiff<1>(la, lb) + sqdiff<2>(la, lb);
 }
 
-int TerminalColor::ColorToIndex(Theme::Color c) {
+int TerminalColor::ColorToIndex(Color c) {
   RGB rgb(c.r, c.g, c.b);
   auto it = color_cache_.find(rgb);
   if (it != color_cache_.end()) {
@@ -86,10 +86,17 @@ chtype TerminalColor::Theme(::Theme::Tag token, uint32_t flags) {
   auto it = cache_.find(key);
   if (it != cache_.end()) return it->second;
 
-  Theme::Result r = theme_->ThemeToken(token, flags);
+  chtype c = Lookup(theme_->ThemeToken(token, flags));
+  cache_.insert(std::make_pair(key, c));
+  return c;
+}
 
-  int fg = ColorToIndex(r.foreground);
-  int bg = ColorToIndex(r.background);
+chtype TerminalColor::Lookup(CharFmt fmt) {
+  auto it = cfcache_.find(fmt);
+  if (it != cfcache_.end()) return it->second;
+
+  int fg = ColorToIndex(fmt.foreground);
+  int bg = ColorToIndex(fmt.background);
   auto pit = pair_cache_.find(std::make_pair(fg, bg));
   if (pit == pair_cache_.end()) {
     int n = next_pair_++;
@@ -97,6 +104,6 @@ chtype TerminalColor::Theme(::Theme::Tag token, uint32_t flags) {
     Log() << init_pair(n, fg, bg);
     pit = pair_cache_.insert(std::make_pair(std::make_pair(fg, bg), n)).first;
   }
-  return cache_.insert(std::make_pair(key, COLOR_PAIR(pit->second)))
+  return cfcache_.insert(std::make_pair(fmt, COLOR_PAIR(pit->second)))
       .first->second;
 }

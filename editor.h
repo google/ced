@@ -27,12 +27,13 @@ struct AppEnv {
 
 class Editor : public std::enable_shared_from_this<Editor> {
  public:
-  static std::shared_ptr<Editor> Make(Site* site) {
-    return std::shared_ptr<Editor>(new Editor(site));
+  static std::shared_ptr<Editor> Make(Site* site, const std::string& name) {
+    return std::shared_ptr<Editor>(new Editor(site, name));
   }
 
  private:
-  Editor(Site* site) : site_(site), ed_(site) {}
+  Editor(Site* site, const std::string& name)
+      : site_(site), name_(name), ed_(site) {}
 
  public:
   // state management
@@ -68,129 +69,7 @@ class Editor : public std::enable_shared_from_this<Editor> {
   void InsNewLine() { InsChar('\n'); }
   void InsChar(char c);
 
-  template <class RC>
-  std::function<void(RC* ctx)> PrepareRender(bool has_focus) {
-    auto content = state_.content;
-    std::shared_ptr<Editor> self = shared_from_this();
-    return [self, content, has_focus](RC* ctx) {
-      self->debug_.window_height = ctx->window->height();
-      if (self->cursor_row_ < 0) {
-        self->cursor_row_ = 0;
-      } else if (self->cursor_row_ >= ctx->window->height()) {
-        self->cursor_row_ = ctx->window->height() - 1;
-      }
-
-      auto draw_line = [&](int nrow, AnnotatedString::LineIterator lit,
-                           bool highlight) {
-        int ncol = 0;
-        AnnotatedString::AllIterator it = lit.AsAllIterator();
-        const uint32_t base_flags = highlight ? Theme::HIGHLIGHT_LINE : 0;
-        std::vector<std::string> gutter_annotations;
-        auto add_gutter = [&gutter_annotations](const std::string& s) {
-          for (const auto& g : gutter_annotations) {
-            if (g == s) return;
-          }
-          gutter_annotations.push_back(s);
-        };
-        while (it.id() != AnnotatedString::End()) {
-          if (it.is_visible() || it.is_begin()) {
-            uint32_t chr_flags = base_flags;
-            std::vector<std::string> tags;
-            bool move_cursor = false;
-            bool has_diagnostic = false;
-            it.ForEachAttrValue([&](const Attribute& attr) {
-              switch (attr.data_case()) {
-                case Attribute::kCursor:
-                  Log() << "found cursor " << nrow << " " << ncol;
-                  move_cursor = true;
-                  break;
-                case Attribute::kSelection:
-                  chr_flags |= Theme::SELECTED;
-                  break;
-                case Attribute::kDiagnostic:
-                  has_diagnostic = true;
-                  break;
-                case Attribute::kTags:
-                  for (auto t : attr.tags().tags()) {
-                    tags.push_back(t);
-                  }
-                  break;
-                case Attribute::kSize:
-                  switch (attr.size().type()) {
-                    case SizeAnnotation::OFFSET_INTO_PARENT:
-                      if (attr.size().bits()) {
-                        add_gutter(absl::StrCat("@", attr.size().size(), ".",
-                                                attr.size().bits()));
-                      } else {
-                        add_gutter(absl::StrCat("@", attr.size().size()));
-                      }
-                      break;
-                    case SizeAnnotation::SIZEOF_SELF:
-                      if (attr.size().bits()) {
-                        add_gutter(absl::StrCat(
-                            attr.size().size() * 8 + attr.size().bits(), "b"));
-                      } else {
-                        add_gutter(absl::StrCat(attr.size().size(), "B"));
-                      }
-                      break;
-                    default:
-                      break;
-                  }
-                  break;
-                default:
-                  break;
-              }
-            });
-            if (has_diagnostic) {
-              tags.push_back("invalid");
-            }
-            if (it.is_visible() && it.id() != lit.id()) {
-              if (it.value() == '\n') {
-                if (move_cursor) {
-                  if (has_focus) ctx->Move(nrow + 1, 0);
-                }
-                break;
-              } else {
-                ctx->Put(nrow, ncol, it.value(),
-                         ctx->color->Theme(tags, chr_flags));
-                ncol++;
-              }
-            }
-            if (move_cursor) {
-              if (has_focus) ctx->Move(nrow, ncol);
-            }
-          }
-          it.MoveNext();
-        }
-        auto fill_attr = ctx->color->Theme(::Theme::Tag(), base_flags);
-        while (ncol < ctx->window->width()) {
-          ctx->Put(nrow, ncol, ' ', fill_attr);
-          ncol++;
-        }
-        std::string gutter = absl::StrJoin(gutter_annotations, ",");
-        ncol = ctx->window->width() - gutter.length();
-        fill_attr =
-            ctx->color->Theme(::Theme::Tag{"comment.gutter"}, base_flags);
-        for (auto c : gutter) {
-          ctx->Put(nrow, ncol, c, fill_attr);
-          ncol++;
-        }
-        return;
-      };
-
-      self->cursor_ = AnnotatedString::Iterator(content, self->cursor_).id();
-      AnnotatedString::LineIterator line_cr(content, self->cursor_);
-      AnnotatedString::LineIterator line_bk = line_cr;
-      AnnotatedString::LineIterator line_fw = line_cr;
-      draw_line(self->cursor_row_, line_cr, true);
-      for (int i = 1; i <= ctx->window->height(); i++) {
-        line_bk.MovePrev();
-        line_fw.MoveNext();
-        draw_line(self->cursor_row_ - i, line_bk, false);
-        draw_line(self->cursor_row_ + i, line_fw, false);
-      }
-    };
-  }
+  void Render(Theme* theme, Widget* parent);
 
  private:
   void CursorLeft();
@@ -205,8 +84,18 @@ class Editor : public std::enable_shared_from_this<Editor> {
   bool SelectMode() const { return selection_anchor_ != ID(); }
   void DeleteSelection();
 
+  void ChangeCursorLine(int delta) {
+    if (delta) {
+      cursor_line_.set_value(cursor_line_.value() + delta);
+    }
+  }
+  static void RenderLine(DeviceContext* ctx, const Device::Extents& extents,
+                         Theme* theme, int y, AnnotatedString::LineIterator lit,
+                         bool highlight);
+
   Site* const site_;
-  int cursor_row_ = 0;  // cursor row as an offset into the view buffer
+  const std::string name_;
+  rhea::variable cursor_line_{};
   ID cursor_ = AnnotatedString::Begin();
   ID cursor_reported_ = AnnotatedString::End();
   ID selection_anchor_ = ID();

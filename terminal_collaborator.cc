@@ -33,7 +33,7 @@ constexpr char ctrl(char c) { return c & 0x1f; }
 TerminalCollaborator::TerminalCollaborator(const Buffer* buffer)
     : AsyncCollaborator("terminal", absl::Seconds(0), absl::Seconds(0)),
       buffer_(buffer),
-      editor_(Editor::Make(buffer_->site())),
+      editor_(Editor::Make(buffer_->site(), buffer_->filename().string())),
       recently_used_(false),
       state_(State::EDITING) {
   absl::MutexLock lock(&mu_);
@@ -45,9 +45,10 @@ TerminalCollaborator::~TerminalCollaborator() {
   all_.erase(std::remove(all_.begin(), all_.end(), this), all_.end());
 }
 
-void TerminalCollaborator::All_Render(TerminalRenderContainers containers) {
+void TerminalCollaborator::All_Render(TerminalRenderContainers containers,
+                                      Theme* theme) {
   absl::MutexLock lock(&mu_);
-  for (auto t : all_) t->Render(containers);
+  for (auto t : all_) t->Render(containers, theme);
 }
 
 void TerminalCollaborator::All_ProcessKey(AppEnv* app_env, int key) {
@@ -86,42 +87,22 @@ EditResponse TerminalCollaborator::Pull() {
   return r;
 }
 
-void TerminalCollaborator::Render(TerminalRenderContainers containers) {
+void TerminalCollaborator::Render(TerminalRenderContainers containers,
+                                  Theme* theme) {
   /*
    * edit item
    */
-  (buffer_->synthetic() ? containers.side_bar : containers.main)
-      .AddItem(
-          LAY_LEFT | LAY_VFILL,
-          editor_->PrepareRender<TerminalRenderContext>(!buffer_->synthetic()))
-      .FixSize(80, 0);
+  editor_->Render(theme,
+                  buffer_->synthetic() ? containers.side_bar : containers.main);
 
   if (FLAGS_buffer_profile_display) {
-    std::vector<std::string> profile = buffer_->ProfileData();
-    containers.side_bar
-        .AddItem(LAY_TOP | LAY_HFILL,
-                 [profile](TerminalRenderContext* context) {
-                   context->animating = true;
-                   int row = 0;
-                   for (const auto& s : profile) {
-                     context->Put(row++, 0, s, context->color->Theme({}, 0));
-                   }
-                 })
-        .FixSize(0, profile.size());
+    containers.side_bar->MakeSimpleText(theme->ThemeToken({}, 0),
+                                        buffer_->ProfileData());
   }
 
   if (FLAGS_editor_debug_display) {
-    std::vector<std::string> profile = editor_->DebugData();
-    containers.side_bar
-        .AddItem(LAY_TOP | LAY_HFILL,
-                 [profile](TerminalRenderContext* context) {
-                   context->animating = true;
-                   int row = 0;
-                   for (const auto& s : profile) {
-                     context->Put(row++, 0, s, context->color->Theme({}, 0));
-                   }
-                 })
-        .FixSize(0, profile.size());
+    containers.side_bar->MakeSimpleText(theme->ThemeToken({}, 0),
+                                        editor_->DebugData());
   }
 
 #if 0
@@ -131,8 +112,9 @@ void TerminalCollaborator::Render(TerminalRenderContainers containers) {
   });
 #endif
 
-  auto diagnostics =
-      containers.ext_status.AddContainer(LAY_TOP | LAY_HFILL, LAY_COLUMN);
+#if 0
+  auto diagnostics = containers.ext_status->MakeColumn(
+      absl::StrCat("diagnostics:", buffer_->filename().string()));
 
   int num_diagnostics = 0;
   editor_->CurrentState().content.ForEachAttribute(
@@ -151,6 +133,7 @@ void TerminalCollaborator::Render(TerminalRenderContainers containers) {
           num_diagnostics++;
         }
       });
+#endif
 }
 
 template <class EditorType>

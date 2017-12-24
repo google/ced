@@ -23,47 +23,11 @@
 #include "render.h"
 #include "terminal_color.h"
 
-struct TerminalRenderContext {
-  TerminalColor* const color;
-  const Renderer<TerminalRenderContext>::Rect* window;
-
-  int crow;
-  int ccol;
-  bool animating;
-
-  void Put(int row, int col, chtype ch, chtype attr) {
-    if (row < 0 || col < 0 || col >= window->width() ||
-        row >= window->height()) {
-      return;
-    }
-    mvaddch(row + window->row(), col + window->column(), ch | attr);
-  }
-
-  void Put(int row, int col, const std::string& str, chtype attr) {
-    for (auto c : str) {
-      Put(row, col++, c, attr);
-    }
-  }
-
-  void Move(int row, int col) {
-    Log() << "TRMOVE: " << row << ", " << col;
-    if (row < 0 || col < 0 || col >= window->width() ||
-        row >= window->height()) {
-      crow = ccol = -1;
-    } else {
-      crow = row + window->row();
-      ccol = col + window->column();
-    }
-  }
-};
-
-typedef Renderer<TerminalRenderContext> TerminalRenderer;
-
 struct TerminalRenderContainers {
-  TerminalRenderer::ContainerRef main;
-  TerminalRenderer::ContainerRef side_bar;
-  TerminalRenderer::ContainerRef ext_status;
-  TerminalRenderer::ContainerRef status;
+  Widget* main;
+  Widget* side_bar;
+  Widget* ext_status;
+  Widget* status;
 };
 
 extern void InvalidateTerminal();
@@ -75,7 +39,7 @@ class TerminalCollaborator final : public AsyncCollaborator {
   void Push(const EditNotification& notification) override;
   EditResponse Pull() override;
 
-  static void All_Render(TerminalRenderContainers containers);
+  static void All_Render(TerminalRenderContainers containers, Theme* theme);
   static void All_ProcessKey(AppEnv* app_env, int key);
 
  private:
@@ -84,7 +48,7 @@ class TerminalCollaborator final : public AsyncCollaborator {
     FINDING,
   };
 
-  void Render(TerminalRenderContainers containers)
+  void Render(TerminalRenderContainers containers, Theme* theme)
       EXCLUSIVE_LOCKS_REQUIRED(mu_);
   void ProcessKey(AppEnv* app_env, int key) EXCLUSIVE_LOCKS_REQUIRED(mu_);
 

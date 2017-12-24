@@ -523,6 +523,7 @@ cc_library(
     ':default_theme',
     ':selector',
     ':log',
+    ':attr',
     '@com_google_absl//absl/types:optional'
   ]
 )
@@ -544,6 +545,11 @@ cc_test(
 )
 
 cc_library(
+  name = "attr",
+  hdrs = ["attr.h"],
+)
+
+cc_library(
   name = "render",
   hdrs = ["render.h"],
   srcs = ["render.cc"],
@@ -551,7 +557,10 @@ cc_library(
     "@com_google_absl//absl/strings",
     "@com_google_absl//absl/types:optional",
     "@com_google_absl//absl/container:inlined_vector",
-    "@cityhash//:city"
+    "@com_google_absl//absl/time",
+    "@rhea//:rhea",
+    "@cityhash//:city",
+    ":attr",
   ],
 )
 

@@ -31,7 +31,7 @@ void InvalidateTerminal() {
   kill(getpid(), SIGWINCH);
 }
 
-class Curses : public Application {
+class Curses final : public Application, public Device {
  public:
   Curses(int argc, char** argv)
       : client_(argv[0], FileFromCmdLine(argc, argv)) {
@@ -53,21 +53,96 @@ class Curses : public Application {
     Log::SetCerrLog(true);
   }
 
-  int Run() {
+  void Paint(const Renderer* renderer, const Widget& widget) override {
+    auto e = renderer->extents();  // grab cached copy
+    PaintWindow(widget, 0, 0, e.win_width, e.win_height);
+  }
+
+  void PaintWindow(const Widget& widget, int parent_left, int parent_top,
+                   int parent_right, int parent_bottom) {
+    class Ctx final : public DeviceContext {
+     public:
+      Ctx(Curses* c, int ofsx, int ofsy, int left, int top, int right,
+          int bottom)
+          : c_(c),
+            ofsx_(ofsx),
+            ofsy_(ofsy),
+            left_(left),
+            top_(top),
+            right_(right),
+            bottom_(bottom) {}
+
+      int width() const { return right_ - left_; }
+      int height() const { return bottom_ - top_; }
+
+      void PutChar(int row, int col, uint32_t chr, CharFmt fmt) {
+        assert(chr >= 32 && chr < 127);
+        const int r = row + ofsy_;
+        const int c = col + ofsx_;
+        if (r < top_) return;
+        if (r >= bottom_) return;
+        if (c < left_) return;
+        if (c >= right_) return;
+        mvaddch(r, c, chr | c_->color_->Lookup(fmt));
+      }
+
+      void MoveCursor(int row, int col) {
+        c_->cursor_row_ = row + ofsy_;
+        c_->cursor_col_ = col + ofsx_;
+      }
+
+     private:
+      Curses* const c_;
+      const int ofsx_;
+      const int ofsy_;
+      const int left_;
+      const int top_;
+      const int right_;
+      const int bottom_;
+    };
+    int left = std::max(static_cast<int>(widget.left().value()) + parent_left,
+                        parent_left);
+    int top = std::max(static_cast<int>(widget.top().value()) + parent_top,
+                       parent_top);
+    int right = std::min(static_cast<int>(widget.right().value()) + parent_left,
+                         parent_right);
+    int bottom = std::min(
+        static_cast<int>(widget.bottom().value()) + parent_top, parent_bottom);
+    Log() << "WIDGET " << widget.id() << " parent (" << parent_left << ","
+          << parent_top << ")-(" << parent_right << "," << parent_bottom << ")"
+          << " self (" << left << "," << top << ")-(" << right << "," << bottom
+          << ")";
+    Ctx ctx(this, parent_left, parent_top, left, top, right, bottom);
+    widget.PaintSelf(&ctx);
+    for (const auto* c : widget.children()) {
+      PaintWindow(*c, left, top, right, bottom);
+    }
+  }
+
+  Extents GetExtents() override {
+    int fb_rows, fb_cols;
+    getmaxyx(stdscr, fb_rows, fb_cols);
+    return Extents{fb_rows, fb_cols, 1, 1};
+  }
+
+  int Run() override {
     bool was_invalidated = false;
     absl::Time last_key_press = absl::Now();
     std::unique_ptr<LogTimer> log_timer(new LogTimer("main_loop"));
     for (;;) {
-      bool animating = false;
+      absl::optional<absl::Time> next_frame_time;
       if (was_invalidated) {
-        animating = true;
+        next_frame_time = absl::Now() + absl::Milliseconds(16);
         log_timer->Mark("animating_due_to_invalidated");
       } else {
         erase();
-        animating = Render(log_timer.get(), last_key_press);
+        next_frame_time = Render(log_timer.get(), last_key_press);
         log_timer->Mark("rendered");
       }
-      timeout(animating ? 10 : -1);
+      absl::Time now = absl::Now();
+      timeout(next_frame_time && *next_frame_time >= now
+                  ? ToInt64Milliseconds(*next_frame_time - now)
+                  : -1);
       if (!was_invalidated) log_timer.reset();
       int c = invalidated ? -1 : getch();
       if (!was_invalidated) log_timer.reset(new LogTimer("main_loop"));
@@ -107,25 +182,21 @@ class Curses : public Application {
   }
 
  private:
-  bool Render(LogTimer* log_timer, absl::Time last_key_press) {
-    TerminalRenderer renderer;
+  absl::optional<absl::Time> Render(LogTimer* log_timer,
+                                    absl::Time last_key_press) {
     int fb_rows, fb_cols;
     getmaxyx(stdscr, fb_rows, fb_cols);
-    auto top = renderer.AddContainer(LAY_COLUMN).FixSize(fb_cols, fb_rows);
-    auto body = top.AddContainer(LAY_FILL, LAY_ROW);
+    renderer_.BeginFrame();
+    auto top = renderer_.MakeColumn();
+    auto body = top->MakeRow();
+    auto status = top->MakeRow();
     TerminalRenderContainers containers{
-        body.AddContainer(LAY_LEFT | LAY_VFILL, LAY_ROW),
-        body.AddContainer(LAY_FILL, LAY_COLUMN),
-        top.AddContainer(LAY_BOTTOM | LAY_HFILL, LAY_COLUMN),
-        top.AddContainer(LAY_HFILL, LAY_ROW).FixSize(0, 1),
+        body->MakeRow(), body->MakeColumn(), top->MakeColumn(), status,
     };
-    TerminalCollaborator::All_Render(containers);
+    TerminalCollaborator::All_Render(containers, color_->theme());
     log_timer->Mark("collected_layout");
-    renderer.Layout();
-    log_timer->Mark("layout");
-    TerminalRenderContext ctx{color_.get(), nullptr, -1, -1, false};
-    renderer.Draw(&ctx);
-    log_timer->Mark("draw");
+    absl::optional<absl::Time> next_frame = renderer_.FinishFrame();
+    log_timer->Mark("drawn");
 
     auto frame_time = absl::Now() - last_key_press;
     std::ostringstream out;
@@ -138,11 +209,11 @@ class Curses : public Application {
       mvaddch(fb_rows - 1, fb_cols - ftstr.length() + i, ftstr[i] | attr);
     }
 
-    if (ctx.crow != -1) {
-      move(ctx.crow, ctx.ccol);
+    if (cursor_row_ != -1) {
+      move(cursor_row_, cursor_col_);
     }
 
-    return ctx.animating;
+    return next_frame;
   }
 
   static boost::filesystem::path FileFromCmdLine(int argc, char** argv) {
@@ -153,6 +224,9 @@ class Curses : public Application {
   }
 
   Client client_;
+  Renderer renderer_{this};
+  int cursor_row_ = -1;
+  int cursor_col_ = -1;
   std::unique_ptr<Buffer> buffer_;
   std::unique_ptr<TerminalColor> color_;
   AppEnv app_env_;
