@@ -26,8 +26,6 @@
 struct TerminalRenderContainers {
   Widget* main;
   Widget* side_bar;
-  Widget* ext_status;
-  Widget* status;
 };
 
 extern void InvalidateTerminal();

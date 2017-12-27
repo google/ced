@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "render.h"
 #include <city.h>
+#include "log.h"
 
 Widget* Widget::MakeSimpleText(CharFmt fmt,
                                const std::vector<std::string>& text) {
@@ -127,7 +128,7 @@ void Widget::FinalizeConstraints(Renderer* renderer) {
     case WidgetType::CONTENT:
     case WidgetType::FLOAT:
       break;
-    case WidgetType::COLUMN:
+    case WidgetType::ROW:
       for (size_t i = 0; i < children_.size(); i++) {
         solver->add_constraints(
             {children_[i]->bottom() - children_[i]->top() == bottom() - top()});
@@ -135,7 +136,7 @@ void Widget::FinalizeConstraints(Renderer* renderer) {
       ApplyJustify(solver, justify_, children_, &Widget::left_,
                    &Widget::right_);
       break;
-    case WidgetType::ROW:
+    case WidgetType::COLUMN:
       for (size_t i = 0; i < children_.size(); i++) {
         solver->add_constraints(
             {children_[i]->right() - children_[i]->left() == right() - left()});
@@ -253,9 +254,16 @@ void Widget::UpdateAnimations(Renderer* renderer) {
 
 void Renderer::BeginFrame() {
   solver_.reset(new rhea::simplex_solver);
+  solver_->set_autosolve(false);
   frame_time_ = absl::Now();
   animating_ = false;
   extents_ = device_->GetExtents();
+  Log() << "extents: sw=" << extents_.win_width
+        << " sh=" << extents_.win_height;
+  solver_->add_constraints({
+      right_ == left_ + extents_.win_width,
+      bottom_ == top_ + extents_.win_height,
+  });
 }
 
 absl::optional<absl::Time> Renderer::FinishFrame() {
@@ -267,9 +275,12 @@ absl::optional<absl::Time> Renderer::FinishFrame() {
   }
 
   // finalize solver constraints
+  this->FinalizeConstraints(this);
   for (auto w : widgets) {
     w->FinalizeConstraints(this);
   }
+
+  solver_->solve();
 
   // update animations
   for (auto w : widgets) {

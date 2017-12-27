@@ -561,6 +561,7 @@ cc_library(
     "@rhea//:rhea",
     "@cityhash//:city",
     ":attr",
+    ":log",
   ],
 )
 

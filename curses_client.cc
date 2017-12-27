@@ -187,16 +187,25 @@ class Curses final : public Application, public Device {
     int fb_rows, fb_cols;
     getmaxyx(stdscr, fb_rows, fb_cols);
     renderer_.BeginFrame();
-    auto top = renderer_.MakeColumn();
-    auto body = top->MakeRow();
-    auto status = top->MakeRow();
+    auto top = renderer_.MakeRow();
     TerminalRenderContainers containers{
-        body->MakeRow(), body->MakeColumn(), top->MakeColumn(), status,
+        top->MakeRow(), top->MakeColumn(),
     };
     TerminalCollaborator::All_Render(containers, color_->theme());
     log_timer->Mark("collected_layout");
     absl::optional<absl::Time> next_frame = renderer_.FinishFrame();
     log_timer->Mark("drawn");
+    Log() << "top: (" << top->left().value() << "," << top->top().value()
+          << ")-(" << top->right().value() << "," << top->bottom().value()
+          << ")   "
+          << "main: (" << containers.main->left().value() << ","
+          << containers.main->top().value() << ")-("
+          << containers.main->right().value() << ","
+          << containers.main->bottom().value() << ")   "
+          << "side_bar: (" << containers.side_bar->left().value() << ","
+          << containers.side_bar->top().value() << ")-("
+          << containers.side_bar->right().value() << ","
+          << containers.side_bar->bottom().value() << ")";
 
     auto frame_time = absl::Now() - last_key_press;
     std::ostringstream out;
