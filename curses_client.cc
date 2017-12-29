@@ -87,8 +87,18 @@ class Curses final : public Application, public Device {
       }
 
       void MoveCursor(int row, int col) {
-        c_->cursor_row_ = row + ofsy_;
-        c_->cursor_col_ = col + ofsx_;
+        Log() << "MoveCursor: " << row << "," << col << ": ofs=" << ofsy_ << ","
+              << ofsx_;
+        c_->cursor_row_ = -1;
+        c_->cursor_col_ = -1;
+        const int r = row + ofsy_;
+        const int c = col + ofsx_;
+        if (r < top_) return;
+        if (r >= bottom_) return;
+        if (c < left_) return;
+        if (c >= right_) return;
+        c_->cursor_row_ = r;
+        c_->cursor_col_ = c;
       }
 
      private:
@@ -218,8 +228,12 @@ class Curses final : public Application, public Device {
       mvaddch(fb_rows - 1, fb_cols - ftstr.length() + i, ftstr[i] | attr);
     }
 
+    Log() << "finally move cursor " << cursor_row_ << ", " << cursor_col_;
     if (cursor_row_ != -1) {
       move(cursor_row_, cursor_col_);
+      curs_set(1);
+    } else {
+      curs_set(0);
     }
 
     return next_frame;

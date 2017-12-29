@@ -345,14 +345,16 @@ class AnnotatedString {
     bool is_end() const { return id_ == End(); }
     bool is_begin() const { return id_ == Begin(); }
 
-    void MovePrev() {
-      if (id_ == Begin()) return;
+    bool MovePrev() {
+      if (id_ == Begin()) return false;
       id_ = str_->line_breaks_.Lookup(id_)->prev;
+      return true;
     }
 
-    void MoveNext() {
-      if (id_ == End()) return;
+    bool MoveNext() {
+      if (id_ == End()) return false;
       id_ = str_->line_breaks_.Lookup(id_)->next;
+      return true;
     }
 
     LineIterator Next() {

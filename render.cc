@@ -40,6 +40,7 @@ Widget* Widget::MakeSimpleText(CharFmt fmt,
 }
 
 void Widget::EnterFrame(Widget* parent) {
+  live_ = true;
   parent_ = parent;
   draw_ = DrawCall();
   auto* solver = renderer_->solver_.get();
@@ -144,25 +145,31 @@ void Widget::FinalizeConstraints(Renderer* renderer) {
       ApplyJustify(solver, justify_, children_, &Widget::top_,
                    &Widget::bottom_);
       break;
-    case WidgetType::STACK:
+    case WidgetType::STACK: {
+      auto stack_width = right() - left();
+      auto stack_height = bottom() - top();
       for (size_t i = 0; i < children_.size(); i++) {
         solver->add_constraints(
-            {children_[i]->right() - children_[i]->left() == right() - left(),
-             children_[i]->bottom() - children_[i]->top() == bottom() - top()});
+            {children_[i]->right() - children_[i]->left() == stack_width,
+             children_[i]->bottom() - children_[i]->top() == stack_height});
       }
-      break;
+    } break;
   }
 }
 
 bool Widget::EndFrame() {
+  bool was_live = live_;
+  live_ = false;
   children_.clear();
-  return true;
+  return was_live;
 }
 
 uint64_t Widget::GenUID(OptionalStableID id) {
   if (!id) {
+    Log() << "GenUID: dynamic from " << id_ << " nextid_==" << nextid_;
     return nextid_++;
   } else {
+    Log() << "GenUID: '" << *id << "' from " << id_;
     return CityHash64WithSeed(id->data(), id->length(), id_);
   }
 }
@@ -192,13 +199,13 @@ double Widget::Animator::ScaleTime(absl::Time time) const {
   return r;
 }
 
-void Widget::Animator::DeclTarget(absl::Time time, double new_target) {
-  if (fabs(new_target - target) < 0.5) return;
+bool Widget::Animator::DeclTarget(absl::Time time, double new_target) {
+  if (fabs(new_target - target) < 0.5) return ScaleTime(time) < 1.0;
   if (!initialized) {
     initial_value = target = new_target;
     initial_velocity = 0;
     initialized = true;
-    return;
+    return true;
   }
   const auto c = CalcCoefficients();
   const double t = ScaleTime(time);
@@ -206,6 +213,7 @@ void Widget::Animator::DeclTarget(absl::Time time, double new_target) {
   initial_velocity = 3 * c.a * t * t + 2 * c.b * t + c.c;
   target_set = time;
   target = new_target;
+  return true;
 }
 
 double Widget::Animator::ValueAt(absl::Time time, Renderer* renderer) const {
@@ -246,10 +254,10 @@ void Widget::UpdateAnimations(Renderer* renderer) {
   double r = right_.value();
   double t = top_.value();
   double b = bottom_.value();
-  ani_midx_.DeclTarget(renderer->frame_time_, (l + r) / 2.0);
-  ani_midy_.DeclTarget(renderer->frame_time_, (t + b) / 2.0);
-  ani_szx_.DeclTarget(renderer->frame_time_, r - l);
-  ani_szy_.DeclTarget(renderer->frame_time_, b - t);
+  live_ |= ani_midx_.DeclTarget(renderer->frame_time_, (l + r) / 2.0);
+  live_ |= ani_midy_.DeclTarget(renderer->frame_time_, (t + b) / 2.0);
+  live_ |= ani_szx_.DeclTarget(renderer->frame_time_, r - l);
+  live_ |= ani_szy_.DeclTarget(renderer->frame_time_, b - t);
 }
 
 void Renderer::BeginFrame() {
@@ -292,6 +300,8 @@ absl::optional<absl::Time> Renderer::FinishFrame() {
     device_->Paint(this, *w);
   }
 
+  solver_.reset();
+
   // signal frame termination
   for (auto it = widgets_.begin(); it != widgets_.end();) {
     if (it->second->EndFrame()) {
@@ -300,8 +310,7 @@ absl::optional<absl::Time> Renderer::FinishFrame() {
       it = widgets_.erase(it);
     }
   }
-
-  solver_.reset();
+  this->EndFrame();
 
   if (animating_) {
     return frame_time_ + absl::Milliseconds(16);

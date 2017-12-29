@@ -327,100 +327,117 @@ void Editor::Render(Theme* theme, Widget* parent) {
        cursor_line_ * ex.chr_height <=
            parent->bottom() - parent->top() - ex.chr_height});
 
-  cursor_ = AnnotatedString::Iterator(state_.content, cursor_).id();
+  ID cursor = cursor_ = AnnotatedString::Iterator(state_.content, cursor_).id();
   AnnotatedString::LineIterator line_cr(state_.content, cursor_);
   rhea::variable cursor_line = cursor_line_;
-  content->Draw([line_cr, cursor_line, ex, theme](DeviceContext* ctx) {
+  if (!editable_) cursor = ID();
+  content->Draw([line_cr, cursor_line, cursor, ex, theme](DeviceContext* ctx) {
     int cl = cursor_line.value();
     AnnotatedString::LineIterator line_bk = line_cr;
     AnnotatedString::LineIterator line_fw = line_cr;
-    RenderLine(ctx, ex, theme, cl, line_cr, true);
+    RenderLine(ctx, ex, theme, cursor, cl, line_cr, true);
     for (int i = 1; i <= ctx->height() / ex.chr_height; i++) {
-      line_bk.MovePrev();
-      line_fw.MoveNext();
-      RenderLine(ctx, ex, theme, cl - i * ex.chr_height, line_bk, false);
-      RenderLine(ctx, ex, theme, cl + i * ex.chr_height, line_fw, false);
+      if (line_bk.MovePrev()) {
+        RenderLine(ctx, ex, theme, cursor, cl - i * ex.chr_height, line_bk,
+                   false);
+      }
+      if (line_fw.MoveNext()) {
+        RenderLine(ctx, ex, theme, cursor, cl + i * ex.chr_height, line_fw,
+                   false);
+      }
     }
   });
 }
 
+typedef absl::InlinedVector<std::string, 2> GutterVec;
+
+struct CharDet {
+  CharDet(uint32_t base_flags, GutterVec* g)
+      : chr_flags(base_flags), gutters(g) {}
+  bool has_diagnostic = false;
+  uint32_t chr_flags;
+  std::vector<std::string> tags;
+  GutterVec* const gutters;
+
+  void AddGutter(std::string&& s) {
+    for (const auto& g : *gutters) {
+      if (s == g) return;
+    }
+    gutters->emplace_back(std::move(s));
+  }
+
+  void FillFromIterator(AnnotatedString::AllIterator it) {
+    it.ForEachAttrValue([&](const Attribute& attr) {
+      switch (attr.data_case()) {
+        case Attribute::kSelection:
+          chr_flags |= Theme::SELECTED;
+          break;
+        case Attribute::kDiagnostic:
+          has_diagnostic = true;
+          break;
+        case Attribute::kTags:
+          for (auto t : attr.tags().tags()) {
+            tags.push_back(t);
+          }
+          break;
+        case Attribute::kSize:
+          switch (attr.size().type()) {
+            case SizeAnnotation::OFFSET_INTO_PARENT:
+              if (attr.size().bits()) {
+                AddGutter(absl::StrCat("@", attr.size().size(), ".",
+                                       attr.size().bits()));
+              } else {
+                AddGutter(absl::StrCat("@", attr.size().size()));
+              }
+              break;
+            case SizeAnnotation::SIZEOF_SELF:
+              if (attr.size().bits()) {
+                AddGutter(absl::StrCat(
+                    attr.size().size() * 8 + attr.size().bits(), "b"));
+              } else {
+                AddGutter(absl::StrCat(attr.size().size(), "B"));
+              }
+              break;
+            default:
+              break;
+          }
+          break;
+        default:
+          break;
+      }
+    });
+  }
+};
+
 void Editor::RenderLine(DeviceContext* ctx, const Device::Extents& extents,
-                        Theme* theme, int y, AnnotatedString::LineIterator lit,
-                        bool highlight) {
+                        Theme* theme, ID cursor, int y,
+                        AnnotatedString::LineIterator lit, bool highlight) {
   int ncol = 0;
   AnnotatedString::AllIterator it = lit.AsAllIterator();
   const uint32_t base_flags = highlight ? Theme::HIGHLIGHT_LINE : 0;
-  std::vector<std::string> gutter_annotations;
-  auto add_gutter = [&gutter_annotations](const std::string& s) {
-    for (const auto& g : gutter_annotations) {
-      if (g == s) return;
-    }
-    gutter_annotations.push_back(s);
-  };
+  GutterVec gutter_annotations;
   while (it.id() != AnnotatedString::End()) {
     if (it.is_visible() || it.is_begin()) {
-      uint32_t chr_flags = base_flags;
-      std::vector<std::string> tags;
-      bool move_cursor = false;
-      bool has_diagnostic = false;
-      it.ForEachAttrValue([&](const Attribute& attr) {
-        switch (attr.data_case()) {
-          case Attribute::kCursor:
-            move_cursor = true;
-            break;
-          case Attribute::kSelection:
-            chr_flags |= Theme::SELECTED;
-            break;
-          case Attribute::kDiagnostic:
-            has_diagnostic = true;
-            break;
-          case Attribute::kTags:
-            for (auto t : attr.tags().tags()) {
-              tags.push_back(t);
-            }
-            break;
-          case Attribute::kSize:
-            switch (attr.size().type()) {
-              case SizeAnnotation::OFFSET_INTO_PARENT:
-                if (attr.size().bits()) {
-                  add_gutter(absl::StrCat("@", attr.size().size(), ".",
-                                          attr.size().bits()));
-                } else {
-                  add_gutter(absl::StrCat("@", attr.size().size()));
-                }
-                break;
-              case SizeAnnotation::SIZEOF_SELF:
-                if (attr.size().bits()) {
-                  add_gutter(absl::StrCat(
-                      attr.size().size() * 8 + attr.size().bits(), "b"));
-                } else {
-                  add_gutter(absl::StrCat(attr.size().size(), "B"));
-                }
-                break;
-              default:
-                break;
-            }
-            break;
-          default:
-            break;
-        }
-      });
-      if (has_diagnostic) {
-        tags.push_back("invalid");
+      CharDet cd(base_flags, &gutter_annotations);
+      cd.FillFromIterator(it);
+      if (cd.has_diagnostic) {
+        cd.tags.push_back("invalid");
       }
       if (it.is_visible() && it.id() != lit.id()) {
         if (it.value() == '\n') {
-          if (move_cursor) {
+          Log() << "A: " << it.id().id << " " << cursor.id;
+          if (it.id() == cursor) {
             ctx->MoveCursor(y + extents.chr_height, 0);
           }
           break;
         } else {
           ctx->PutChar(y, ncol * extents.chr_width, it.value(),
-                       theme->ThemeToken(tags, chr_flags));
+                       theme->ThemeToken(cd.tags, cd.chr_flags));
           ncol++;
         }
       }
-      if (move_cursor) {
+      Log() << "B: " << it.id().id << " " << cursor.id;
+      if (it.id() == cursor) {
         ctx->MoveCursor(y, ncol * extents.chr_width);
       }
     }

@@ -142,7 +142,8 @@ class Widget {
     double initial_value;
     double initial_velocity;
     absl::Time target_set;
-    void DeclTarget(absl::Time time, double target);
+    // returns true if animating
+    bool DeclTarget(absl::Time time, double target);
     struct Coefficients {
       double a, b, c, d;
     };
@@ -155,6 +156,7 @@ class Widget {
   Animator ani_szx_;
   Animator ani_szy_;
   ChildVector children_;
+  bool live_ = false;
 };
 
 class Device {

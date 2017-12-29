@@ -27,13 +27,14 @@ struct AppEnv {
 
 class Editor : public std::enable_shared_from_this<Editor> {
  public:
-  static std::shared_ptr<Editor> Make(Site* site, const std::string& name) {
-    return std::shared_ptr<Editor>(new Editor(site, name));
+  static std::shared_ptr<Editor> Make(Site* site, const std::string& name,
+                                      bool editable) {
+    return std::shared_ptr<Editor>(new Editor(site, name, editable));
   }
 
  private:
-  Editor(Site* site, const std::string& name)
-      : site_(site), name_(name), ed_(site) {}
+  Editor(Site* site, const std::string& name, bool editable)
+      : site_(site), name_(name), editable_(editable), ed_(site) {}
 
  public:
   // state management
@@ -90,11 +91,12 @@ class Editor : public std::enable_shared_from_this<Editor> {
     }
   }
   static void RenderLine(DeviceContext* ctx, const Device::Extents& extents,
-                         Theme* theme, int y, AnnotatedString::LineIterator lit,
-                         bool highlight);
+                         Theme* theme, ID cursor, int y,
+                         AnnotatedString::LineIterator lit, bool highlight);
 
   Site* const site_;
   const std::string name_;
+  const bool editable_;
   rhea::variable cursor_line_{};
   ID cursor_ = AnnotatedString::Begin();
   ID cursor_reported_ = AnnotatedString::End();
