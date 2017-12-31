@@ -19,8 +19,8 @@ struct A {
   double a;
   double b;
   int i : 1;
-  int j : 1;
-  int k : 1;
+  int j : 2;
+  int k : 3;
   int l : 1;
   int m : 1;
   char c;

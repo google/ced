@@ -41,6 +41,8 @@ std::vector<std::string> Editor::DebugData() const {
 EditResponse Editor::MakeResponse() {
   PublishCursor();
 
+  Log() << "EDITOR: " << name_ << " done:" << state_.shutdown;
+
   EditResponse r;
   r.done = state_.shutdown;
   r.become_used = !unpublished_commands_.commands().empty();
@@ -94,6 +96,8 @@ void Editor::PublishCursor() {
 }
 
 void Editor::UpdateState(LogTimer* tmr, const EditNotification& state) {
+  Log() << "EDITOR: " << name_ << " UpdateState shutdown=" << state.shutdown;
+
   state_ = state;
   auto s2 = state_.content;
   CommandSet unacked;

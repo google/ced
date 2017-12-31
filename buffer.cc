@@ -14,6 +14,7 @@
 #include "buffer.h"
 #include <unordered_map>
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "log.h"
 
 namespace {
@@ -60,36 +61,50 @@ void Buffer::RegisterCollaborator(
 }
 
 Buffer::~Buffer() {
+  const auto note = absl::StrCat("Buffer ", filename_.string(), " shutdown: ");
+  Log() << note << "Waiting for init thread";
   init_thread_.join();
 
   UpdateState(nullptr, false,
               [](EditNotification& state) { state.shutdown = true; });
 
   for (auto& t : collaborator_threads_) {
-    t.join();
+    Log() << note << "Waiting for " << t.first;
+    t.second.join();
   }
+}
+
+template <class C>
+std::string NamesFromCollaborators(C& container) {
+  std::set<std::string> names;
+  for (auto& c : container) {
+    names.insert(c->name());
+  }
+  return absl::StrJoin(names, ",");
 }
 
 void Buffer::AddCollaborator(AsyncCollaboratorPtr&& collaborator) {
   absl::MutexLock lock(&mu_);
   AsyncCollaborator* raw = collaborator.get();
   collaborators_.emplace_back(std::move(collaborator));
-  collaborator_threads_.emplace_back([this, raw]() {
-    try {
-      RunPull(raw);
-    } catch (std::exception& e) {
-      Log() << raw->name() << " collaborator pull broke: " << e.what();
-    }
-    absl::MutexLock lock(&mu_);
-    done_collaborators_.insert(raw);
-  });
-  collaborator_threads_.emplace_back([this, raw]() {
-    try {
-      RunPush(raw);
-    } catch (std::exception& e) {
-      Log() << raw->name() << " collaborator push broke: " << e.what();
-    }
-  });
+  collaborator_threads_.emplace(
+      absl::StrCat(raw->name(), ".pull"), std::thread([this, raw]() {
+        try {
+          RunPull(raw);
+        } catch (std::exception& e) {
+          Log() << raw->name() << " collaborator pull broke: " << e.what();
+        }
+        absl::MutexLock lock(&mu_);
+        done_collaborators_.insert(raw);
+      }));
+  collaborator_threads_.emplace(
+      absl::StrCat(raw->name(), ".push"), std::thread([this, raw]() {
+        try {
+          RunPush(raw);
+        } catch (std::exception& e) {
+          Log() << raw->name() << " collaborator push broke: " << e.what();
+        }
+      }));
 }
 
 void Buffer::AddCollaborator(AsyncCommandCollaboratorPtr&& collaborator) {
@@ -108,53 +123,58 @@ void Buffer::AddCollaborator(AsyncCommandCollaboratorPtr&& collaborator) {
   AsyncCommandCollaborator* raw = collaborator.get();
   collaborators_.emplace_back(std::move(collaborator));
   Listener* listener = new Listener(this, raw);
-  collaborator_threads_.emplace_back([this, raw, listener]() {
-    Log() << raw->name() << " START LISTENER";
-    listener->Start([](const AnnotatedString&) {});
-    mu_.LockWhen(absl::Condition(&this->state_.shutdown));
-    mu_.Unlock();
-    Log() << raw->name() << " DELETE LISTENER";
-    delete listener;
-    Log() << raw->name() << " SHUTDOWN";
-    raw->Push(nullptr);
-  });
-  collaborator_threads_.emplace_back([this, raw, listener]() {
-    try {
-      bool shutdown = false;
-      while (!shutdown) {
-        CommandSet commands;
-        Log() << raw->name() << " PULL";
-        shutdown = !raw->Pull(&commands);
-        Log() << raw->name() << " PULL -> shutdown=" << shutdown;
-        PublishToListeners(&commands, listener);
-        UpdateState(raw, false, [&](EditNotification& state) {
-          Log() << raw->name() << " integrating";
-          state.content = state.content.Integrate(commands);
-          Log() << raw->name() << " integrating done";
-        });
-      }
-    } catch (std::exception& e) {
-      Log() << raw->name() << " collaborator pull broke: " << e.what();
-    }
-    absl::MutexLock lock(&mu_);
-    done_collaborators_.insert(raw);
-    declared_no_edit_collaborators_.insert(raw);
-  });
+  collaborator_threads_.emplace(
+      absl::StrCat(raw->name(), ".listener"),
+      std::thread([this, raw, listener]() {
+        Log() << raw->name() << " START LISTENER";
+        listener->Start([](const AnnotatedString&) {});
+        mu_.LockWhen(absl::Condition(&this->state_.shutdown));
+        mu_.Unlock();
+        Log() << raw->name() << " DELETE LISTENER";
+        delete listener;
+        Log() << raw->name() << " SHUTDOWN";
+        raw->Push(nullptr);
+      }));
+  collaborator_threads_.emplace(
+      absl::StrCat(raw->name(), ".publisher"),
+      std::thread([this, raw, listener]() {
+        try {
+          bool shutdown = false;
+          while (!shutdown) {
+            CommandSet commands;
+            Log() << raw->name() << " PULL";
+            shutdown = !raw->Pull(&commands);
+            Log() << raw->name() << " PULL -> shutdown=" << shutdown;
+            PublishToListeners(&commands, listener);
+            UpdateState(raw, false, [&](EditNotification& state) {
+              Log() << raw->name() << " integrating";
+              state.content = state.content.Integrate(commands);
+              Log() << raw->name() << " integrating done";
+            });
+          }
+        } catch (std::exception& e) {
+          Log() << raw->name() << " collaborator pull broke: " << e.what();
+        }
+        absl::MutexLock lock(&mu_);
+        done_collaborators_.insert(raw);
+        declared_no_edit_collaborators_.insert(raw);
+      }));
 }
 
 void Buffer::AddCollaborator(SyncCollaboratorPtr&& collaborator) {
   absl::MutexLock lock(&mu_);
   SyncCollaborator* raw = collaborator.get();
   collaborators_.emplace_back(std::move(collaborator));
-  collaborator_threads_.emplace_back([this, raw]() {
-    try {
-      RunSync(raw);
-    } catch (std::exception& e) {
-      Log() << raw->name() << " collaborator sync broke: " << e.what();
-    }
-    absl::MutexLock lock(&mu_);
-    done_collaborators_.insert(raw);
-  });
+  collaborator_threads_.emplace(
+      absl::StrCat(raw->name(), ".collaborator"), std::thread([this, raw]() {
+        try {
+          RunSync(raw);
+        } catch (std::exception& e) {
+          Log() << raw->name() << " collaborator sync broke: " << e.what();
+        }
+        absl::MutexLock lock(&mu_);
+        done_collaborators_.insert(raw);
+      }));
 }
 
 namespace {
@@ -170,6 +190,11 @@ EditNotification Buffer::NextNotification(Collaborator* collaborator,
   };
   auto processable = [&]() {
     mu_.AssertHeld();
+    Log() << filename_.string() << ":" << collaborator->name()
+          << ": v=" << version_ << " last=" << *last_processed
+          << " shutdown=" << state_.shutdown << " no_edits="
+          << NamesFromCollaborators(declared_no_edit_collaborators_)
+          << " from=" << NamesFromCollaborators(collaborators_);
     return version_ != *last_processed || all_edits_complete();
   };
   // wait until something interesting to work on
@@ -205,6 +230,8 @@ EditNotification Buffer::NextNotification(Collaborator* collaborator,
     assert(all_edits_complete());
     done_collaborators_.insert(collaborator);
     mu_.Unlock();
+    Log() << filename_.string() << ":" << collaborator->name()
+          << " throws shutdown from NextNotification";
     throw Shutdown();
   }
 }
@@ -238,15 +265,16 @@ void Buffer::UpdateState(Collaborator* collaborator, bool become_used,
 
   // commit the update and advance time
   mu_.Lock();
+
+  Log() << filename_.string() << ":"
+        << (collaborator ? collaborator->name() : "<nil>")
+        << " updates version";
+
   updating_ = false;
   version_++;
 
   if (!done_collaborators_.empty()) {
-    std::string done_print;
-    for (auto x : done_collaborators_) {
-      absl::StrAppend(&done_print, " ", x->name());
-    }
-    Log() << "DONE:" << done_print;
+    Log() << "DONE: " << NamesFromCollaborators(done_collaborators_);
   }
 
   declared_no_edit_collaborators_ = done_collaborators_;
@@ -296,6 +324,9 @@ void Buffer::SinkResponse(Collaborator* collaborator,
   if (response.done) {
     absl::MutexLock lock(&mu_);
     done_collaborators_.insert(collaborator);
+    declared_no_edit_collaborators_.insert(collaborator);
+    Log() << filename_.string() << ":" << collaborator->name()
+          << " throws shutdown from SinkResponse";
     throw Shutdown();
   }
 }
