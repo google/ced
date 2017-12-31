@@ -37,6 +37,22 @@ enum class WidgetType {
   FLOAT,
 };
 
+inline std::ostream& operator<<(std::ostream& out, WidgetType t) {
+  switch (t) {
+    case WidgetType::CONTENT:
+      return out << "CONTENT";
+    case WidgetType::ROW:
+      return out << "ROW";
+    case WidgetType::COLUMN:
+      return out << "COLUMN";
+    case WidgetType::STACK:
+      return out << "STACK";
+    case WidgetType::FLOAT:
+      return out << "FLOAT";
+  }
+  return out << "<<UNKNOWNTYPE>>";
+}
+
 enum class Justify {
   FILL,    // no padding
   START,   // all elements crowd to start
@@ -46,6 +62,26 @@ enum class Justify {
   SPACE_AROUND,
   SPACE_EVENLY,
 };
+
+inline std::ostream& operator<<(std::ostream& out, Justify j) {
+  switch (j) {
+    case Justify::FILL:
+      return out << "FILL";
+    case Justify::START:
+      return out << "START";
+    case Justify::END:
+      return out << "END";
+    case Justify::CENTER:
+      return out << "CENTER";
+    case Justify::SPACE_BETWEEN:
+      return out << "SPACE_BETWEEN";
+    case Justify::SPACE_AROUND:
+      return out << "SPACE_AROUND";
+    case Justify::SPACE_EVENLY:
+      return out << "SPACE_EVENLY";
+  }
+  return out << "<<UNKNOWNTYPE>>";
+}
 
 class Widget {
  public:
@@ -120,7 +156,9 @@ class Widget {
 
   void ApplyJustify(rhea::simplex_solver* solver, Justify justify,
                     const ChildVector& widgets, rhea::variable(Widget::*start),
-                    rhea::variable(Widget::*end));
+                    rhea::variable(Widget::*end),
+                    rhea::variable(Widget::*perp_start),
+                    rhea::variable(Widget::*perp_end));
 
   const WidgetType type_;
   const uint64_t id_;

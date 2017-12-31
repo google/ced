@@ -118,8 +118,9 @@ class Curses final : public Application, public Device {
                          parent_right);
     int bottom = std::min(
         static_cast<int>(widget.bottom().value()) + parent_top, parent_bottom);
-    Log() << "WIDGET " << widget.id() << " parent (" << parent_left << ","
-          << parent_top << ")-(" << parent_right << "," << parent_bottom << ")"
+    Log() << "WIDGET " << widget.id() << " type " << widget.type()
+          << " parent (" << parent_left << "," << parent_top << ")-("
+          << parent_right << "," << parent_bottom << ")"
           << " self (" << left << "," << top << ")-(" << right << "," << bottom
           << ")";
     Ctx ctx(this, parent_left, parent_top, left, top, right, bottom);

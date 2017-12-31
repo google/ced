@@ -23,6 +23,7 @@ struct A {
   int k : 3;
   int l : 1;
   int m : 1;
+  int n;
   char c;
   short y;
   int x;

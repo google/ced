@@ -327,6 +327,11 @@ void Editor::Render(Theme* theme, Widget* parent) {
   r->solver()->add_constraints(
       {rhea::constraint(cursor_line_ == cursor_line_.value(),
                         rhea::strength::strong()),
+       rhea::constraint(
+           content->right() - content->left() >= 80 * ex.chr_width,
+           editable_ ? rhea::strength::strong() : rhea::strength::weak()),
+       rhea::constraint(content->bottom() - content->top() >= 3 * ex.chr_height,
+                        rhea::strength::weak()),
        cursor_line_ * ex.chr_height >= 0,
        cursor_line_ * ex.chr_height <=
            parent->bottom() - parent->top() - ex.chr_height});
@@ -335,22 +340,27 @@ void Editor::Render(Theme* theme, Widget* parent) {
   AnnotatedString::LineIterator line_cr(state_.content, cursor_);
   rhea::variable cursor_line = cursor_line_;
   if (!editable_) cursor = ID();
-  content->Draw([line_cr, cursor_line, cursor, ex, theme](DeviceContext* ctx) {
-    int cl = cursor_line.value();
-    AnnotatedString::LineIterator line_bk = line_cr;
-    AnnotatedString::LineIterator line_fw = line_cr;
-    RenderLine(ctx, ex, theme, cursor, cl, line_cr, true);
-    for (int i = 1; i <= ctx->height() / ex.chr_height; i++) {
-      if (line_bk.MovePrev()) {
-        RenderLine(ctx, ex, theme, cursor, cl - i * ex.chr_height, line_bk,
-                   false);
-      }
-      if (line_fw.MoveNext()) {
-        RenderLine(ctx, ex, theme, cursor, cl + i * ex.chr_height, line_fw,
-                   false);
-      }
-    }
-  });
+  content->Draw(
+      [line_cr, cursor_line, cursor, ex, theme, content](DeviceContext* ctx) {
+        Log() << "Editor: (" << content->left().value() << ","
+              << content->top().value() << ")-(" << content->right().value()
+              << "," << content->bottom().value()
+              << ")   cursor_line=" << cursor_line.value();
+        int cl = cursor_line.value();
+        AnnotatedString::LineIterator line_bk = line_cr;
+        AnnotatedString::LineIterator line_fw = line_cr;
+        RenderLine(ctx, ex, theme, cursor, cl, line_cr, true);
+        for (int i = 1; i <= ctx->height() / ex.chr_height; i++) {
+          if (line_bk.MovePrev()) {
+            RenderLine(ctx, ex, theme, cursor, cl - i * ex.chr_height, line_bk,
+                       false);
+          }
+          if (line_fw.MoveNext()) {
+            RenderLine(ctx, ex, theme, cursor, cl + i * ex.chr_height, line_fw,
+                       false);
+          }
+        }
+      });
 }
 
 typedef absl::InlinedVector<std::string, 2> GutterVec;
@@ -429,7 +439,6 @@ void Editor::RenderLine(DeviceContext* ctx, const Device::Extents& extents,
       }
       if (it.is_visible() && it.id() != lit.id()) {
         if (it.value() == '\n') {
-          Log() << "A: " << it.id().id << " " << cursor.id;
           if (it.id() == cursor) {
             ctx->MoveCursor(y + extents.chr_height, 0);
           }
@@ -440,7 +449,6 @@ void Editor::RenderLine(DeviceContext* ctx, const Device::Extents& extents,
           ncol++;
         }
       }
-      Log() << "B: " << it.id().id << " " << cursor.id;
       if (it.id() == cursor) {
         ctx->MoveCursor(y, ncol * extents.chr_width);
       }

@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "render.h"
 #include <city.h>
+#include "absl/strings/str_join.h"
 #include "log.h"
 
 Widget* Widget::MakeSimpleText(CharFmt fmt,
@@ -40,22 +41,45 @@ Widget* Widget::MakeSimpleText(CharFmt fmt,
 }
 
 void Widget::EnterFrame(Widget* parent) {
+  left_ = rhea::variable();
+  right_ = rhea::variable();
+  bottom_ = rhea::variable();
+  top_ = rhea::variable();
   live_ = true;
   parent_ = parent;
   draw_ = DrawCall();
   auto* solver = renderer_->solver_.get();
-  solver->add_constraints({bottom_ >= top_, right_ >= left_});
   nextid_ = 257 * id_ + 1;
   if (parent_) {
+    solver->add_constraints({bottom_ >= top_, right_ >= left_});
     parent_->children_.push_back(this);
   }
+}
+
+template <class C>
+std::string WidgetIDs(const C& container) {
+  std::vector<uint64_t> ids;
+  for (const auto& c : container) {
+    ids.push_back(c->id());
+  }
+  return absl::StrJoin(ids, ",");
 }
 
 void Widget::ApplyJustify(rhea::simplex_solver* solver, Justify justify,
                           const ChildVector& widgets,
                           rhea::variable(Widget::*start),
-                          rhea::variable(Widget::*end)) {
+                          rhea::variable(Widget::*end),
+                          rhea::variable(Widget::*perp_start),
+                          rhea::variable(Widget::*perp_end)) {
+  Log() << "ApplyJustify " << id() << " " << type() << " " << justify << " to "
+        << WidgetIDs(widgets);
   if (widgets.empty()) return;
+  for (size_t i = 0; i < widgets.size(); i++) {
+    solver->add_constraints({
+        (widgets[i]->*perp_start) == 0,
+        (this->*perp_end) - (this->*perp_start) >= (widgets[i]->*perp_end),
+    });
+  }
   switch (justify) {
     case Justify::FILL:
       for (size_t i = 1; i < widgets.size(); i++) {
@@ -134,24 +158,25 @@ void Widget::FinalizeConstraints(Renderer* renderer) {
         solver->add_constraints(
             {children_[i]->bottom() - children_[i]->top() == bottom() - top()});
       }
-      ApplyJustify(solver, justify_, children_, &Widget::left_,
-                   &Widget::right_);
+      ApplyJustify(solver, justify_, children_, &Widget::left_, &Widget::right_,
+                   &Widget::top_, &Widget::bottom_);
       break;
     case WidgetType::COLUMN:
       for (size_t i = 0; i < children_.size(); i++) {
         solver->add_constraints(
             {children_[i]->right() - children_[i]->left() == right() - left()});
       }
-      ApplyJustify(solver, justify_, children_, &Widget::top_,
-                   &Widget::bottom_);
+      ApplyJustify(solver, justify_, children_, &Widget::top_, &Widget::bottom_,
+                   &Widget::left_, &Widget::right_);
       break;
     case WidgetType::STACK: {
       auto stack_width = right() - left();
       auto stack_height = bottom() - top();
       for (size_t i = 0; i < children_.size(); i++) {
-        solver->add_constraints(
-            {children_[i]->right() - children_[i]->left() == stack_width,
-             children_[i]->bottom() - children_[i]->top() == stack_height});
+        solver->add_constraints({children_[i]->left() == 0,
+                                 children_[i]->top() == 0,
+                                 children_[i]->right() == stack_width,
+                                 children_[i]->bottom() == stack_height});
       }
     } break;
   }
@@ -263,14 +288,15 @@ void Widget::UpdateAnimations(Renderer* renderer) {
 void Renderer::BeginFrame() {
   solver_.reset(new rhea::simplex_solver);
   solver_->set_autosolve(false);
+  EnterFrame(nullptr);
   frame_time_ = absl::Now();
   animating_ = false;
   extents_ = device_->GetExtents();
   Log() << "extents: sw=" << extents_.win_width
         << " sh=" << extents_.win_height;
   solver_->add_constraints({
-      right_ == left_ + extents_.win_width,
-      bottom_ == top_ + extents_.win_height,
+      left_ == 0, top_ == 0, right_ == extents_.win_width,
+      bottom_ == extents_.win_height,
   });
 }
 
