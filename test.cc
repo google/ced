@@ -16,10 +16,7 @@
 
 class X final {
  public:
-  int foo() {
-    printf("whelp, things are working again");
-    return 0;
-  }
+  int foo() { return 0; }
 };
 
 // This is just an example struct
