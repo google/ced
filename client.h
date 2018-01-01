@@ -17,12 +17,18 @@
 #include "buffer.h"
 #include "proto/project_service.grpc.pb.h"
 
+typedef std::unique_ptr<
+    grpc::ClientReaderWriterInterface<EditMessage, EditMessage>>
+    EditStreamPtr;
+
 class Client {
  public:
   Client(const boost::filesystem::path& ced_bin,
          const boost::filesystem::path& project_root_hint);
 
   std::unique_ptr<Buffer> MakeBuffer(const boost::filesystem::path& path);
+  std::pair<EditStreamPtr, EditMessage> MakeEditStream(
+      grpc::ClientContext* ctx, const boost::filesystem::path& path);
 
  private:
   std::unique_ptr<ProjectService::Stub> project_stub_;

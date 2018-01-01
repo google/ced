@@ -136,6 +136,7 @@ cc_binary(
   deps = [
     ":curses_client",
     ":scan_fonts",
+    ":peep_show",
   ] + select({
     ':darwin': [':ced_main_curses'],
     ':darwin_x86_64': [':ced_main_curses'],
@@ -681,6 +682,16 @@ cc_library(
     ":application",
     "@skia//:skia",
     "@SDL2//:sdl2",
+  ],
+  alwayslink = 1,
+)
+
+cc_library(
+  name = "peep_show",
+  srcs = ["peep_show.cc"],
+  deps = [
+    ":client",
+    ":application",
   ],
   alwayslink = 1,
 )
