@@ -680,6 +680,7 @@ cc_library(
     ":buffer",
     ":client",
     ":application",
+    ":fontconfig_conf_files",
     "@skia//:skia",
     "@SDL2//:sdl2",
   ],
@@ -704,4 +705,17 @@ cc_library(
     "@fontconfig//:fontconfig_lib",
   ],
   alwayslink = 1,
+)
+
+genrule(
+  name = "prep_fontconfig",
+  srcs = ["@fontconfig//:conf"],
+  outs = ["fontconfig.txt"],
+  cmd = "python $(location merge_fontconfig_confs.py) $(SRCS) > $@",
+  tools = ["merge_fontconfig_confs.py"]
+)
+
+file2lib(
+  name = "fontconfig_conf_files",
+  src = "fontconfig.txt",
 )

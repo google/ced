@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "SDL_opengl.h"
 #include <signal.h>
 #include <atomic>
 #include "GrBackendSurface.h"
 #include "GrContext.h"
 #include "SDL.h"
+#include "SDL_opengl.h"
 #include "SkCanvas.h"
 #include "SkRandom.h"
 #include "SkSurface.h"
@@ -25,12 +25,37 @@
 #include "application.h"
 #include "buffer.h"
 #include "client.h"
+#include "fontconfig/fontconfig.h"
+#include "fontconfig_conf_files.h"
+#include "gl/GrGLAssembleInterface.h"
 #include "gl/GrGLInterface.h"
 #include "gl/GrGLUtil.h"
-#include "gl/GrGLAssembleInterface.h"
 
 static const int kMsaaSampleCount = 0;  // 4;
 static const int kStencilBits = 8;      // Skia needs 8 stencil bits
+
+static void ConfigureFontConfig() {
+#ifdef __APPLE__
+  std::string config_prefix = R"(<?xml version="1.0"?>
+    <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+    <fontconfig>)";
+  std::string default_dirs = R"(
+    <cachedir>/usr/local/var/cache/fontconfig</cachedir>
+    <cachedir>~/.fontconfig</cachedir>
+    <dir>/System/Library/Fonts</dir>
+    <dir>/Library/Fonts</dir>
+    <dir>~/Library/Fonts</dir>)";
+  std::string config_suffix = "</fontconfig>";
+  FcConfig* cfg = FcConfigCreate();
+  FcConfigParseAndLoadFromMemory(
+      cfg, reinterpret_cast<const FcChar8*>(
+               absl::StrCat(config_prefix, default_dirs, fontconfig_conf_files,
+                            config_suffix)
+                   .c_str()),
+      true);
+  FcConfigSetCurrent(cfg);
+#endif
+}
 
 class GUICtx {
  public:
@@ -62,9 +87,10 @@ class GUICtx {
     return info;
   }
   const WinSz winsz_;
-  const sk_sp<const GrGLInterface> interface_{GrGLAssembleInterface(nullptr, +[](void* ctx, const char* name) {
-    return (GrGLFuncPtr)SDL_GL_GetProcAddress(name);
-  })};
+  const sk_sp<const GrGLInterface> interface_{
+      GrGLAssembleInterface(nullptr, +[](void* ctx, const char* name) {
+        return (GrGLFuncPtr)SDL_GL_GetProcAddress(name);
+      })};
   const sk_sp<GrContext> grcontext_{GrContext::MakeGL(interface_.get())};
   GrBackendRenderTarget target_;
   SkSurfaceProps props_{SkSurfaceProps::kLegacyFontHost_InitType};
@@ -75,6 +101,8 @@ class GUICtx {
 class GUI : public Application {
  public:
   GUI(int argc, char** argv) : client_(argv[0], FileFromCmdLine(argc, argv)) {
+    ConfigureFontConfig();
+
     uint32_t windowFlags = 0;
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -175,14 +203,6 @@ class GUI : public Application {
     canvas->drawText(hello.c_str(), hello.length(), SkIntToScalar(100),
                      SkIntToScalar(100), paint);
     canvas->flush();
-#if 0
-    int dw, dh;
-    SDL_GL_GetDrawableSize(window_, &dw, &dh);
-    glViewport(0, 0, dw, dh);
-    glClearColor(1, 1, 1, 1);
-    glClearStencil(0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-#endif
     SDL_GL_SwapWindow(window_);
   }
 
