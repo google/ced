@@ -172,6 +172,8 @@ class GUI : public Application {
     if (success != 0) {
       throw std::runtime_error(SDL_GetError());
     }
+
+    buffer_ = client_.MakeBuffer(FileFromCmdLine(argc, argv));
   }
 
   ~GUI() {}
@@ -251,6 +253,7 @@ class GUI : public Application {
   SDL_Window* window_ = nullptr;
   Client client_;
   std::unique_ptr<GUICtx> ctx_;
+  std::unique_ptr<Buffer> buffer_;
 };
 
 REGISTER_APPLICATION(GUI);
