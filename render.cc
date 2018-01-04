@@ -63,8 +63,13 @@ void Widget::EnterFrame(Widget* parent, const Options& options) {
 
 bool Widget::Focus() const { return id_ == renderer_->last_focus_widget_; }
 
-std::string Widget::CharPressed() {
-  return std::move(renderer_->pending_char_presses_);
+uint32_t Widget::CharPressed() {
+  if (renderer_->kbev_.IsChar()) {
+    uint32_t r = renderer_->kbev_.key;
+    renderer_->kbev_.key = KbEvent::EMPTY;
+    return r;
+  }
+  return 0;
 }
 
 template <class C>
@@ -310,9 +315,7 @@ void Renderer::BeginFrame() {
   Log() << "extents: sw=" << extents_.win_width
         << " sh=" << extents_.win_height;
   solver_->add_constraints({
-      left_ == 0,
-      top_ == 0,
-      right_ == extents_.win_width,
+      left_ == 0, top_ == 0, right_ == extents_.win_width,
       bottom_ == extents_.win_height,
   });
 }

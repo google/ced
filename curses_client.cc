@@ -172,7 +172,9 @@ class Curses final : public Application, public Device {
           return 0;
         default:
           if (c >= 32 && c < 127) {
-            renderer_.PushCharPress(std::string(1, c));
+            KbEvent ev;
+            ev.key = c;
+            renderer_.SetKbEvent(ev);
           } else {
             TerminalCollaborator::All_ProcessKey(&app_env_, c);
           }

@@ -157,7 +157,7 @@ class Widget {
 
   bool Focus() const;
   bool InFocusTree() const { return in_focus_tree_; }
-  std::string CharPressed();
+  uint32_t CharPressed();
 
   WidgetType type() const { return type_; }
 
@@ -256,6 +256,27 @@ class DeviceContext {
   virtual void PutChar(int row, int col, uint32_t chr, CharFmt fmt) = 0;
 };
 
+struct KbEvent {
+  enum SpecialIDs {
+    EMPTY = 0,
+    NULL_SPECIAL_ID = 0xffff0000,
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT
+  };
+
+  bool IsControl() const {
+    return key < 32 || key > NULL_SPECIAL_ID || ctrl || alt || shift;
+  }
+  bool IsChar() const { return !IsControl(); }
+
+  uint32_t key = EMPTY;
+  bool ctrl = false;
+  bool alt = false;
+  bool shift = false;
+};
+
 class Renderer : public Widget {
  public:
   explicit Renderer(Device* device)
@@ -267,7 +288,10 @@ class Renderer : public Widget {
   rhea::simplex_solver* solver() { return solver_.get(); }
   const Device::Extents& extents() const { return extents_; }
 
-  void PushCharPress(std::string c) { pending_char_presses_ += c; }
+  void SetKbEvent(const KbEvent& ev) {
+    assert(kbev_.key == KbEvent::EMPTY);
+    kbev_ = ev;
+  }
 
  private:
   friend class Widget;
@@ -281,5 +305,5 @@ class Renderer : public Widget {
   std::unordered_map<uint64_t, std::unique_ptr<Widget>> widgets_;
   std::unique_ptr<rhea::simplex_solver> solver_{new rhea::simplex_solver};
 
-  std::string pending_char_presses_;
+  KbEvent kbev_;
 };
