@@ -48,10 +48,11 @@ static void ConfigureFontConfig() {
   std::string config_suffix = "</fontconfig>";
   FcConfig* cfg = FcConfigCreate();
   FcConfigParseAndLoadFromMemory(
-      cfg, reinterpret_cast<const FcChar8*>(
-               absl::StrCat(config_prefix, default_dirs, fontconfig_conf_files,
-                            config_suffix)
-                   .c_str()),
+      cfg,
+      reinterpret_cast<const FcChar8*>(absl::StrCat(config_prefix, default_dirs,
+                                                    fontconfig_conf_files,
+                                                    config_suffix)
+                                           .c_str()),
       true);
   FcConfigSetCurrent(cfg);
 #endif

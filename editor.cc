@@ -320,7 +320,17 @@ void Editor::CursorEndOfLine() {
 }
 
 void Editor::Render(Theme* theme, Widget* parent) {
-  Widget* content = parent->MakeContent(name_);
+  Widget* content = parent->MakeContent(
+      Widget::Options().set_id(name_).set_activatable(editable_));
+
+  if (content->Focus()) {
+    std::string c;
+    if (!(c = content->CharPressed()).empty()) {
+      for (auto chr : c) {
+        InsChar(chr);
+      }
+    }
+  }
 
   auto* r = parent->renderer();
   auto ex = r->extents();

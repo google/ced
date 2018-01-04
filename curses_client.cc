@@ -171,7 +171,11 @@ class Curses final : public Application, public Device {
         case 27:
           return 0;
         default:
-          TerminalCollaborator::All_ProcessKey(&app_env_, c);
+          if (c >= 32 && c < 127) {
+            renderer_.PushCharPress(std::string(1, c));
+          } else {
+            TerminalCollaborator::All_ProcessKey(&app_env_, c);
+          }
       }
 
       log_timer->Mark("input_processed");
@@ -198,9 +202,10 @@ class Curses final : public Application, public Device {
     int fb_rows, fb_cols;
     getmaxyx(stdscr, fb_rows, fb_cols);
     renderer_.BeginFrame();
-    auto top = renderer_.MakeRow();
+    auto top = renderer_.MakeRow(Widget::Options().set_id("top"));
     TerminalRenderContainers containers{
-        top->MakeRow(), top->MakeColumn(),
+        top->MakeRow(Widget::Options().set_id("main")),
+        top->MakeColumn(Widget::Options().set_id("side_bar")),
     };
     TerminalCollaborator::All_Render(containers, color_->theme());
     log_timer->Mark("collected_layout");

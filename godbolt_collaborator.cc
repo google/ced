@@ -61,9 +61,10 @@ EditResponse GodboltCollaborator::Edit(const EditNotification& notification) {
   }
 
   Log() << "objdump: " << tmpf.filename();
-  auto dump = run(OBJDUMP_BIN, {"-d", "-l", "-M", "intel", "-C",
-                                "--no-show-raw-insn", tmpf.filename()},
-                  "");
+  auto dump = run(
+      OBJDUMP_BIN,
+      {"-d", "-l", "-M", "intel", "-C", "--no-show-raw-insn", tmpf.filename()},
+      "");
 
   Log() << dump.out;
   AsmParseResult parsed_asm = AsmParse(dump.out);

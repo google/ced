@@ -85,6 +85,35 @@ inline std::ostream& operator<<(std::ostream& out, Justify j) {
 
 class Widget {
  public:
+  class Options {
+   public:
+    typedef absl::optional<absl::string_view> OptionalStableID;
+
+    Options& set_id(absl::string_view id) {
+      id_ = id;
+      return *this;
+    }
+
+    Options& set_justify(Justify justify) {
+      justify_ = justify;
+      return *this;
+    }
+
+    Options& set_activatable(bool activatable = true) {
+      activatable_ = activatable;
+      return *this;
+    }
+
+    OptionalStableID id() const { return id_; }
+    Justify justify() const { return justify_; }
+    bool activatable() const { return activatable_; }
+
+   private:
+    OptionalStableID id_;
+    Justify justify_ = Justify::FILL;
+    bool activatable_ = false;
+  };
+
   Widget(Renderer* renderer, WidgetType type, uint64_t id)
       : type_(type), id_(id), renderer_(renderer) {}
 
@@ -101,27 +130,34 @@ class Widget {
 
   uint64_t id() const { return id_; }
 
-  typedef absl::optional<absl::string_view> OptionalStableID;
+  static const Options& DefaultOptions() {
+    static const Options options;
+    return options;
+  }
 
-  Widget* MakeContent(OptionalStableID id = OptionalStableID()) {
-    return Materialize(WidgetType::CONTENT, id);
+  Widget* MakeContent(const Options& options = DefaultOptions()) {
+    return Materialize(WidgetType::CONTENT, options);
   }
-  Widget* MakeRow(OptionalStableID id = OptionalStableID()) {
-    return Materialize(WidgetType::ROW, id);
+  Widget* MakeRow(const Options& options = DefaultOptions()) {
+    return Materialize(WidgetType::ROW, options);
   }
-  Widget* MakeColumn(OptionalStableID id = OptionalStableID()) {
-    return Materialize(WidgetType::COLUMN, id);
+  Widget* MakeColumn(const Options& options = DefaultOptions()) {
+    return Materialize(WidgetType::COLUMN, options);
   }
-  Widget* MakeStack(OptionalStableID id = OptionalStableID()) {
-    return Materialize(WidgetType::STACK, id);
+  Widget* MakeStack(const Options& options = DefaultOptions()) {
+    return Materialize(WidgetType::STACK, options);
   }
-  Widget* MakeFloat(OptionalStableID id = OptionalStableID()) {
-    return Materialize(WidgetType::FLOAT, id);
+  Widget* MakeFloat(const Options& options = DefaultOptions()) {
+    return Materialize(WidgetType::FLOAT, options);
   }
   Widget* MakeSimpleText(CharFmt fmt, const std::vector<std::string>& text);
 
   typedef std::function<void(DeviceContext* device)> DrawCall;
   void Draw(DrawCall draw) { draw_ = draw; }
+
+  bool Focus() const;
+  bool InFocusTree() const { return in_focus_tree_; }
+  std::string CharPressed();
 
   WidgetType type() const { return type_; }
 
@@ -146,13 +182,13 @@ class Widget {
  private:
   friend class Renderer;
 
-  void EnterFrame(Widget* parent);
+  void EnterFrame(Widget* parent, const Options& options);
   void FinalizeConstraints(Renderer* renderer);
   void UpdateAnimations(Renderer* renderer);
   bool EndFrame();
 
-  uint64_t GenUID(OptionalStableID id);
-  Widget* Materialize(WidgetType type, OptionalStableID id);
+  uint64_t GenUID(const Options& options);
+  Widget* Materialize(WidgetType type, const Options& options);
 
   void ApplyJustify(rhea::simplex_solver* solver, Justify justify,
                     const ChildVector& widgets, rhea::variable(Widget::*start),
@@ -195,6 +231,7 @@ class Widget {
   Animator ani_szy_;
   ChildVector children_;
   bool live_ = false;
+  bool in_focus_tree_ = false;
 };
 
 class Device {
@@ -230,6 +267,8 @@ class Renderer : public Widget {
   rhea::simplex_solver* solver() { return solver_.get(); }
   const Device::Extents& extents() const { return extents_; }
 
+  void PushCharPress(std::string c) { pending_char_presses_ += c; }
+
  private:
   friend class Widget;
 
@@ -237,6 +276,10 @@ class Renderer : public Widget {
   bool animating_ = false;
   absl::Time frame_time_;
   Device::Extents extents_;
+  uint64_t focus_widget_ = 0;
+  uint64_t last_focus_widget_ = 0;
   std::unordered_map<uint64_t, std::unique_ptr<Widget>> widgets_;
   std::unique_ptr<rhea::simplex_solver> solver_{new rhea::simplex_solver};
+
+  std::string pending_char_presses_;
 };

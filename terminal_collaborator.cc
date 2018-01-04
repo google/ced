@@ -193,10 +193,12 @@ static bool MaybeProcessEditingKey(AppEnv* app_env, int key,
       editor->Paste(app_env);
       break;
     default:
+#if 0
       if (key >= 32 && key < 127) {
         editor->InsChar(key);
         break;
       }
+#endif
       return false;
   }
   return true;

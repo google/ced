@@ -40,7 +40,7 @@ Widget* Widget::MakeSimpleText(CharFmt fmt,
   return c;
 }
 
-void Widget::EnterFrame(Widget* parent) {
+void Widget::EnterFrame(Widget* parent, const Options& options) {
   left_ = rhea::variable();
   right_ = rhea::variable();
   bottom_ = rhea::variable();
@@ -48,12 +48,23 @@ void Widget::EnterFrame(Widget* parent) {
   live_ = true;
   parent_ = parent;
   draw_ = DrawCall();
+  justify_ = options.justify();
+  if (options.activatable() &&
+      (renderer_->last_focus_widget_ == id_ || renderer_->focus_widget_ == 0)) {
+    renderer_->focus_widget_ = id_;
+  }
   auto* solver = renderer_->solver_.get();
   nextid_ = 257 * id_ + 1;
   if (parent_) {
     solver->add_constraints({bottom_ >= top_, right_ >= left_});
     parent_->children_.push_back(this);
   }
+}
+
+bool Widget::Focus() const { return id_ == renderer_->last_focus_widget_; }
+
+std::string Widget::CharPressed() {
+  return std::move(renderer_->pending_char_presses_);
 }
 
 template <class C>
@@ -185,22 +196,24 @@ void Widget::FinalizeConstraints(Renderer* renderer) {
 bool Widget::EndFrame() {
   bool was_live = live_;
   live_ = false;
+  in_focus_tree_ = false;
   children_.clear();
   return was_live;
 }
 
-uint64_t Widget::GenUID(OptionalStableID id) {
-  if (!id) {
+uint64_t Widget::GenUID(const Options& options) {
+  if (!options.id()) {
     Log() << "GenUID: dynamic from " << id_ << " nextid_==" << nextid_;
     return nextid_++;
   } else {
-    Log() << "GenUID: '" << *id << "' from " << id_;
-    return CityHash64WithSeed(id->data(), id->length(), id_);
+    Log() << "GenUID: '" << *options.id() << "' from " << id_;
+    return CityHash64WithSeed(options.id()->data(), options.id()->length(),
+                              id_);
   }
 }
 
-Widget* Widget::Materialize(WidgetType type, OptionalStableID id) {
-  auto uid = GenUID(id);
+Widget* Widget::Materialize(WidgetType type, const Options& options) {
+  auto uid = GenUID(options);
   auto it = renderer_->widgets_.find(uid);
   Widget* w;
   if (it != renderer_->widgets_.end()) {
@@ -212,7 +225,7 @@ Widget* Widget::Materialize(WidgetType type, OptionalStableID id) {
                      std::unique_ptr<Widget>(new Widget(renderer_, type, uid)))
             .first->second.get();
   }
-  w->EnterFrame(this);
+  w->EnterFrame(this, options);
   return w;
 }
 
@@ -288,14 +301,18 @@ void Widget::UpdateAnimations(Renderer* renderer) {
 void Renderer::BeginFrame() {
   solver_.reset(new rhea::simplex_solver);
   solver_->set_autosolve(false);
-  EnterFrame(nullptr);
+  last_focus_widget_ = focus_widget_;
+  focus_widget_ = 0;
+  EnterFrame(nullptr, DefaultOptions());
   frame_time_ = absl::Now();
   animating_ = false;
   extents_ = device_->GetExtents();
   Log() << "extents: sw=" << extents_.win_width
         << " sh=" << extents_.win_height;
   solver_->add_constraints({
-      left_ == 0, top_ == 0, right_ == extents_.win_width,
+      left_ == 0,
+      top_ == 0,
+      right_ == extents_.win_width,
       bottom_ == extents_.win_height,
   });
 }
@@ -329,14 +346,24 @@ absl::optional<absl::Time> Renderer::FinishFrame() {
   solver_.reset();
 
   // signal frame termination
-  for (auto it = widgets_.begin(); it != widgets_.end();) {
-    if (it->second->EndFrame()) {
-      ++it;
-    } else {
-      it = widgets_.erase(it);
+  absl::InlinedVector<uint64_t, 32> done_widgets;
+  for (auto w : widgets) {
+    if (!w->EndFrame()) {
+      done_widgets.push_back(w->id());
+    }
+  }
+  // propagate focus tree data up the stack
+  if (focus_widget_ != 0) {
+    auto* w = widgets_.find(focus_widget_)->second.get();
+    while (w != nullptr) {
+      w->in_focus_tree_ = true;
+      w = w->parent_;
     }
   }
   this->EndFrame();
+  for (auto w : done_widgets) {
+    widgets_.erase(w);
+  }
 
   if (animating_) {
     return frame_time_ + absl::Milliseconds(16);
