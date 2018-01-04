@@ -13,7 +13,6 @@
 // limitations under the License.
 #pragma once
 
-#include <curses.h>
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "buffer.h"

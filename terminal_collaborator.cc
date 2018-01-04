@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "terminal_collaborator.h"
-#include <curses.h>
 #include <gflags/gflags.h>
 #include <deque>
 #include <vector>
@@ -27,8 +26,6 @@ DEFINE_bool(editor_debug_display, false, "Show editor debug information");
 
 absl::Mutex TerminalCollaborator::mu_;
 std::vector<TerminalCollaborator*> TerminalCollaborator::all_;
-
-constexpr char ctrl(char c) { return c & 0x1f; }
 
 TerminalCollaborator::TerminalCollaborator(const Buffer* buffer)
     : AsyncCollaborator("terminal", absl::Seconds(0), absl::Seconds(0)),
