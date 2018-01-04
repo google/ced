@@ -20,26 +20,36 @@
 #include "line_editor.h"
 #include "log.h"
 #include "render.h"
-#include "terminal_color.h"
 
-struct TerminalRenderContainers {
+struct RenderContainers {
   Widget* main;
   Widget* side_bar;
 };
 
-extern void InvalidateTerminal();
-
-class TerminalCollaborator final : public AsyncCollaborator {
+class Invalidator {
  public:
-  TerminalCollaborator(const Buffer* buffer);
-  ~TerminalCollaborator();
+  Invalidator();
+  ~Invalidator();
+  virtual void Invalidate() = 0;
+
+  static void InvalidateAll();
+
+ private:
+  static absl::Mutex mu_;
+  static std::vector<Invalidator*> invalidators_ GUARDED_BY(mu_);
+};
+
+class ClientCollaborator final : public AsyncCollaborator {
+ public:
+  ClientCollaborator(const Buffer* buffer);
+  ~ClientCollaborator();
   void Push(const EditNotification& notification) override;
   EditResponse Pull() override;
 
-  static void All_Render(TerminalRenderContainers containers, Theme* theme);
+  static void All_Render(RenderContainers containers, Theme* theme);
 
  private:
-  void Render(TerminalRenderContainers containers, Theme* theme)
+  void Render(RenderContainers containers, Theme* theme)
       EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   const Buffer* const buffer_;
@@ -48,5 +58,5 @@ class TerminalCollaborator final : public AsyncCollaborator {
   LineEditor find_editor_ GUARDED_BY(mu_);
   bool recently_used_ GUARDED_BY(mu_);
 
-  static std::vector<TerminalCollaborator*> all_ GUARDED_BY(mu_);
+  static std::vector<ClientCollaborator*> all_ GUARDED_BY(mu_);
 };

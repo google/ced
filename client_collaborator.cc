@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "terminal_collaborator.h"
+#include "client_collaborator.h"
 #include <gflags/gflags.h>
 #include <deque>
 #include <vector>
@@ -24,10 +24,30 @@ DEFINE_bool(buffer_profile_display, false,
 
 DEFINE_bool(editor_debug_display, false, "Show editor debug information");
 
-absl::Mutex TerminalCollaborator::mu_;
-std::vector<TerminalCollaborator*> TerminalCollaborator::all_;
+absl::Mutex ClientCollaborator::mu_;
+std::vector<ClientCollaborator*> ClientCollaborator::all_;
 
-TerminalCollaborator::TerminalCollaborator(const Buffer* buffer)
+absl::Mutex Invalidator::mu_;
+std::vector<Invalidator*> Invalidator::invalidators_;
+
+Invalidator::Invalidator() {
+  absl::MutexLock lock(&mu_);
+  invalidators_.push_back(this);
+}
+
+Invalidator::~Invalidator() {
+  absl::MutexLock lock(&mu_);
+  invalidators_.erase(
+      std::remove(invalidators_.begin(), invalidators_.end(), this),
+      invalidators_.end());
+}
+
+void Invalidator::InvalidateAll() {
+  absl::MutexLock lock(&mu_);
+  for (auto p : invalidators_) p->Invalidate();
+}
+
+ClientCollaborator::ClientCollaborator(const Buffer* buffer)
     : AsyncCollaborator("terminal", absl::Seconds(0), absl::Seconds(0)),
       buffer_(buffer),
       editor_(Editor::Make(buffer_->site(), buffer_->filename().string(),
@@ -37,18 +57,17 @@ TerminalCollaborator::TerminalCollaborator(const Buffer* buffer)
   all_.push_back(this);
 }
 
-TerminalCollaborator::~TerminalCollaborator() {
+ClientCollaborator::~ClientCollaborator() {
   absl::MutexLock lock(&mu_);
   all_.erase(std::remove(all_.begin(), all_.end(), this), all_.end());
 }
 
-void TerminalCollaborator::All_Render(TerminalRenderContainers containers,
-                                      Theme* theme) {
+void ClientCollaborator::All_Render(RenderContainers containers, Theme* theme) {
   absl::MutexLock lock(&mu_);
   for (auto t : all_) t->Render(containers, theme);
 }
 
-void TerminalCollaborator::Push(const EditNotification& notification) {
+void ClientCollaborator::Push(const EditNotification& notification) {
   LogTimer tmr("term_push");
   {
     absl::MutexLock lock(&mu_);
@@ -56,10 +75,10 @@ void TerminalCollaborator::Push(const EditNotification& notification) {
     editor_->UpdateState(&tmr, notification);
     tmr.Mark("update");
   }
-  InvalidateTerminal();
+  Invalidator::InvalidateAll();
 }
 
-EditResponse TerminalCollaborator::Pull() {
+EditResponse ClientCollaborator::Pull() {
   auto ready = [this]() {
     mu_.AssertHeld();
     return editor_->HasCommands() || recently_used_;
@@ -74,13 +93,12 @@ EditResponse TerminalCollaborator::Pull() {
   mu_.Unlock();
   tmr.Mark("unlock");
 
-  InvalidateTerminal();
+  Invalidator::InvalidateAll();
 
   return r;
 }
 
-void TerminalCollaborator::Render(TerminalRenderContainers containers,
-                                  Theme* theme) {
+void ClientCollaborator::Render(RenderContainers containers, Theme* theme) {
   /*
    * edit item
    */
@@ -128,4 +146,4 @@ void TerminalCollaborator::Render(TerminalRenderContainers containers,
 #endif
 }
 
-CLIENT_COLLABORATOR(TerminalCollaborator, buffer) { return true; }
+CLIENT_COLLABORATOR(ClientCollaborator, buffer) { return true; }

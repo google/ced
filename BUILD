@@ -233,13 +233,12 @@ cc_test(
 )
 
 cc_library(
-  name = "terminal_collaborator",
-  srcs = ["terminal_collaborator.cc"],
-  hdrs = ["terminal_collaborator.h"],
+  name = "client_collaborator",
+  srcs = ["client_collaborator.cc"],
+  hdrs = ["client_collaborator.h"],
   deps = [
     ":buffer",
     ":log",
-    ":terminal_color",
     ":render",
     ":editor",
     ":line_editor",
@@ -666,7 +665,7 @@ cc_library(
   srcs = ["curses_client.cc"],
   deps = [
     ":buffer",
-    ":terminal_collaborator",
+    ":client_collaborator",
     ":client",
     ":application",
   ],
@@ -678,6 +677,7 @@ cc_library(
   srcs = ["gui_client.cc"],
   deps = [
     ":buffer",
+    ":client_collaborator",
     ":client",
     ":application",
     ":fontconfig_conf_files",

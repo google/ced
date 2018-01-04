@@ -17,21 +17,14 @@
 #include "application.h"
 #include "buffer.h"
 #include "client.h"
+#include "client_collaborator.h"
 #include "render.h"
-#include "terminal_collaborator.h"
 #include "terminal_color.h"
 
 // include last: curses.h obnoxiously #define's OK
 #include <curses.h>
 
-static std::atomic<bool> invalidated;
-void InvalidateTerminal() {
-  Log() << "InvalidatedTerminal";
-  invalidated = true;
-  kill(getpid(), SIGWINCH);
-}
-
-class Curses final : public Application, public Device {
+class Curses final : public Application, public Device, public Invalidator {
  public:
   Curses(int argc, char** argv)
       : client_(argv[0], FileFromCmdLine(argc, argv)) {
@@ -51,6 +44,11 @@ class Curses final : public Application, public Device {
   ~Curses() {
     endwin();
     Log::SetCerrLog(true);
+  }
+
+  void Invalidate() override {
+    invalidated_ = true;
+    kill(getpid(), SIGWINCH);
   }
 
   void ClipboardPut(const std::string& s) override { clipboard_ = s; }
@@ -159,7 +157,7 @@ class Curses final : public Application, public Device {
                   ? ToInt64Milliseconds(*next_frame_time - now)
                   : -1);
       if (!was_invalidated) log_timer.reset();
-      int c = invalidated ? -1 : getch();
+      int c = invalidated_ ? -1 : getch();
       if (!was_invalidated) log_timer.reset(new LogTimer("main_loop"));
       Log() << "GOTKEY: " << c;
       if (!was_invalidated) last_key_press = absl::Now();
@@ -230,9 +228,9 @@ class Curses final : public Application, public Device {
       log_timer->Mark("input_processed");
 
       bool expected = true;
-      if (!invalidated.compare_exchange_strong(expected, false,
-                                               std::memory_order_relaxed,
-                                               std::memory_order_relaxed)) {
+      if (!invalidated_.compare_exchange_strong(expected, false,
+                                                std::memory_order_relaxed,
+                                                std::memory_order_relaxed)) {
         log_timer->Mark("clear_invalidated");
         was_invalidated = false;
       }
@@ -252,11 +250,11 @@ class Curses final : public Application, public Device {
     getmaxyx(stdscr, fb_rows, fb_cols);
     renderer_.BeginFrame();
     auto top = renderer_.MakeRow(Widget::Options().set_id("top"));
-    TerminalRenderContainers containers{
+    RenderContainers containers{
         top->MakeRow(Widget::Options().set_id("main")),
         top->MakeColumn(Widget::Options().set_id("side_bar")),
     };
-    TerminalCollaborator::All_Render(containers, color_->theme());
+    ClientCollaborator::All_Render(containers, color_->theme());
     log_timer->Mark("collected_layout");
     absl::optional<absl::Time> next_frame = renderer_.FinishFrame();
     log_timer->Mark("drawn");
@@ -308,6 +306,7 @@ class Curses final : public Application, public Device {
   std::unique_ptr<Buffer> buffer_;
   std::unique_ptr<TerminalColor> color_;
   std::string clipboard_;
+  std::atomic<bool> invalidated_;
 };
 
 REGISTER_APPLICATION(Curses);
