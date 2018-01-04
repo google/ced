@@ -35,8 +35,7 @@ TerminalCollaborator::TerminalCollaborator(const Buffer* buffer)
       buffer_(buffer),
       editor_(Editor::Make(buffer_->site(), buffer_->filename().string(),
                            !buffer->synthetic())),
-      recently_used_(false),
-      state_(State::EDITING) {
+      recently_used_(false) {
   absl::MutexLock lock(&mu_);
   all_.push_back(this);
 }
@@ -50,11 +49,6 @@ void TerminalCollaborator::All_Render(TerminalRenderContainers containers,
                                       Theme* theme) {
   absl::MutexLock lock(&mu_);
   for (auto t : all_) t->Render(containers, theme);
-}
-
-void TerminalCollaborator::All_ProcessKey(AppEnv* app_env, int key) {
-  absl::MutexLock lock(&mu_);
-  for (auto t : all_) t->ProcessKey(app_env, key);
 }
 
 void TerminalCollaborator::Push(const EditNotification& notification) {
@@ -135,109 +129,6 @@ void TerminalCollaborator::Render(TerminalRenderContainers containers,
         }
       });
 #endif
-}
-
-template <class EditorType>
-static bool MaybeProcessEditingKey(AppEnv* app_env, int key,
-                                   std::shared_ptr<EditorType> editor) {
-  int fb_rows, fb_cols;
-  getmaxyx(stdscr, fb_rows, fb_cols);
-  switch (key) {
-    case KEY_SLEFT:
-      editor->SelectLeft();
-      break;
-    case KEY_LEFT:
-      editor->MoveLeft();
-      break;
-    case KEY_SRIGHT:
-      editor->SelectRight();
-      break;
-    case KEY_RIGHT:
-      editor->MoveRight();
-      break;
-    case KEY_HOME:
-      editor->MoveStartOfLine();
-      break;
-    case KEY_END:
-      editor->MoveEndOfLine();
-      break;
-    case KEY_PPAGE:
-      editor->MoveUpN(fb_rows);
-      break;
-    case KEY_NPAGE:
-      editor->MoveDownN(fb_rows);
-      break;
-    case KEY_SR:  // shift down on my mac
-      editor->SelectUp();
-      break;
-    case KEY_SF:
-      editor->SelectDown();
-      break;
-    case KEY_UP:
-      editor->MoveUp();
-      break;
-    case KEY_DOWN:
-      editor->MoveDown();
-      break;
-    case 127:
-    case KEY_BACKSPACE:
-      editor->Backspace();
-      break;
-    case ctrl('C'):
-      editor->Copy(app_env);
-      break;
-    case ctrl('X'):
-      editor->Cut(app_env);
-      break;
-    case ctrl('V'):
-      editor->Paste(app_env);
-      break;
-    default:
-#if 0
-      if (key >= 32 && key < 127) {
-        editor->InsChar(key);
-        break;
-      }
-#endif
-      return false;
-  }
-  return true;
-}
-
-void TerminalCollaborator::ProcessKey(AppEnv* app_env, int key) {
-  if (buffer_->synthetic()) return;
-
-  LogTimer tmr("term_proc_key");
-  tmr.Mark("locked");
-
-  Log() << "TerminalCollaborator::ProcessKey: " << key;
-
-  recently_used_ = true;
-  switch (state_) {
-    case State::EDITING:
-      if (!MaybeProcessEditingKey(app_env, key, editor_)) {
-        switch (key) {
-          case ctrl('F'):
-            // state_ = State::FINDING;
-            break;
-          case 10:
-            editor_->InsNewLine();
-            break;
-        }
-      }
-      break;
-#if 0
-    case State::FINDING:
-      if (!MaybeProcessEditingKey(app_env, key, &find_editor_)) {
-        switch (key) {
-          case 10:
-            state_ = State::EDITING;
-            break;
-        }
-      }
-      break;
-#endif
-  }
 }
 
 CLIENT_COLLABORATOR(TerminalCollaborator, buffer) { return true; }

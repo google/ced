@@ -199,27 +199,27 @@ void Editor::Backspace() {
   cursor_ = it.id();
 }
 
-void Editor::Copy(AppEnv* env) {
+void Editor::Copy(Renderer* d) {
   if (SelectMode()) {
-    env->clipboard = state_.content.Render(cursor_, selection_anchor_);
+    d->ClipboardPut(state_.content.Render(cursor_, selection_anchor_));
   }
 }
 
-void Editor::Cut(AppEnv* env) {
+void Editor::Cut(Renderer* d) {
   if (SelectMode()) {
-    env->clipboard = state_.content.Render(cursor_, selection_anchor_);
+    d->ClipboardPut(state_.content.Render(cursor_, selection_anchor_));
     DeleteSelection();
     SetSelectMode(false);
   }
 }
 
-void Editor::Paste(AppEnv* env) {
+void Editor::Paste(Renderer* d) {
   if (selection_anchor_ != ID()) {
     DeleteSelection();
     SetSelectMode(false);
   }
-  cursor_ = state_.content.Insert(&unpublished_commands_, site_, env->clipboard,
-                                  cursor_);
+  cursor_ = state_.content.Insert(&unpublished_commands_, site_,
+                                  d->ClipboardGet(), cursor_);
 }
 
 void Editor::InsChar(char c) {
@@ -326,6 +326,32 @@ void Editor::Render(Theme* theme, Widget* parent) {
   if (content->Focus()) {
     if (auto c = content->CharPressed()) {
       InsChar(c);
+    } else if (content->Chord("up")) {
+      MoveUp();
+    } else if (content->Chord("down")) {
+      MoveDown();
+    } else if (content->Chord("left")) {
+      MoveLeft();
+    } else if (content->Chord("right")) {
+      MoveRight();
+    } else if (content->Chord("home")) {
+      MoveStartOfLine();
+    } else if (content->Chord("end")) {
+      MoveEndOfLine();
+    } else if (content->Chord("S-up")) {
+      SelectUp();
+    } else if (content->Chord("S-down")) {
+      SelectDown();
+    } else if (content->Chord("del")) {
+      Backspace();
+    } else if (content->Chord("C-c")) {
+      Copy(content->renderer());
+    } else if (content->Chord("C-v")) {
+      Paste(content->renderer());
+    } else if (content->Chord("C-x")) {
+      Cut(content->renderer());
+    } else if (content->Chord("ret")) {
+      InsChar('\n');
     }
   }
 

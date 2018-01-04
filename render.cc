@@ -64,12 +64,28 @@ void Widget::EnterFrame(Widget* parent, const Options& options) {
 bool Widget::Focus() const { return id_ == renderer_->last_focus_widget_; }
 
 uint32_t Widget::CharPressed() {
-  if (renderer_->kbev_.IsChar()) {
-    uint32_t r = renderer_->kbev_.key;
-    renderer_->kbev_.key = KbEvent::EMPTY;
+  if (renderer_->kbev_.length() == 1) {
+    uint32_t r = renderer_->kbev_[0];
+    renderer_->kbev_.clear();
     return r;
   }
   return 0;
+}
+
+bool Widget::Chord(absl::string_view chord) {
+  // exact match?
+  if (renderer_->kbev_ == chord) {
+    renderer_->kbev_.clear();
+    return true;
+  }
+  // partial match?
+  if (chord.length() > renderer_->kbev_.length()) {
+    auto sub = chord.substr(0, renderer_->kbev_.length());
+    if (renderer_->kbev_ == sub) {
+      renderer_->kbev_partial_match_ = true;
+    }
+  }
+  return false;
 }
 
 template <class C>
@@ -347,6 +363,16 @@ absl::optional<absl::Time> Renderer::FinishFrame() {
   }
 
   solver_.reset();
+
+  if (!kbev_.empty()) {
+    if (kbev_.length() > 1 && kbev_partial_match_) {
+      Log() << "continuing chordseq: " << kbev_;
+    } else {
+      Log() << "invalid chordseq: " << kbev_;
+      kbev_.clear();
+    }
+  }
+  kbev_partial_match_ = false;
 
   // signal frame termination
   absl::InlinedVector<uint64_t, 32> done_widgets;

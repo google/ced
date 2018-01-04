@@ -158,6 +158,7 @@ class Widget {
   bool Focus() const;
   bool InFocusTree() const { return in_focus_tree_; }
   uint32_t CharPressed();
+  bool Chord(absl::string_view chord);
 
   WidgetType type() const { return type_; }
 
@@ -245,6 +246,8 @@ class Device {
 
   virtual void Paint(const Renderer* renderer, const Widget& widget) = 0;
   virtual Extents GetExtents() = 0;
+  virtual void ClipboardPut(const std::string& s) = 0;
+  virtual std::string ClipboardGet() = 0;
 };
 
 class DeviceContext {
@@ -254,27 +257,6 @@ class DeviceContext {
 
   virtual void MoveCursor(int row, int col) = 0;
   virtual void PutChar(int row, int col, uint32_t chr, CharFmt fmt) = 0;
-};
-
-struct KbEvent {
-  enum SpecialIDs {
-    EMPTY = 0,
-    NULL_SPECIAL_ID = 0xffff0000,
-    UP,
-    DOWN,
-    LEFT,
-    RIGHT
-  };
-
-  bool IsControl() const {
-    return key < 32 || key > NULL_SPECIAL_ID || ctrl || alt || shift;
-  }
-  bool IsChar() const { return !IsControl(); }
-
-  uint32_t key = EMPTY;
-  bool ctrl = false;
-  bool alt = false;
-  bool shift = false;
 };
 
 class Renderer : public Widget {
@@ -287,10 +269,12 @@ class Renderer : public Widget {
 
   rhea::simplex_solver* solver() { return solver_.get(); }
   const Device::Extents& extents() const { return extents_; }
+  void ClipboardPut(const std::string& s) { device_->ClipboardPut(s); }
+  std::string ClipboardGet() { return device_->ClipboardGet(); }
 
-  void SetKbEvent(const KbEvent& ev) {
-    assert(kbev_.key == KbEvent::EMPTY);
-    kbev_ = ev;
+  void AddKbEvent(absl::string_view event) {
+    if (!kbev_.empty()) kbev_ += ' ';
+    kbev_.append(event.data(), event.length());
   }
 
  private:
@@ -305,5 +289,6 @@ class Renderer : public Widget {
   std::unordered_map<uint64_t, std::unique_ptr<Widget>> widgets_;
   std::unique_ptr<rhea::simplex_solver> solver_{new rhea::simplex_solver};
 
-  KbEvent kbev_;
+  std::string kbev_;
+  bool kbev_partial_match_ = false;
 };

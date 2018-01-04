@@ -21,10 +21,6 @@
 #include "render.h"
 #include "theme.h"
 
-struct AppEnv {
-  std::string clipboard;
-};
-
 class Editor : public std::enable_shared_from_this<Editor> {
  public:
   static std::shared_ptr<Editor> Make(Site* site, const std::string& name,
@@ -64,9 +60,9 @@ class Editor : public std::enable_shared_from_this<Editor> {
   void SelectDown() { SelectDownN(1); }
   void SelectUp() { SelectUpN(1); }
   void Backspace();
-  void Copy(AppEnv* env);
-  void Cut(AppEnv* env);
-  void Paste(AppEnv* env);
+  void Copy(Renderer* env);
+  void Cut(Renderer* env);
+  void Paste(Renderer* env);
   void InsNewLine() { InsChar('\n'); }
   void InsChar(char c);
 

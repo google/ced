@@ -38,24 +38,16 @@ class TerminalCollaborator final : public AsyncCollaborator {
   EditResponse Pull() override;
 
   static void All_Render(TerminalRenderContainers containers, Theme* theme);
-  static void All_ProcessKey(AppEnv* app_env, int key);
 
  private:
-  enum class State {
-    EDITING,
-    FINDING,
-  };
-
   void Render(TerminalRenderContainers containers, Theme* theme)
       EXCLUSIVE_LOCKS_REQUIRED(mu_);
-  void ProcessKey(AppEnv* app_env, int key) EXCLUSIVE_LOCKS_REQUIRED(mu_);
 
   const Buffer* const buffer_;
   static absl::Mutex mu_;
   std::shared_ptr<Editor> editor_ GUARDED_BY(mu_);
   LineEditor find_editor_ GUARDED_BY(mu_);
   bool recently_used_ GUARDED_BY(mu_);
-  State state_ GUARDED_BY(mu_);
 
   static std::vector<TerminalCollaborator*> all_ GUARDED_BY(mu_);
 };

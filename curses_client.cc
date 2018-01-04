@@ -53,6 +53,10 @@ class Curses final : public Application, public Device {
     Log::SetCerrLog(true);
   }
 
+  void ClipboardPut(const std::string& s) override { clipboard_ = s; }
+
+  std::string ClipboardGet() override { return clipboard_; }
+
   void Paint(const Renderer* renderer, const Widget& widget) override {
     auto e = renderer->extents();  // grab cached copy
     PaintWindow(widget, 0, 0, e.win_width, e.win_height);
@@ -170,13 +174,56 @@ class Curses final : public Application, public Device {
           break;
         case 27:
           return 0;
+        case KEY_SLEFT:
+          renderer_.AddKbEvent("S-left");
+          break;
+        case KEY_LEFT:
+          renderer_.AddKbEvent("left");
+          break;
+        case KEY_SRIGHT:
+          renderer_.AddKbEvent("S-right");
+          break;
+        case KEY_RIGHT:
+          renderer_.AddKbEvent("right");
+          break;
+        case KEY_HOME:
+          renderer_.AddKbEvent("home");
+          break;
+        case KEY_END:
+          renderer_.AddKbEvent("end");
+          break;
+        case KEY_PPAGE:
+          renderer_.AddKbEvent("page-up");
+          break;
+        case KEY_NPAGE:
+          renderer_.AddKbEvent("page-down");
+          break;
+        case KEY_SR:  // shift down on my mac
+          renderer_.AddKbEvent("S-up");
+          break;
+        case KEY_SF:
+          renderer_.AddKbEvent("S-down");
+          break;
+        case KEY_UP:
+          renderer_.AddKbEvent("up");
+          break;
+        case KEY_DOWN:
+          renderer_.AddKbEvent("down");
+          break;
+        case '\n':
+          renderer_.AddKbEvent("ret");
+          break;
+        case 127:
+        case KEY_BACKSPACE:
+          renderer_.AddKbEvent("del");
+          break;
         default:
-          if (c >= 32 && c < 127) {
-            KbEvent ev;
-            ev.key = c;
-            renderer_.SetKbEvent(ev);
-          } else {
-            TerminalCollaborator::All_ProcessKey(&app_env_, c);
+          if (c >= 1 && c < 32) {
+            char code[4] = {'C', '-', static_cast<char>(c + 'a' - 1), 0};
+            renderer_.AddKbEvent(code);
+          } else if (c >= 32 && c < 127) {
+            char ch = c;
+            renderer_.AddKbEvent(absl::string_view(&ch, 1));
           }
       }
 
@@ -260,7 +307,7 @@ class Curses final : public Application, public Device {
   int cursor_col_ = -1;
   std::unique_ptr<Buffer> buffer_;
   std::unique_ptr<TerminalColor> color_;
-  AppEnv app_env_;
+  std::string clipboard_;
 };
 
 REGISTER_APPLICATION(Curses);
