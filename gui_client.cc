@@ -75,6 +75,7 @@ class GUICtx {
     textual_paint_.setTypeface(
         SkTypeface::MakeFromName("Fira Code", SkFontStyle()));
     textual_paint_.setAntiAlias(true);
+    textual_paint_.setHinting(SkPaint::kFull_Hinting);
     textual_paint_.setFlags(textual_paint_.getFlags() |
                             SkPaint::kSubpixelText_Flag |
                             SkPaint::kLCDRenderText_Flag);
@@ -210,11 +211,11 @@ class GUI : public Application, public Device, public Invalidator {
   }
 
   Extents GetExtents() override {
-    SkRect bounds;
-    ctx_->textual_paint().measureText("M", 1, &bounds);
+    SkPaint::FontMetrics metrics;
+    SkScalar spacing = ctx_->textual_paint().getFontMetrics(&metrics);
     return Extents{
-        ctx_->height(), ctx_->width(), static_cast<int>(bounds.height()),
-        static_cast<int>(bounds.width()),
+        ctx_->height(), ctx_->width(), static_cast<int>(spacing),
+        static_cast<int>(metrics.fAvgCharWidth),
     };
   }
 
