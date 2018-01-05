@@ -103,7 +103,7 @@ class Curses final : public Application, public Device, public Invalidator {
         if (x < left_) return;
         if (x >= right_) return;
         for (int i = 0; i < length && x + i < right_; i++) {
-          Cell& cell = c_->cells_[y * c_->fb_cols_ + x];
+          Cell& cell = c_->cells_[y * c_->fb_cols_ + x + i];
           cell.c = text[i];
           cell.fmt.foreground = color;
           cell.fmt.highlight = highlight;
