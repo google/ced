@@ -31,10 +31,10 @@ Widget* Widget::MakeSimpleText(CharFmt fmt,
       {c->width() >= cols * cw, c->height() >= lines * ch});
   c->Draw([=](DeviceContext* ctx) {
     int line = 0;
+    ctx->Fill(0, 0, ctx->width(), ctx->height(), fmt.background);
     for (auto& l : text) {
-      for (int c = 0; c < l.length(); c++) {
-        ctx->PutChar(line * ch, c * cw, l[c], fmt);
-      }
+      ctx->PutText(0, (line++) * ch, l.data(), l.length(), fmt.foreground,
+                   fmt.highlight);
     }
   });
   return c;

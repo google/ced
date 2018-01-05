@@ -231,12 +231,18 @@ class GUI : public Application, public Device, public Invalidator {
       int height() const override { return clip_bounds_.height(); }
       void MoveCursor(int row, int col) override {}
 
-      void PutChar(int row, int col, uint32_t chr, CharFmt fmt) override {
+      void Fill(int left, int top, int right, int bottom,
+                Color color) override {
         SkPaint paint = guictx_->textual_paint();
-        paint.setColor(SkColorSetARGB(fmt.foreground.a, fmt.foreground.r,
-                                      fmt.foreground.g, fmt.foreground.b));
-        char c = chr;
-        canvas_->drawText(&c, 1, col, row, paint);
+        paint.setColor(SkColorSetARGB(color.a, color.r, color.g, color.b));
+        canvas_->drawRect(SkRect::MakeLTRB(left, top, right, bottom), paint);
+      }
+
+      void PutText(int x, int y, const char* text, size_t length, Color color,
+                   Highlight highlight) override {
+        SkPaint paint = guictx_->textual_paint();
+        paint.setColor(SkColorSetARGB(color.a, color.r, color.g, color.b));
+        canvas_->drawText(text, length, x, y, paint);
       }
 
      private:

@@ -668,6 +668,7 @@ cc_library(
     ":client_collaborator",
     ":client",
     ":application",
+    ":terminal_color",
   ],
   alwayslink = 1,
 )

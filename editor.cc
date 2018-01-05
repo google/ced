@@ -477,8 +477,12 @@ void Editor::RenderLine(DeviceContext* ctx, const Device::Extents& extents,
           }
           break;
         } else {
-          ctx->PutChar(y, ncol * extents.chr_width, it.value(),
-                       theme->ThemeToken(cd.tags, cd.chr_flags));
+          char c = it.value();
+          auto fmt = theme->ThemeToken(cd.tags, cd.chr_flags);
+          int x = ncol * extents.chr_width;
+          ctx->Fill(x, y, x + extents.chr_width, y + extents.chr_height,
+                    fmt.background);
+          ctx->PutText(x, y, &c, 1, fmt.foreground, fmt.highlight);
           ncol++;
         }
       }
@@ -489,15 +493,12 @@ void Editor::RenderLine(DeviceContext* ctx, const Device::Extents& extents,
     it.MoveNext();
   }
   auto fill_attr = theme->ThemeToken(::Theme::Tag(), base_flags);
-  while (ncol * extents.chr_width < ctx->width()) {
-    ctx->PutChar(y, ncol * extents.chr_width, ' ', fill_attr);
-    ncol++;
-  }
+  ctx->Fill(ncol * extents.chr_width, y, ctx->width(), y + extents.chr_height,
+            fill_attr.background);
   std::string gutter = absl::StrJoin(gutter_annotations, ",");
   int x = ctx->width() - gutter.length() * extents.chr_width;
   fill_attr = theme->ThemeToken(::Theme::Tag{"comment.gutter"}, base_flags);
-  for (auto c : gutter) {
-    ctx->PutChar(y, x, c, fill_attr);
-    x += extents.chr_width;
-  }
+  ctx->Fill(x, y, ctx->width(), y + extents.chr_height, fill_attr.background);
+  ctx->PutText(x, y, gutter.data(), gutter.length(), fill_attr.foreground,
+               fill_attr.highlight);
 }

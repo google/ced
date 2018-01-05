@@ -74,21 +74,43 @@ class Curses final : public Application, public Device, public Invalidator {
             right_(right),
             bottom_(bottom) {}
 
-      int width() const { return right_ - left_; }
-      int height() const { return bottom_ - top_; }
+      int width() const override { return right_ - left_; }
+      int height() const override { return bottom_ - top_; }
 
-      void PutChar(int row, int col, uint32_t chr, CharFmt fmt) {
-        assert(chr >= 32 && chr < 127);
-        const int r = row + ofsy_;
-        const int c = col + ofsx_;
-        if (r < top_) return;
-        if (r >= bottom_) return;
-        if (c < left_) return;
-        if (c >= right_) return;
-        mvaddch(r, c, chr | c_->color_->Lookup(fmt));
+      void Fill(int left, int top, int right, int bottom,
+                Color color) override {
+        left = std::max(left_, left + ofsx_);
+        right = std::min(right_, right + ofsx_);
+        if (left >= right) return;
+        top = std::max(top_, top + ofsy_);
+        bottom = std::min(bottom_, bottom + ofsy_);
+        if (top >= bottom) return;
+        for (int y = top; y < bottom; y++) {
+          for (int x = left; x < right; x++) {
+            Cell& cell = c_->cells_[y * c_->fb_cols_ + x];
+            cell.c = ' ';
+            cell.fmt.background = color;
+          }
+        }
       }
 
-      void MoveCursor(int row, int col) {
+      void PutText(int x, int y, const char* text, size_t length, Color color,
+                   Highlight highlight) override {
+        x += ofsx_;
+        y += ofsy_;
+        if (y < top_) return;
+        if (y >= bottom_) return;
+        if (x < left_) return;
+        if (x >= right_) return;
+        for (int i = 0; i < length && x + i < right_; i++) {
+          Cell& cell = c_->cells_[y * c_->fb_cols_ + x];
+          cell.c = text[i];
+          cell.fmt.foreground = color;
+          cell.fmt.highlight = highlight;
+        }
+      }
+
+      void MoveCursor(int row, int col) override {
         Log() << "MoveCursor: " << row << "," << col << ": ofs=" << ofsy_ << ","
               << ofsx_;
         c_->cursor_row_ = -1;
@@ -246,8 +268,8 @@ class Curses final : public Application, public Device, public Invalidator {
  private:
   absl::optional<absl::Time> Render(LogTimer* log_timer,
                                     absl::Time last_key_press) {
-    int fb_rows, fb_cols;
-    getmaxyx(stdscr, fb_rows, fb_cols);
+    getmaxyx(stdscr, fb_rows_, fb_cols_);
+    cells_.resize(fb_rows_ * fb_cols_);
     renderer_.BeginFrame();
     auto top = renderer_.MakeRow(Widget::Options().set_id("top"));
     RenderContainers containers{
@@ -259,6 +281,13 @@ class Curses final : public Application, public Device, public Invalidator {
     absl::optional<absl::Time> next_frame = renderer_.FinishFrame();
     log_timer->Mark("drawn");
 
+    for (int i = 0; i < fb_rows_; i++) {
+      for (int j = 0; j < fb_cols_; j++) {
+        auto cell = cells_[i * fb_cols_ + j];
+        mvaddch(i, j, cell.c | color_->Lookup(cell.fmt));
+      }
+    }
+
     auto frame_time = absl::Now() - last_key_press;
     std::ostringstream out;
     out << frame_time;
@@ -267,7 +296,7 @@ class Curses final : public Application, public Device, public Invalidator {
                       ? color_->Theme({"invalid"}, 0)
                       : color_->Theme({}, 0);
     for (size_t i = 0; i < ftstr.length(); i++) {
-      mvaddch(fb_rows - 1, fb_cols - ftstr.length() + i, ftstr[i] | attr);
+      mvaddch(fb_rows_ - 1, fb_cols_ - ftstr.length() + i, ftstr[i] | attr);
     }
 
     Log() << "finally move cursor " << cursor_row_ << ", " << cursor_col_;
@@ -296,6 +325,13 @@ class Curses final : public Application, public Device, public Invalidator {
   std::unique_ptr<TerminalColor> color_;
   std::string clipboard_;
   std::atomic<bool> invalidated_;
+  struct Cell {
+    char c;
+    CharFmt fmt;
+  };
+  int fb_rows_;
+  int fb_cols_;
+  std::vector<Cell> cells_;
 };
 
 REGISTER_APPLICATION(Curses);
