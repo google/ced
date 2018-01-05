@@ -25,11 +25,13 @@
 #include "application.h"
 #include "buffer.h"
 #include "client.h"
+#include "client_collaborator.h"
 #include "fontconfig/fontconfig.h"
 #include "fontconfig_conf_files.h"
 #include "gl/GrGLAssembleInterface.h"
 #include "gl/GrGLInterface.h"
 #include "gl/GrGLUtil.h"
+#include "render.h"
 
 static const int kMsaaSampleCount = 0;  // 4;
 static const int kStencilBits = 8;      // Skia needs 8 stencil bits
@@ -48,11 +50,10 @@ static void ConfigureFontConfig() {
   std::string config_suffix = "</fontconfig>";
   FcConfig* cfg = FcConfigCreate();
   FcConfigParseAndLoadFromMemory(
-      cfg,
-      reinterpret_cast<const FcChar8*>(absl::StrCat(config_prefix, default_dirs,
-                                                    fontconfig_conf_files,
-                                                    config_suffix)
-                                           .c_str()),
+      cfg, reinterpret_cast<const FcChar8*>(
+               absl::StrCat(config_prefix, default_dirs, fontconfig_conf_files,
+                            config_suffix)
+                   .c_str()),
       true);
   FcConfigSetCurrent(cfg);
 #endif
@@ -69,9 +70,21 @@ class GUICtx {
             &props_)),
         canvas_(surface_->getCanvas()) {
     SkASSERT(grcontext_);
+
+    textual_paint_.setColor(SK_ColorBLACK);
+    textual_paint_.setTypeface(
+        SkTypeface::MakeFromName("Fira Code", SkFontStyle()));
+    textual_paint_.setAntiAlias(true);
+    textual_paint_.setFlags(textual_paint_.getFlags() |
+                            SkPaint::kSubpixelText_Flag |
+                            SkPaint::kLCDRenderText_Flag);
   }
 
   SkCanvas* canvas() const { return canvas_; }
+  int width() const { return winsz_.width; }
+  int height() const { return winsz_.height; }
+
+  const SkPaint& textual_paint() { return textual_paint_; }
 
  private:
   struct WinSz {
@@ -97,9 +110,10 @@ class GUICtx {
   SkSurfaceProps props_{SkSurfaceProps::kLegacyFontHost_InitType};
   const sk_sp<SkSurface> surface_;
   SkCanvas* canvas_;
+  SkPaint textual_paint_;
 };
 
-class GUI : public Application {
+class GUI : public Application, public Device, public Invalidator {
  public:
   GUI(int argc, char** argv) : client_(argv[0], FileFromCmdLine(argc, argv)) {
     ConfigureFontConfig();
@@ -179,41 +193,138 @@ class GUI : public Application {
 
   ~GUI() {}
 
-  int Run() {
-    while (!done_) {
-      Render();
-      HandleEvents();
-    }
+  int Run() override {
+    while (!done_) HandleEvents(Render());
 
     return 0;
   }
 
+  void ClipboardPut(const std::string& s) override {
+    SDL_SetClipboardText(s.c_str());
+  }
+
+  std::string ClipboardGet() override {
+    char* s = SDL_GetClipboardText();
+    if (s == nullptr) return std::string();
+    return s;
+  }
+
+  Extents GetExtents() override {
+    SkRect bounds;
+    ctx_->textual_paint().measureText("M", 1, &bounds);
+    return Extents{
+        ctx_->height(), ctx_->width(), static_cast<int>(bounds.height()),
+        static_cast<int>(bounds.width()),
+    };
+  }
+
+  void Paint(const Renderer* renderer, const Widget& widget) override {
+    class Ctx final : public DeviceContext {
+     public:
+      Ctx(GUICtx* guictx)
+          : guictx_(guictx),
+            canvas_(guictx->canvas()),
+            clip_bounds_(canvas_->getLocalClipBounds()) {}
+
+      int width() const override { return clip_bounds_.width(); }
+      int height() const override { return clip_bounds_.height(); }
+      void MoveCursor(int row, int col) override {}
+
+      void PutChar(int row, int col, uint32_t chr, CharFmt fmt) override {
+        SkPaint paint = guictx_->textual_paint();
+        paint.setColor(SkColorSetARGB(fmt.foreground.a, fmt.foreground.r,
+                                      fmt.foreground.g, fmt.foreground.b));
+        char c = chr;
+        canvas_->drawText(&c, 1, col, row, paint);
+      }
+
+     private:
+      GUICtx* const guictx_;
+      SkCanvas* const canvas_;
+      const SkRect clip_bounds_;
+    };
+    SkCanvas* canvas = ctx_->canvas();
+    SkAutoCanvasRestore restore_canvas(canvas, true);
+    canvas->translate(widget.left().value(), widget.top().value());
+    canvas->clipRect(
+        SkRect::MakeWH(widget.right().value() - widget.left().value(),
+                       widget.bottom().value() - widget.top().value()));
+    Ctx ctx(ctx_.get());
+    widget.PaintSelf(&ctx);
+    for (const auto* c : widget.children()) {
+      Paint(renderer, *c);
+    }
+  }
+
  private:
-  void Render() {
+  absl::optional<absl::Time> Render() {
     if (!ctx_) {
       ctx_.reset(new GUICtx(window_));
     }
+    renderer_.BeginFrame();
+    auto top = renderer_.MakeRow(Widget::Options().set_id("top"));
+    RenderContainers containers{
+        top->MakeRow(Widget::Options().set_id("main")),
+        top->MakeColumn(Widget::Options().set_id("side_bar")),
+    };
+    ClientCollaborator::All_Render(containers, &theme_);
+    absl::optional<absl::Time> next_frame = renderer_.FinishFrame();
+#if 0
     SkCanvas* canvas = ctx_->canvas();
     canvas->scale(1, 1);
     canvas->clear(SK_ColorWHITE);
-    SkPaint paint;
-    paint.setColor(SK_ColorBLACK);
-    paint.setTypeface(SkTypeface::MakeFromName("Fira Code", SkFontStyle()));
-    paint.setAntiAlias(true);
-    paint.setFlags(paint.getFlags() | SkPaint::kSubpixelText_Flag |
-                   SkPaint::kLCDRenderText_Flag);
+    SkPaint paint = ctx_->textual_paint();
     std::string hello = "Hello world!";
     canvas->drawText(hello.c_str(), hello.length(), SkIntToScalar(100),
                      SkIntToScalar(100), paint);
-    canvas->flush();
+#endif
+    ctx_->canvas()->flush();
     SDL_GL_SwapWindow(window_);
+    return next_frame;
   }
 
-  void HandleEvents() {
+  static uint32_t TimerCB(uint32_t interval, void* param) {
     SDL_Event event;
-    std::function<bool(SDL_Event*)> next_event =
-        animating_ ? [](SDL_Event* ev) { return SDL_WaitEventTimeout(ev, 5); }
-                   : [](SDL_Event* ev) { return SDL_WaitEvent(ev); };
+    SDL_UserEvent userevent;
+
+    /* In this example, our callback pushes an SDL_USEREVENT event
+    into the queue, and causes our callback to be called again at the
+    same interval: */
+
+    userevent.type = SDL_USEREVENT;
+    userevent.code = 0;
+    userevent.data1 = param;
+    userevent.data2 = NULL;
+
+    event.type = SDL_USEREVENT;
+    event.user = userevent;
+
+    SDL_PushEvent(&event);
+    return 0;
+  }
+
+  void After(int millis, std::function<bool()> cb) {
+    SDL_AddTimer(millis, TimerCB, new std::function<void()>(cb));
+  }
+
+  void Invalidate() override {
+    auto fn_at_inval = frame_number_;
+    After(10, [this, fn_at_inval]() { return frame_number_ == fn_at_inval; });
+  }
+
+  void HandleEvents(absl::optional<absl::Time> end_time) {
+    SDL_Event event;
+    std::function<bool(SDL_Event*)> next_event;
+    if (end_time) {
+      next_event = [end_time](SDL_Event* ev) {
+        auto now = absl::Now();
+        if (*end_time < now) return SDL_PollEvent(ev);
+        return SDL_WaitEventTimeout(ev, ToInt64Milliseconds(*end_time - now));
+      };
+    } else {
+      next_event = [](SDL_Event* ev) { return SDL_WaitEvent(ev); };
+    }
+    bool brk = false;
     while (next_event(&event)) {
       switch (event.type) {
         case SDL_KEYDOWN: {
@@ -221,12 +332,14 @@ class GUI : public Application {
           if (key == SDLK_ESCAPE) {
             done_ = true;
           }
+          brk = true;
           break;
         }
         case SDL_WINDOWEVENT: {
           switch (event.window.event) {
             case SDL_WINDOWEVENT_SIZE_CHANGED:
               ctx_.reset();
+              brk = true;
               break;
           }
           break;
@@ -234,12 +347,20 @@ class GUI : public Application {
         case SDL_QUIT:
           done_ = true;
           break;
+        case SDL_USEREVENT: {
+          auto* fn = static_cast<std::function<bool()>*>(event.user.data1);
+          brk |= (*fn)();
+          delete fn;
+        }
         default:
           break;
       }
-      // after the first event we go back to polling to flush out the rest
-      next_event = [](SDL_Event* ev) { return SDL_PollEvent(ev); };
+      if (brk) {
+        // after the first event we go back to polling to flush out the rest
+        next_event = [](SDL_Event* ev) { return SDL_PollEvent(ev); };
+      }
     }
+    frame_number_++;
   }
 
   static boost::filesystem::path FileFromCmdLine(int argc, char** argv) {
@@ -250,9 +371,11 @@ class GUI : public Application {
   }
 
   bool done_ = false;
-  bool animating_ = false;
   SDL_Window* window_ = nullptr;
+  Theme theme_{Theme::DEFAULT};
   Client client_;
+  Renderer renderer_{this};
+  uint64_t frame_number_ = 0;
   std::unique_ptr<GUICtx> ctx_;
   std::unique_ptr<Buffer> buffer_;
 };
