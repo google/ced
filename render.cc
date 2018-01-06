@@ -103,8 +103,6 @@ void Widget::ApplyJustify(rhea::simplex_solver* solver, Justify justify,
                           rhea::variable(Widget::*end),
                           rhea::variable(Widget::*perp_start),
                           rhea::variable(Widget::*perp_end)) {
-  Log() << "ApplyJustify " << id() << " " << type() << " " << justify << " to "
-        << WidgetIDs(widgets);
   if (widgets.empty()) return;
   for (size_t i = 0; i < widgets.size(); i++) {
     solver->add_constraints({
@@ -224,10 +222,8 @@ bool Widget::EndFrame() {
 
 uint64_t Widget::GenUID(const Options& options) {
   if (!options.id()) {
-    Log() << "GenUID: dynamic from " << id_ << " nextid_==" << nextid_;
     return nextid_++;
   } else {
-    Log() << "GenUID: '" << *options.id() << "' from " << id_;
     return CityHash64WithSeed(options.id()->data(), options.id()->length(),
                               id_);
   }

@@ -276,15 +276,6 @@ class GUI : public Application, public Device, public Invalidator {
     };
     ClientCollaborator::All_Render(containers, &theme_);
     absl::optional<absl::Time> next_frame = renderer_.FinishFrame();
-#if 0
-    SkCanvas* canvas = ctx_->canvas();
-    canvas->scale(1, 1);
-    canvas->clear(SK_ColorWHITE);
-    SkPaint paint = ctx_->textual_paint();
-    std::string hello = "Hello world!";
-    canvas->drawText(hello.c_str(), hello.length(), SkIntToScalar(100),
-                     SkIntToScalar(100), paint);
-#endif
     ctx_->canvas()->flush();
     SDL_GL_SwapWindow(window_);
     return next_frame;
@@ -334,11 +325,53 @@ class GUI : public Application, public Device, public Invalidator {
     bool brk = false;
     while (next_event(&event)) {
       switch (event.type) {
+        case SDL_TEXTINPUT: {
+          std::string s = event.text.text;
+          for (auto c : s) {
+            char str[] = {c, 0};
+            renderer_.AddKbEvent(str);
+          }
+        } break;
         case SDL_KEYDOWN: {
-          SDL_Keycode key = event.key.keysym.sym;
+          auto key = event.key.keysym.sym;
+          auto mod = event.key.keysym.mod;
+          std::string key_name;
+          if (mod & KMOD_CTRL) key_name += "C-";
+          if (mod & KMOD_ALT) key_name += "A-";
+          if (mod & KMOD_GUI) key_name += "G-";
+          if (mod & KMOD_SHIFT) key_name += "S-";
+          switch (key) {
+            case SDLK_UP:
+              key_name += "up";
+              break;
+            case SDLK_DOWN:
+              key_name += "down";
+              break;
+            case SDLK_LEFT:
+              key_name += "left";
+              break;
+            case SDLK_RIGHT:
+              key_name += "right";
+              break;
+            case SDLK_ESCAPE:
+              key_name += "esc";
+              break;
+            default:
+              key_name.clear();
+          }
+          Log() << "key:" << key << " mod:" << mod << " name:" << key_name;
+          if (key_name == "esc") {
+            done_ = true;
+          } else if (!key_name.empty()) {
+            renderer_.AddKbEvent(key_name);
+          }
+#if 0
           if (key == SDLK_ESCAPE) {
             done_ = true;
+          } else {
+
           }
+#endif
           brk = true;
           break;
         }
@@ -353,6 +386,7 @@ class GUI : public Application, public Device, public Invalidator {
         }
         case SDL_QUIT:
           done_ = true;
+          brk = true;
           break;
         case SDL_USEREVENT: {
           auto* fn = static_cast<std::function<bool()>*>(event.user.data1);

@@ -379,7 +379,7 @@ void Editor::Render(Theme* theme, Widget* parent) {
               << content->top().value() << ")-(" << content->right().value()
               << "," << content->bottom().value()
               << ")   cursor_line=" << cursor_line.value();
-        int cl = cursor_line.value();
+        int cl = cursor_line.value() * ex.chr_height;
         AnnotatedString::LineIterator line_bk = line_cr;
         AnnotatedString::LineIterator line_fw = line_cr;
         RenderLine(ctx, ex, theme, cursor, cl, line_cr, true);
