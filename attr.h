@@ -56,4 +56,11 @@ struct CharFmt {
     if (highlight > other.highlight) return false;
     return false;
   }
+
+  bool operator==(const CharFmt& other) const {
+    return foreground == other.foreground && background == other.background &&
+           highlight == other.highlight;
+  }
+
+  bool operator!=(const CharFmt& other) const { return !operator==(other); }
 };

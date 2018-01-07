@@ -375,11 +375,11 @@ void Editor::Render(Theme* theme, Widget* parent) {
   if (!editable_) cursor = ID();
   content->Draw(
       [line_cr, cursor_line, cursor, ex, theme, content](DeviceContext* ctx) {
-        Log() << "Editor: (" << content->left().value() << ","
-              << content->top().value() << ")-(" << content->right().value()
-              << "," << content->bottom().value()
-              << ")   cursor_line=" << cursor_line.value();
+        ctx->Fill(0, 0, ctx->width(), ctx->height(),
+                  theme->ThemeToken({}, 0).background);
         int cl = cursor_line.value() * ex.chr_height;
+        ctx->Fill(0, cl, ctx->width(), cl + ex.chr_height,
+                  theme->ThemeToken({}, Theme::HIGHLIGHT_LINE).background);
         AnnotatedString::LineIterator line_bk = line_cr;
         AnnotatedString::LineIterator line_fw = line_cr;
         RenderLine(ctx, ex, theme, cursor, cl, line_cr, true);
@@ -459,10 +459,24 @@ struct CharDet {
 void Editor::RenderLine(DeviceContext* ctx, const Device::Extents& extents,
                         Theme* theme, ID cursor, int y,
                         AnnotatedString::LineIterator lit, bool highlight) {
-  int ncol = 0;
   AnnotatedString::AllIterator it = lit.AsAllIterator();
   const uint32_t base_flags = highlight ? Theme::HIGHLIGHT_LINE : 0;
   GutterVec gutter_annotations;
+  int x_start = 0;
+  std::string to_print;
+  const CharFmt base_fmt = theme->ThemeToken({}, base_flags);
+  CharFmt fmt = base_fmt;
+  auto flush_print = [&]() {
+    if (to_print.empty()) return;
+    int x_end = x_start + extents.chr_width * to_print.length();
+    if (fmt.background != base_fmt.background) {
+      ctx->Fill(x_start, y, x_end, y + extents.chr_height, fmt.background);
+    }
+    ctx->PutText(x_start, y, to_print.data(), to_print.length(), fmt.foreground,
+                 fmt.highlight);
+    x_start = x_end;
+    to_print.clear();
+  };
   while (it.id() != AnnotatedString::End()) {
     if (it.is_visible() || it.is_begin()) {
       CharDet cd(base_flags, &gutter_annotations);
@@ -478,26 +492,25 @@ void Editor::RenderLine(DeviceContext* ctx, const Device::Extents& extents,
           break;
         } else {
           char c = it.value();
-          auto fmt = theme->ThemeToken(cd.tags, cd.chr_flags);
-          int x = ncol * extents.chr_width;
-          ctx->Fill(x, y, x + extents.chr_width, y + extents.chr_height,
-                    fmt.background);
-          ctx->PutText(x, y, &c, 1, fmt.foreground, fmt.highlight);
-          ncol++;
+          auto cfmt = theme->ThemeToken(cd.tags, cd.chr_flags);
+          if (cfmt != fmt) {
+            flush_print();
+            fmt = cfmt;
+          }
+          to_print += c;
         }
       }
       if (it.id() == cursor) {
-        ctx->MoveCursor(y, ncol * extents.chr_width);
+        ctx->MoveCursor(y, x_start + to_print.length() * extents.chr_width);
       }
     }
     it.MoveNext();
   }
-  auto fill_attr = theme->ThemeToken(::Theme::Tag(), base_flags);
-  ctx->Fill(ncol * extents.chr_width, y, ctx->width(), y + extents.chr_height,
-            fill_attr.background);
+  flush_print();
   std::string gutter = absl::StrJoin(gutter_annotations, ",");
   int x = ctx->width() - gutter.length() * extents.chr_width;
-  fill_attr = theme->ThemeToken(::Theme::Tag{"comment.gutter"}, base_flags);
+  CharFmt fill_attr =
+      theme->ThemeToken(::Theme::Tag{"comment.gutter"}, base_flags);
   ctx->Fill(x, y, ctx->width(), y + extents.chr_height, fill_attr.background);
   ctx->PutText(x, y, gutter.data(), gutter.length(), fill_attr.foreground,
                fill_attr.highlight);
