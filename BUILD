@@ -135,6 +135,8 @@ cc_binary(
   name = 'ced',
   deps = [
     ":curses_client",
+    ":scan_fonts",
+    ":peep_show",
   ] + select({
     ':darwin': [':ced_main_curses'],
     ':darwin_x86_64': [':ced_main_curses'],
@@ -231,13 +233,12 @@ cc_test(
 )
 
 cc_library(
-  name = "terminal_collaborator",
-  srcs = ["terminal_collaborator.cc"],
-  hdrs = ["terminal_collaborator.h"],
+  name = "client_collaborator",
+  srcs = ["client_collaborator.cc"],
+  hdrs = ["client_collaborator.h"],
   deps = [
     ":buffer",
     ":log",
-    ":terminal_color",
     ":render",
     ":editor",
     ":line_editor",
@@ -522,6 +523,7 @@ cc_library(
     ':default_theme',
     ':selector',
     ':log',
+    ':attr',
     '@com_google_absl//absl/types:optional'
   ]
 )
@@ -543,9 +545,24 @@ cc_test(
 )
 
 cc_library(
+  name = "attr",
+  hdrs = ["attr.h"],
+)
+
+cc_library(
   name = "render",
   hdrs = ["render.h"],
-  deps = ["@layout//:layout"],
+  srcs = ["render.cc"],
+  deps = [
+    "@com_google_absl//absl/strings",
+    "@com_google_absl//absl/types:optional",
+    "@com_google_absl//absl/container:inlined_vector",
+    "@com_google_absl//absl/time",
+    "@rhea//:rhea",
+    "@cityhash//:city",
+    ":attr",
+    ":log",
+  ],
 )
 
 cc_library(
@@ -648,9 +665,10 @@ cc_library(
   srcs = ["curses_client.cc"],
   deps = [
     ":buffer",
-    ":terminal_collaborator",
+    ":client_collaborator",
     ":client",
     ":application",
+    ":terminal_color",
   ],
   alwayslink = 1,
 )
@@ -660,12 +678,24 @@ cc_library(
   srcs = ["gui_client.cc"],
   deps = [
     ":buffer",
+    ":client_collaborator",
     ":client",
     ":application",
+    ":fontconfig_conf_files",
     "@skia//:skia",
     "@SDL2//:sdl2",
     ":scan_fonts",
     ":sdl_info",
+  ],
+  alwayslink = 1,
+)
+
+cc_library(
+  name = "peep_show",
+  srcs = ["peep_show.cc"],
+  deps = [
+    ":client",
+    ":application",
   ],
   alwayslink = 1,
 )
@@ -688,4 +718,17 @@ cc_library(
     "@SDL2//:sdl2",
   ],
   alwayslink = 1,
+)
+
+genrule(
+  name = "prep_fontconfig",
+  srcs = ["@fontconfig//:conf"],
+  outs = ["fontconfig.txt"],
+  cmd = "python $(location merge_fontconfig_confs.py) $(SRCS) > $@",
+  tools = ["merge_fontconfig_confs.py"]
+)
+
+file2lib(
+  name = "fontconfig_conf_files",
+  src = "fontconfig.txt",
 )

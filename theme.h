@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "absl/types/optional.h"
+#include "attr.h"
 #include "selector.h"
 
 namespace plist {
@@ -30,39 +31,12 @@ class Theme {
   enum default_type { DEFAULT };
   explicit Theme(default_type);
 
-  enum class Highlight : uint8_t {
-    UNSET,
-    NONE,
-    BOLD,
-    UNDERLINE,
-    ITALIC,
-    STRIKE
-  };
-
-  struct Color {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-    uint8_t a;
-
-    bool operator==(const Color& other) const {
-      return r == other.r && g == other.g && b == other.b && a == other.a;
-    }
-    bool operator!=(const Color& other) const { return !operator==(other); }
-  };
-
   static constexpr uint32_t HIGHLIGHT_LINE = 1;
   static constexpr uint32_t SELECTED = 2;
 
-  struct Result {
-    Color foreground;
-    Color background;
-    Highlight highlight;
-  };
-
   typedef std::vector<std::string> Tag;
 
-  Result ThemeToken(Tag token, uint32_t flags);
+  CharFmt ThemeToken(Tag token, uint32_t flags);
 
  private:
   void Load(const std::string& src);
@@ -157,5 +131,5 @@ class Theme {
   std::vector<Selector> ParseScopes(const plist::Dict* d);
 
   std::vector<Setting> settings_;
-  std::map<std::pair<Tag, uint32_t>, Result> theme_cache_;
+  std::map<std::pair<Tag, uint32_t>, CharFmt> theme_cache_;
 };

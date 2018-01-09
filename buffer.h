@@ -245,7 +245,7 @@ class Buffer {
   const boost::filesystem::path filename_;
   EditNotification state_ GUARDED_BY(mu_);
   std::vector<CollaboratorPtr> collaborators_ GUARDED_BY(mu_);
-  std::vector<std::thread> collaborator_threads_ GUARDED_BY(mu_);
+  std::map<std::string, std::thread> collaborator_threads_ GUARDED_BY(mu_);
   std::thread init_thread_;
   mutable Site site_;
 };

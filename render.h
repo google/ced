@@ -15,110 +15,283 @@
 
 #include <functional>
 #include <ostream>
+#include <unordered_map>
 #include <vector>
-#include "layout.h"
+#include "absl/container/inlined_vector.h"
+#include "absl/strings/string_view.h"
+#include "absl/time/clock.h"
+#include "absl/types/optional.h"
+#include "attr.h"
+#include "rhea/simplex_solver.hpp"
+#include "rhea/variable.hpp"
 
-// deferred text renderer: pass layout constraints, draw function
-// it figures out how to satisfy constraints and calls draw functions
-template <class Context>
-class Renderer {
+class Renderer;
+class Widget;
+class DeviceContext;
+
+enum class WidgetType {
+  CONTENT,
+  ROW,
+  COLUMN,
+  STACK,
+  FLOAT,
+};
+
+inline std::ostream& operator<<(std::ostream& out, WidgetType t) {
+  switch (t) {
+    case WidgetType::CONTENT:
+      return out << "CONTENT";
+    case WidgetType::ROW:
+      return out << "ROW";
+    case WidgetType::COLUMN:
+      return out << "COLUMN";
+    case WidgetType::STACK:
+      return out << "STACK";
+    case WidgetType::FLOAT:
+      return out << "FLOAT";
+  }
+  return out << "<<UNKNOWNTYPE>>";
+}
+
+enum class Justify {
+  FILL,    // no padding
+  START,   // all elements crowd to start
+  END,     // all elements crowd to end
+  CENTER,  // padding to left & right evenly
+  SPACE_BETWEEN,
+  SPACE_AROUND,
+  SPACE_EVENLY,
+};
+
+inline std::ostream& operator<<(std::ostream& out, Justify j) {
+  switch (j) {
+    case Justify::FILL:
+      return out << "FILL";
+    case Justify::START:
+      return out << "START";
+    case Justify::END:
+      return out << "END";
+    case Justify::CENTER:
+      return out << "CENTER";
+    case Justify::SPACE_BETWEEN:
+      return out << "SPACE_BETWEEN";
+    case Justify::SPACE_AROUND:
+      return out << "SPACE_AROUND";
+    case Justify::SPACE_EVENLY:
+      return out << "SPACE_EVENLY";
+  }
+  return out << "<<UNKNOWNTYPE>>";
+}
+
+class Widget {
  public:
-  class Rect {
+  class Options {
    public:
-    explicit Rect(lay_vec4 v) : rect_(v) {}
+    typedef absl::optional<absl::string_view> OptionalStableID;
 
-    lay_scalar column() const { return rect_[0]; }
-    lay_scalar row() const { return rect_[1]; }
-    lay_scalar width() const { return rect_[2]; }
-    lay_scalar height() const { return rect_[3]; }
-
-    friend inline std::ostream& operator<<(std::ostream& out,
-                                           typename Renderer<Context>::Rect r) {
-      return out << "(" << r.column() << "," << r.row() << ")+(" << r.width()
-                 << "," << r.height() << ")";
-    }
-
-   private:
-    lay_vec4 rect_;
-  };
-
-  class ItemRef {
-   public:
-    ItemRef() : renderer_(nullptr), id_(0) {}
-    ItemRef(Renderer* renderer, lay_id id) : renderer_(renderer), id_(id) {}
-
-    ItemRef& FixSize(lay_scalar width, lay_scalar height) {
-      lay_set_size_xy(&renderer_->ctx_, id_, width, height);
+    Options& set_id(absl::string_view id) {
+      id_ = id;
       return *this;
     }
 
-    operator bool() const { return renderer_ != nullptr; }
-
-    // available post-Renderer::Layout
-    Rect GetRect() { return Rect(lay_get_rect(&renderer_->ctx_, id_)); }
-
-   private:
-    Renderer* renderer_;
-    lay_id id_;
-  };
-
-  class ContainerRef {
-   public:
-    ContainerRef(Renderer* renderer, lay_id id)
-        : renderer_(renderer), id_(id) {}
-
-    ContainerRef& FixSize(lay_scalar width, lay_scalar height) {
-      lay_set_size_xy(&renderer_->ctx_, id_, width, height);
+    Options& set_justify(Justify justify) {
+      justify_ = justify;
       return *this;
     }
 
-    template <class F>
-    ItemRef AddItem(uint32_t behave, F&& draw) {
-      lay_id id = lay_item(&renderer_->ctx_);
-      lay_set_behave(&renderer_->ctx_, id, behave);
-      lay_insert(&renderer_->ctx_, id_, id);
-      renderer_->draw_.emplace_back(DrawCall{id, std::move(draw)});
-      return ItemRef{renderer_, id};
+    Options& set_activatable(bool activatable = true) {
+      activatable_ = activatable;
+      return *this;
     }
 
-    ContainerRef AddContainer(uint32_t behave, uint32_t flags) {
-      lay_id id = lay_item(&renderer_->ctx_);
-      lay_set_behave(&renderer_->ctx_, id, behave);
-      lay_set_contain(&renderer_->ctx_, id, flags);
-      lay_insert(&renderer_->ctx_, id_, id);
-      return ContainerRef{renderer_, id};
-    }
+    OptionalStableID id() const { return id_; }
+    Justify justify() const { return justify_; }
+    bool activatable() const { return activatable_; }
 
    private:
-    Renderer* renderer_;
-    lay_id id_;
+    OptionalStableID id_;
+    Justify justify_ = Justify::FILL;
+    bool activatable_ = false;
   };
 
-  Renderer() { lay_init_context(&ctx_); }
-  ~Renderer() { lay_destroy_context(&ctx_); }
+  Widget(Renderer* renderer, WidgetType type, uint64_t id)
+      : type_(type), id_(id), renderer_(renderer) {}
 
-  ContainerRef AddContainer(uint32_t flags) {
-    lay_id id = lay_item(&ctx_);
-    lay_set_contain(&ctx_, id, flags);
-    return ContainerRef{this, id};
+  typedef absl::InlinedVector<Widget*, 4> ChildVector;
+
+  Renderer* renderer() const { return renderer_; }
+
+  template <class T>
+  T as() {
+    T r;
+    GetValue(&r);
+    return r;
   }
 
-  void Layout() { lay_run_context(&ctx_); }
+  uint64_t id() const { return id_; }
 
-  void Draw(Context* ctx) {
-    for (const auto& draw : draw_) {
-      Rect rect(lay_get_rect(&ctx_, draw.id));
-      ctx->window = &rect;
-      draw.cb(ctx);
-    }
+  static const Options& DefaultOptions() {
+    static const Options options;
+    return options;
+  }
+
+  Widget* MakeContent(const Options& options = DefaultOptions()) {
+    return Materialize(WidgetType::CONTENT, options);
+  }
+  Widget* MakeRow(const Options& options = DefaultOptions()) {
+    return Materialize(WidgetType::ROW, options);
+  }
+  Widget* MakeColumn(const Options& options = DefaultOptions()) {
+    return Materialize(WidgetType::COLUMN, options);
+  }
+  Widget* MakeStack(const Options& options = DefaultOptions()) {
+    return Materialize(WidgetType::STACK, options);
+  }
+  Widget* MakeFloat(const Options& options = DefaultOptions()) {
+    return Materialize(WidgetType::FLOAT, options);
+  }
+  Widget* MakeSimpleText(CharFmt fmt, const std::vector<std::string>& text);
+
+  typedef std::function<void(DeviceContext* device)> DrawCall;
+  void Draw(DrawCall draw) { draw_ = draw; }
+
+  bool Focus() const;
+  bool InFocusTree() const { return in_focus_tree_; }
+  uint32_t CharPressed();
+  bool Chord(absl::string_view chord);
+
+  WidgetType type() const { return type_; }
+
+  const rhea::variable& left() const { return left_; }
+  const rhea::variable& right() const { return right_; }
+  const rhea::variable& top() const { return top_; }
+  const rhea::variable& bottom() const { return bottom_; }
+  rhea::linear_expression width() const { return right_ - left_; }
+  rhea::linear_expression height() const { return bottom_ - top_; }
+  rhea::linear_expression screen_left();
+  rhea::linear_expression screen_right();
+  rhea::linear_expression screen_top();
+  rhea::linear_expression screen_bottom();
+
+  void PaintSelf(DeviceContext* devctx) const {
+    if (!draw_) return;
+    draw_(devctx);
+  }
+
+  const ChildVector& children() const { return children_; }
+
+ private:
+  friend class Renderer;
+
+  void EnterFrame(Widget* parent, const Options& options);
+  void FinalizeConstraints(Renderer* renderer);
+  void UpdateAnimations(Renderer* renderer);
+  bool EndFrame();
+
+  uint64_t GenUID(const Options& options);
+  Widget* Materialize(WidgetType type, const Options& options);
+
+  void ApplyJustify(rhea::simplex_solver* solver, Justify justify,
+                    const ChildVector& widgets, rhea::variable(Widget::*start),
+                    rhea::variable(Widget::*end),
+                    rhea::variable(Widget::*perp_start),
+                    rhea::variable(Widget::*perp_end));
+
+  const WidgetType type_;
+  const uint64_t id_;
+  Renderer* const renderer_;
+  uint64_t nextid_;
+  DrawCall draw_;
+  rhea::variable left_;
+  rhea::variable right_;
+  rhea::variable top_;
+  rhea::variable bottom_;
+  rhea::variable container_pad_;
+  rhea::variable item_fill_;
+  Justify justify_ = Justify::FILL;
+  Widget* parent_ = nullptr;
+  struct Animator {
+    bool initialized = false;
+    absl::Duration blend_time = absl::Milliseconds(200);
+    double target;
+    double initial_value;
+    double initial_velocity;
+    absl::Time target_set;
+    // returns true if animating
+    bool DeclTarget(absl::Time time, double target);
+    struct Coefficients {
+      double a, b, c, d;
+    };
+    Coefficients CalcCoefficients() const;
+    double ScaleTime(absl::Time time) const;
+    double ValueAt(absl::Time time, Renderer* renderer) const;
+  };
+  Animator ani_midx_;
+  Animator ani_midy_;
+  Animator ani_szx_;
+  Animator ani_szy_;
+  ChildVector children_;
+  bool live_ = false;
+  bool in_focus_tree_ = false;
+};
+
+class Device {
+ public:
+  struct Extents {
+    int win_height;
+    int win_width;
+    int chr_height;
+    int chr_width;
+  };
+
+  virtual void Paint(const Renderer* renderer, const Widget& widget) = 0;
+  virtual Extents GetExtents() = 0;
+  virtual void ClipboardPut(const std::string& s) = 0;
+  virtual std::string ClipboardGet() = 0;
+};
+
+class DeviceContext {
+ public:
+  virtual int width() const = 0;
+  virtual int height() const = 0;
+
+  virtual void MoveCursor(float row, float col) = 0;
+  virtual void Fill(float left, float top, float right, float bottom,
+                    Color color) = 0;
+  virtual void PutText(float x, float y, const char* text, size_t length,
+                       Color color, Highlight highlight) = 0;
+};
+
+class Renderer : public Widget {
+ public:
+  explicit Renderer(Device* device)
+      : Widget(this, WidgetType::STACK, 0), device_(device) {}
+
+  void BeginFrame();
+  absl::optional<absl::Time> FinishFrame();
+
+  rhea::simplex_solver* solver() { return solver_.get(); }
+  const Device::Extents& extents() const { return extents_; }
+  void ClipboardPut(const std::string& s) { device_->ClipboardPut(s); }
+  std::string ClipboardGet() { return device_->ClipboardGet(); }
+
+  void AddKbEvent(absl::string_view event) {
+    if (!kbev_.empty()) kbev_ += ' ';
+    kbev_.append(event.data(), event.length());
   }
 
  private:
-  struct DrawCall {
-    lay_id id;
-    std::function<void(Context* context)> cb;
-  };
+  friend class Widget;
 
-  lay_context ctx_;
-  std::vector<DrawCall> draw_;
+  Device* const device_;
+  bool animating_ = false;
+  absl::Time frame_time_;
+  Device::Extents extents_;
+  uint64_t focus_widget_ = 0;
+  uint64_t last_focus_widget_ = 0;
+  std::unordered_map<uint64_t, std::unique_ptr<Widget>> widgets_;
+  std::unique_ptr<rhea::simplex_solver> solver_{new rhea::simplex_solver};
+
+  std::string kbev_;
+  bool kbev_partial_match_ = false;
 };

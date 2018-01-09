@@ -17,7 +17,7 @@
 
 std::vector<std::string> Editor::DebugData() const {
   std::vector<std::string> r;
-  r.push_back(absl::StrCat("cursor_row ", cursor_row_));
+  r.push_back(absl::StrCat("cursor_line ", cursor_line_.value()));
   r.push_back(absl::StrCat("nrow_before_sub ", debug_.nrow_before_sub));
   r.push_back(absl::StrCat("window_height ", debug_.window_height));
   r.push_back(absl::StrCat("cursor ", absl::Hex(cursor_.id, absl::kZeroPad16)));
@@ -40,6 +40,8 @@ std::vector<std::string> Editor::DebugData() const {
 
 EditResponse Editor::MakeResponse() {
   PublishCursor();
+
+  Log() << "EDITOR: " << name_ << " done:" << state_.shutdown;
 
   EditResponse r;
   r.done = state_.shutdown;
@@ -94,6 +96,8 @@ void Editor::PublishCursor() {
 }
 
 void Editor::UpdateState(LogTimer* tmr, const EditNotification& state) {
+  Log() << "EDITOR: " << name_ << " UpdateState shutdown=" << state.shutdown;
+
   state_ = state;
   auto s2 = state_.content;
   CommandSet unacked;
@@ -195,27 +199,27 @@ void Editor::Backspace() {
   cursor_ = it.id();
 }
 
-void Editor::Copy(AppEnv* env) {
+void Editor::Copy(Renderer* d) {
   if (SelectMode()) {
-    env->clipboard = state_.content.Render(cursor_, selection_anchor_);
+    d->ClipboardPut(state_.content.Render(cursor_, selection_anchor_));
   }
 }
 
-void Editor::Cut(AppEnv* env) {
+void Editor::Cut(Renderer* d) {
   if (SelectMode()) {
-    env->clipboard = state_.content.Render(cursor_, selection_anchor_);
+    d->ClipboardPut(state_.content.Render(cursor_, selection_anchor_));
     DeleteSelection();
     SetSelectMode(false);
   }
 }
 
-void Editor::Paste(AppEnv* env) {
+void Editor::Paste(Renderer* d) {
   if (selection_anchor_ != ID()) {
     DeleteSelection();
     SetSelectMode(false);
   }
-  cursor_ = state_.content.Insert(&unpublished_commands_, site_, env->clipboard,
-                                  cursor_);
+  cursor_ = state_.content.Insert(&unpublished_commands_, site_,
+                                  d->ClipboardGet(), cursor_);
 }
 
 void Editor::InsChar(char c) {
@@ -223,7 +227,7 @@ void Editor::InsChar(char c) {
   SetSelectMode(false);
   cursor_ = state_.content.Insert(&unpublished_commands_, site_,
                                   absl::string_view(&c, 1), cursor_);
-  cursor_row_ += (c == '\n');
+  ChangeCursorLine(c == '\n');
 }
 
 void Editor::SetSelectMode(bool sel) {
@@ -244,7 +248,7 @@ void Editor::DeleteSelection() {
 
 void Editor::CursorLeft() {
   AnnotatedString::Iterator it(state_.content, cursor_);
-  cursor_row_ -= it.value() == '\n';
+  ChangeCursorLine(-(it.value() == '\n'));
   it.MovePrev();
   cursor_ = it.id();
 }
@@ -252,7 +256,7 @@ void Editor::CursorLeft() {
 void Editor::CursorRight() {
   AnnotatedString::Iterator it(state_.content, cursor_);
   it.MoveNext();
-  cursor_row_ += it.value() == '\n';
+  ChangeCursorLine(it.value() == '\n');
   cursor_ = it.id();
 }
 
@@ -277,7 +281,7 @@ void Editor::CursorDown() {
   }
   it.MovePrev();
   cursor_ = it.id();
-  cursor_row_++;
+  ChangeCursorLine(1);
 }
 
 void Editor::CursorUp() {
@@ -300,7 +304,7 @@ void Editor::CursorUp() {
   }
   it.MovePrev();
   cursor_ = it.id();
-  cursor_row_--;
+  ChangeCursorLine(-1);
 }
 
 void Editor::CursorStartOfLine() {
@@ -313,4 +317,201 @@ void Editor::CursorEndOfLine() {
                 .AsIterator()
                 .Prev()
                 .id();
+}
+
+void Editor::Render(Theme* theme, Widget* parent) {
+  Widget* content = parent->MakeContent(
+      Widget::Options().set_id(name_).set_activatable(editable_));
+
+  if (content->Focus()) {
+    if (auto c = content->CharPressed()) {
+      InsChar(c);
+    } else if (content->Chord("up")) {
+      MoveUp();
+    } else if (content->Chord("down")) {
+      MoveDown();
+    } else if (content->Chord("left")) {
+      MoveLeft();
+    } else if (content->Chord("right")) {
+      MoveRight();
+    } else if (content->Chord("home")) {
+      MoveStartOfLine();
+    } else if (content->Chord("end")) {
+      MoveEndOfLine();
+    } else if (content->Chord("S-up")) {
+      SelectUp();
+    } else if (content->Chord("S-down")) {
+      SelectDown();
+    } else if (content->Chord("del")) {
+      Backspace();
+    } else if (content->Chord("C-c")) {
+      Copy(content->renderer());
+    } else if (content->Chord("C-v")) {
+      Paste(content->renderer());
+    } else if (content->Chord("C-x")) {
+      Cut(content->renderer());
+    } else if (content->Chord("ret")) {
+      InsChar('\n');
+    }
+  }
+
+  auto* r = parent->renderer();
+  auto ex = r->extents();
+  r->solver()->add_constraints(
+      {rhea::constraint(cursor_line_ == cursor_line_.value(),
+                        rhea::strength::strong()),
+       rhea::constraint(
+           content->right() - content->left() >= 80 * ex.chr_width,
+           editable_ ? rhea::strength::strong() : rhea::strength::weak()),
+       rhea::constraint(content->bottom() - content->top() >= 3 * ex.chr_height,
+                        rhea::strength::weak()),
+       cursor_line_ * ex.chr_height >= 0,
+       cursor_line_ * ex.chr_height <=
+           parent->bottom() - parent->top() - ex.chr_height});
+
+  ID cursor = cursor_ = AnnotatedString::Iterator(state_.content, cursor_).id();
+  AnnotatedString::LineIterator line_cr(state_.content, cursor_);
+  rhea::variable cursor_line = cursor_line_;
+  if (!editable_) cursor = ID();
+  content->Draw(
+      [line_cr, cursor_line, cursor, ex, theme, content](DeviceContext* ctx) {
+        ctx->Fill(0, 0, ctx->width(), ctx->height(),
+                  theme->ThemeToken({}, 0).background);
+        int cl = cursor_line.value() * ex.chr_height;
+        ctx->Fill(0, cl, ctx->width(), cl + ex.chr_height,
+                  theme->ThemeToken({}, Theme::HIGHLIGHT_LINE).background);
+        AnnotatedString::LineIterator line_bk = line_cr;
+        AnnotatedString::LineIterator line_fw = line_cr;
+        RenderLine(ctx, ex, theme, cursor, cl, line_cr, true);
+        for (int i = 1; i <= ctx->height() / ex.chr_height; i++) {
+          if (line_bk.MovePrev()) {
+            RenderLine(ctx, ex, theme, cursor, cl - i * ex.chr_height, line_bk,
+                       false);
+          }
+          if (line_fw.MoveNext()) {
+            RenderLine(ctx, ex, theme, cursor, cl + i * ex.chr_height, line_fw,
+                       false);
+          }
+        }
+      });
+}
+
+typedef absl::InlinedVector<std::string, 2> GutterVec;
+
+struct CharDet {
+  CharDet(uint32_t base_flags, GutterVec* g)
+      : chr_flags(base_flags), gutters(g) {}
+  bool has_diagnostic = false;
+  uint32_t chr_flags;
+  std::vector<std::string> tags;
+  GutterVec* const gutters;
+
+  void AddGutter(std::string&& s) {
+    for (const auto& g : *gutters) {
+      if (s == g) return;
+    }
+    gutters->emplace_back(std::move(s));
+  }
+
+  void FillFromIterator(AnnotatedString::AllIterator it) {
+    it.ForEachAttrValue([&](const Attribute& attr) {
+      switch (attr.data_case()) {
+        case Attribute::kSelection:
+          chr_flags |= Theme::SELECTED;
+          break;
+        case Attribute::kDiagnostic:
+          has_diagnostic = true;
+          break;
+        case Attribute::kTags:
+          for (auto t : attr.tags().tags()) {
+            tags.push_back(t);
+          }
+          break;
+        case Attribute::kSize:
+          switch (attr.size().type()) {
+            case SizeAnnotation::OFFSET_INTO_PARENT:
+              if (attr.size().bits()) {
+                AddGutter(absl::StrCat("@", attr.size().size(), ".",
+                                       attr.size().bits()));
+              } else {
+                AddGutter(absl::StrCat("@", attr.size().size()));
+              }
+              break;
+            case SizeAnnotation::SIZEOF_SELF:
+              if (attr.size().bits()) {
+                AddGutter(absl::StrCat(
+                    attr.size().size() * 8 + attr.size().bits(), "b"));
+              } else {
+                AddGutter(absl::StrCat(attr.size().size(), "B"));
+              }
+              break;
+            default:
+              break;
+          }
+          break;
+        default:
+          break;
+      }
+    });
+  }
+};
+
+void Editor::RenderLine(DeviceContext* ctx, const Device::Extents& extents,
+                        Theme* theme, ID cursor, int y,
+                        AnnotatedString::LineIterator lit, bool highlight) {
+  AnnotatedString::AllIterator it = lit.AsAllIterator();
+  const uint32_t base_flags = highlight ? Theme::HIGHLIGHT_LINE : 0;
+  GutterVec gutter_annotations;
+  int x_start = 0;
+  std::string to_print;
+  const CharFmt base_fmt = theme->ThemeToken({}, base_flags);
+  CharFmt fmt = base_fmt;
+  auto flush_print = [&]() {
+    if (to_print.empty()) return;
+    int x_end = x_start + extents.chr_width * to_print.length();
+    if (fmt.background != base_fmt.background) {
+      ctx->Fill(x_start, y, x_end, y + extents.chr_height, fmt.background);
+    }
+    ctx->PutText(x_start, y, to_print.data(), to_print.length(), fmt.foreground,
+                 fmt.highlight);
+    x_start = x_end;
+    to_print.clear();
+  };
+  while (it.id() != AnnotatedString::End()) {
+    if (it.is_visible() || it.is_begin()) {
+      CharDet cd(base_flags, &gutter_annotations);
+      cd.FillFromIterator(it);
+      if (cd.has_diagnostic) {
+        cd.tags.push_back("invalid");
+      }
+      if (it.is_visible() && it.id() != lit.id()) {
+        if (it.value() == '\n') {
+          if (it.id() == cursor) {
+            ctx->MoveCursor(y + extents.chr_height, 0);
+          }
+          break;
+        } else {
+          char c = it.value();
+          auto cfmt = theme->ThemeToken(cd.tags, cd.chr_flags);
+          if (cfmt != fmt) {
+            flush_print();
+            fmt = cfmt;
+          }
+          to_print += c;
+        }
+      }
+      if (it.id() == cursor) {
+        ctx->MoveCursor(y, x_start + to_print.length() * extents.chr_width);
+      }
+    }
+    it.MoveNext();
+  }
+  flush_print();
+  std::string gutter = absl::StrJoin(gutter_annotations, ",");
+  int x = ctx->width() - gutter.length() * extents.chr_width;
+  CharFmt fill_attr =
+      theme->ThemeToken(::Theme::Tag{"comment.gutter"}, base_flags);
+  ctx->Fill(x, y, ctx->width(), y + extents.chr_height, fill_attr.background);
+  ctx->PutText(x, y, gutter.data(), gutter.length(), fill_attr.foreground,
+               fill_attr.highlight);
 }

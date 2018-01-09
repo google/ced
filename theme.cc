@@ -27,8 +27,8 @@ Theme::Theme(const std::string& filename) { Load(Read(filename)); }
 
 Theme::Theme(default_type) { Load(default_theme); }
 
-static Theme::Highlight Merge(Theme::Highlight a, Theme::Highlight b) {
-  if (a == Theme::Highlight::UNSET) return b;
+static Highlight Merge(Highlight a, Highlight b) {
+  if (a == Highlight::UNSET) return b;
   return a;
 }
 
@@ -47,17 +47,17 @@ static uint8_t blend(uint8_t a, uint8_t b, uint8_t alpha) {
   return (alpha * a + (255 - alpha) * b) / 255;
 }
 
-static absl::optional<Theme::Color> Merge(absl::optional<Theme::Color> a,
-                                          absl::optional<Theme::Color> b) {
+static absl::optional<Color> Merge(absl::optional<Color> a,
+                                   absl::optional<Color> b) {
   if (!a)
     return b;
   else if (!b)
     return a;
-  return Theme::Color{blend(a->r, b->r, a->a), blend(a->g, b->g, a->a),
-                      blend(a->b, b->b, a->a), 255};
+  return Color{blend(a->r, b->r, a->a), blend(a->g, b->g, a->a),
+               blend(a->b, b->b, a->a), 255};
 }
 
-Theme::Result Theme::ThemeToken(Tag token, uint32_t flags) {
+CharFmt Theme::ThemeToken(Tag token, uint32_t flags) {
   auto key = std::make_pair(token, flags);
   auto it = theme_cache_.find(key);
   if (it != theme_cache_.end()) return it->second;
@@ -126,9 +126,9 @@ Theme::Result Theme::ThemeToken(Tag token, uint32_t flags) {
     background = Merge(composite.selection, background);
   }
 
-  Result result{foreground ? *foreground : Color{255, 255, 255, 255},
-                background ? *background : Color{0, 0, 0, 255},
-                highlight != Highlight::UNSET ? highlight : Highlight::NONE};
+  CharFmt result{foreground ? *foreground : Color{255, 255, 255, 255},
+                 background ? *background : Color{0, 0, 0, 255},
+                 highlight != Highlight::UNSET ? highlight : Highlight::NONE};
   theme_cache_.insert(std::make_pair(key, result));
   return result;
 }

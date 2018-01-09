@@ -98,10 +98,6 @@ Client::Client(const boost::filesystem::path& ced_bin,
 
 namespace {
 
-typedef std::unique_ptr<
-    grpc::ClientReaderWriterInterface<EditMessage, EditMessage>>
-    EditStreamPtr;
-
 class ClientCollaborator : public AsyncCommandCollaborator {
  public:
   ClientCollaborator(const Buffer* buffer, EditStreamPtr stream,
@@ -148,19 +144,30 @@ class ClientCollaborator : public AsyncCommandCollaborator {
 std::unique_ptr<Buffer> Client::MakeBuffer(
     const boost::filesystem::path& path) {
   std::unique_ptr<grpc::ClientContext> ctx(new grpc::ClientContext());
-  EditStreamPtr stream = project_stub_->Edit(ctx.get());
+  std::pair<EditStreamPtr, EditMessage> stream_and_first_msg =
+      MakeEditStream(ctx.get(), path);
+  if (!stream_and_first_msg.first) return nullptr;
+  auto buffer =
+      Buffer::Builder()
+          .SetFilename(path)
+          .SetInitialString(AnnotatedString::FromProto(
+              stream_and_first_msg.second.server_hello().current_state()))
+          .SetSiteID(stream_and_first_msg.second.server_hello().site_id())
+          .Make();
+  buffer->MakeCollaborator<ClientCollaborator>(
+      std::move(stream_and_first_msg.first), std::move(ctx));
+  return buffer;
+}
+
+std::pair<EditStreamPtr, EditMessage> Client::MakeEditStream(
+    grpc::ClientContext* ctx, const boost::filesystem::path& path) {
+  EditStreamPtr stream = project_stub_->Edit(ctx);
   EditMessage hello;
   hello.mutable_client_hello()->set_buffer_name(path.string());
   stream->Write(hello);
-  if (!stream->Read(&hello)) return nullptr;
-  if (hello.type_case() != EditMessage::kServerHello) return nullptr;
-  auto buffer = Buffer::Builder()
-                    .SetFilename(path)
-                    .SetInitialString(AnnotatedString::FromProto(
-                        hello.server_hello().current_state()))
-                    .SetSiteID(hello.server_hello().site_id())
-                    .Make();
-  buffer->MakeCollaborator<ClientCollaborator>(std::move(stream),
-                                               std::move(ctx));
-  return buffer;
+  if (!stream->Read(&hello)) return std::pair<EditStreamPtr, EditMessage>();
+  if (hello.type_case() != EditMessage::kServerHello) {
+    return std::pair<EditStreamPtr, EditMessage>();
+  }
+  return std::make_pair(std::move(stream), hello);
 }

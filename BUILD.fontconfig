@@ -42,7 +42,15 @@ DEFINES = [
   'HAVE_SYS_TYPES_H',
   'HAVE_SYS_STAT_H',
   'HAVE_FCNTL_H',
-  'HAVE_RAND'
+  'HAVE_RAND',
+  'HAVE_FT_GET_BDF_PROPERTY',
+  'HAVE_FT_GET_PS_FONT_INFO',
+  'HAVE_TT_OS2_USUPPEROPTICALPOINTSIZE',
+  'HAVE_FT_GET_X11_FONT_FORMAT',
+  'HAVE_FT_BITMAP_SIZE_Y_PPEM',
+  'HAVE_FT_GET_NEXT_CHAR',
+  'HAVE_FT_HAS_PS_GLYPH_NAMES',
+  'HAVE_FT_SELECT_SIZE',
 ]
 
 cc_library(
@@ -412,6 +420,32 @@ cc_library(
     'fc-lang/fclang.h',
     'src/fcobjshash.h',
   ]
+)
+
+USE_CONF = [
+  "10-hinting-slight.conf",
+  "10-scale-bitmap-fonts.conf",
+  "20-unhint-small-vera.conf",
+  "30-metric-aliases.conf",
+  "40-nonlatin.conf",
+  "45-generic.conf",
+  "45-latin.conf",
+  "49-sansserif.conf",
+  #"50-user.conf",
+  #"51-local.conf",
+  "60-generic.conf",
+  "60-latin.conf",
+  "65-fonts-persian.conf",
+  "65-nonlatin.conf",
+  "69-unifont.conf",
+  "80-delicious.conf",
+  "90-synthetic.conf",
+]
+
+filegroup(
+  name = 'conf',
+  srcs = ['conf.d/%s' % f for f in USE_CONF],
+  visibility = ['//visibility:public']
 )
 
 cc_library(

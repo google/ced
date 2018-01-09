@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "SDL_opengl.h"
 #include <signal.h>
 #include <atomic>
 #include "GrBackendSurface.h"
 #include "GrContext.h"
 #include "SDL.h"
+#include "SDL_opengl.h"
 #include "SkCanvas.h"
 #include "SkRandom.h"
 #include "SkSurface.h"
@@ -25,12 +25,39 @@
 #include "application.h"
 #include "buffer.h"
 #include "client.h"
+#include "client_collaborator.h"
+#include "fontconfig/fontconfig.h"
+#include "fontconfig_conf_files.h"
+#include "gl/GrGLAssembleInterface.h"
 #include "gl/GrGLInterface.h"
 #include "gl/GrGLUtil.h"
-#include "gl/GrGLAssembleInterface.h"
+#include "render.h"
 
 static const int kMsaaSampleCount = 0;  // 4;
 static const int kStencilBits = 8;      // Skia needs 8 stencil bits
+
+static void ConfigureFontConfig() {
+#ifdef __APPLE__
+  std::string config_prefix = R"(<?xml version="1.0"?>
+    <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+    <fontconfig>)";
+  std::string default_dirs = R"(
+    <cachedir>/usr/local/var/cache/fontconfig</cachedir>
+    <cachedir>~/.fontconfig</cachedir>
+    <dir>/System/Library/Fonts</dir>
+    <dir>/Library/Fonts</dir>
+    <dir>~/Library/Fonts</dir>)";
+  std::string config_suffix = "</fontconfig>";
+  FcConfig* cfg = FcConfigCreate();
+  FcConfigParseAndLoadFromMemory(
+      cfg, reinterpret_cast<const FcChar8*>(
+               absl::StrCat(config_prefix, default_dirs, fontconfig_conf_files,
+                            config_suffix)
+                   .c_str()),
+      true);
+  FcConfigSetCurrent(cfg);
+#endif
+}
 
 class GUICtx {
  public:
@@ -43,9 +70,23 @@ class GUICtx {
             &props_)),
         canvas_(surface_->getCanvas()) {
     SkASSERT(grcontext_);
+
+    textual_paint_.setColor(SK_ColorBLACK);
+    textual_paint_.setTypeface(
+        SkTypeface::MakeFromName("Fira Code", SkFontStyle()));
+    textual_paint_.setAntiAlias(true);
+    textual_paint_.setHinting(SkPaint::kFull_Hinting);
+    textual_paint_.setFlags(textual_paint_.getFlags() |
+                            SkPaint::kSubpixelText_Flag |
+                            SkPaint::kLCDRenderText_Flag);
+    textual_paint_.setTextSize(12);
   }
 
   SkCanvas* canvas() const { return canvas_; }
+  int width() const { return winsz_.width; }
+  int height() const { return winsz_.height; }
+
+  const SkPaint& textual_paint() { return textual_paint_; }
 
  private:
   struct WinSz {
@@ -62,19 +103,23 @@ class GUICtx {
     return info;
   }
   const WinSz winsz_;
-  const sk_sp<const GrGLInterface> interface_{GrGLAssembleInterface(nullptr, +[](void* ctx, const char* name) {
-    return (GrGLFuncPtr)SDL_GL_GetProcAddress(name);
-  })};
+  const sk_sp<const GrGLInterface> interface_{
+      GrGLAssembleInterface(nullptr, +[](void* ctx, const char* name) {
+        return (GrGLFuncPtr)SDL_GL_GetProcAddress(name);
+      })};
   const sk_sp<GrContext> grcontext_{GrContext::MakeGL(interface_.get())};
   GrBackendRenderTarget target_;
   SkSurfaceProps props_{SkSurfaceProps::kLegacyFontHost_InitType};
   const sk_sp<SkSurface> surface_;
   SkCanvas* canvas_;
+  SkPaint textual_paint_;
 };
 
-class GUI : public Application {
+class GUI : public Application, public Device, public Invalidator {
  public:
   GUI(int argc, char** argv) : client_(argv[0], FileFromCmdLine(argc, argv)) {
+    ConfigureFontConfig();
+
     uint32_t windowFlags = 0;
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -144,79 +189,228 @@ class GUI : public Application {
     if (success != 0) {
       throw std::runtime_error(SDL_GetError());
     }
+
+    buffer_ = client_.MakeBuffer(FileFromCmdLine(argc, argv));
   }
 
   ~GUI() {}
 
-  int Run() {
-    while (!done_) {
-      Render();
-      HandleEvents();
-    }
+  int Run() override {
+    while (!done_) HandleEvents(Render());
 
     return 0;
   }
 
+  void ClipboardPut(const std::string& s) override {
+    SDL_SetClipboardText(s.c_str());
+  }
+
+  std::string ClipboardGet() override {
+    char* s = SDL_GetClipboardText();
+    if (s == nullptr) return std::string();
+    return s;
+  }
+
+  Extents GetExtents() override {
+    SkPaint::FontMetrics metrics;
+    SkScalar spacing = ctx_->textual_paint().getFontMetrics(&metrics);
+    Log() << "spacing:" << spacing
+          << " avg_char_width:" << metrics.fAvgCharWidth
+          << " text_size:" << ctx_->textual_paint().getTextSize()
+          << " top:" << metrics.fTop << " ascent:" << metrics.fAscent
+          << " descent:" << metrics.fDescent << " bottom:" << metrics.fBottom
+          << " leading:" << metrics.fLeading;
+    return Extents{
+        ctx_->height(), ctx_->width(), static_cast<int>(spacing),
+        static_cast<int>(metrics.fAvgCharWidth),
+    };
+  }
+
+  void Paint(const Renderer* renderer, const Widget& widget) override {
+    class Ctx final : public DeviceContext {
+     public:
+      Ctx(GUICtx* guictx)
+          : guictx_(guictx),
+            canvas_(guictx->canvas()),
+            clip_bounds_(canvas_->getLocalClipBounds()) {}
+
+      int width() const override { return clip_bounds_.width(); }
+      int height() const override { return clip_bounds_.height(); }
+      void MoveCursor(float row, float col) override {}
+
+      void Fill(float left, float top, float right, float bottom,
+                Color color) override {
+        SkPaint paint = guictx_->textual_paint();
+        paint.setColor(SkColorSetARGB(color.a, color.r, color.g, color.b));
+        canvas_->drawRect(SkRect::MakeLTRB(left, top, right, bottom), paint);
+      }
+
+      void PutText(float x, float y, const char* text, size_t length,
+                   Color color, Highlight highlight) override {
+        SkPaint paint = guictx_->textual_paint();
+        paint.setColor(SkColorSetARGB(color.a, color.r, color.g, color.b));
+        SkPaint::FontMetrics metrics;
+        paint.getFontMetrics(&metrics);
+        canvas_->drawText(text, length, x, y - metrics.fAscent, paint);
+      }
+
+     private:
+      GUICtx* const guictx_;
+      SkCanvas* const canvas_;
+      const SkRect clip_bounds_;
+    };
+    SkCanvas* canvas = ctx_->canvas();
+    SkAutoCanvasRestore restore_canvas(canvas, true);
+    canvas->translate(widget.left().value(), widget.top().value());
+    canvas->clipRect(
+        SkRect::MakeWH(widget.right().value() - widget.left().value(),
+                       widget.bottom().value() - widget.top().value()));
+    Ctx ctx(ctx_.get());
+    widget.PaintSelf(&ctx);
+    for (const auto* c : widget.children()) {
+      Paint(renderer, *c);
+    }
+  }
+
  private:
-  void Render() {
+  absl::optional<absl::Time> Render() {
     if (!ctx_) {
       ctx_.reset(new GUICtx(window_));
     }
-    SkCanvas* canvas = ctx_->canvas();
-    canvas->scale(1, 1);
-    canvas->clear(SK_ColorWHITE);
-    SkPaint paint;
-    paint.setColor(SK_ColorBLACK);
-    paint.setTypeface(SkTypeface::MakeFromName("Fira Code", SkFontStyle()));
-    paint.setAntiAlias(true);
-    paint.setFlags(paint.getFlags() | SkPaint::kSubpixelText_Flag |
-                   SkPaint::kLCDRenderText_Flag);
-    std::string hello = "Hello world!";
-    canvas->drawText(hello.c_str(), hello.length(), SkIntToScalar(100),
-                     SkIntToScalar(100), paint);
-    canvas->flush();
-#if 0
-    int dw, dh;
-    SDL_GL_GetDrawableSize(window_, &dw, &dh);
-    glViewport(0, 0, dw, dh);
-    glClearColor(1, 1, 1, 1);
-    glClearStencil(0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-#endif
+    renderer_.BeginFrame();
+    auto top = renderer_.MakeRow(Widget::Options().set_id("top"));
+    RenderContainers containers{
+        top->MakeRow(Widget::Options().set_id("main")),
+        top->MakeColumn(Widget::Options().set_id("side_bar")),
+    };
+    ClientCollaborator::All_Render(containers, &theme_);
+    absl::optional<absl::Time> next_frame = renderer_.FinishFrame();
+    ctx_->canvas()->flush();
     SDL_GL_SwapWindow(window_);
+    return next_frame;
   }
 
-  void HandleEvents() {
+  static uint32_t TimerCB(uint32_t interval, void* param) {
     SDL_Event event;
-    std::function<bool(SDL_Event*)> next_event =
-        animating_ ? [](SDL_Event* ev) { return SDL_WaitEventTimeout(ev, 5); }
-                   : [](SDL_Event* ev) { return SDL_WaitEvent(ev); };
+    SDL_UserEvent userevent;
+
+    /* In this example, our callback pushes an SDL_USEREVENT event
+    into the queue, and causes our callback to be called again at the
+    same interval: */
+
+    userevent.type = SDL_USEREVENT;
+    userevent.code = 0;
+    userevent.data1 = param;
+    userevent.data2 = NULL;
+
+    event.type = SDL_USEREVENT;
+    event.user = userevent;
+
+    SDL_PushEvent(&event);
+    return 0;
+  }
+
+  void After(int millis, std::function<bool()> cb) {
+    SDL_AddTimer(millis, TimerCB, new std::function<void()>(cb));
+  }
+
+  void Invalidate() override {
+    auto fn_at_inval = frame_number_;
+    After(10, [this, fn_at_inval]() { return frame_number_ == fn_at_inval; });
+  }
+
+  void HandleEvents(absl::optional<absl::Time> end_time) {
+    SDL_Event event;
+    std::function<bool(SDL_Event*)> next_event;
+    if (end_time) {
+      next_event = [end_time](SDL_Event* ev) {
+        auto now = absl::Now();
+        if (*end_time < now) return SDL_PollEvent(ev);
+        return SDL_WaitEventTimeout(ev, ToInt64Milliseconds(*end_time - now));
+      };
+    } else {
+      next_event = [](SDL_Event* ev) { return SDL_WaitEvent(ev); };
+    }
+    bool brk = false;
     while (next_event(&event)) {
       switch (event.type) {
+        case SDL_TEXTINPUT: {
+          std::string s = event.text.text;
+          for (auto c : s) {
+            char str[] = {c, 0};
+            renderer_.AddKbEvent(str);
+          }
+        } break;
         case SDL_KEYDOWN: {
-          SDL_Keycode key = event.key.keysym.sym;
+          auto key = event.key.keysym.sym;
+          auto mod = event.key.keysym.mod;
+          std::string key_name;
+          if (mod & KMOD_CTRL) key_name += "C-";
+          if (mod & KMOD_ALT) key_name += "A-";
+          if (mod & KMOD_GUI) key_name += "G-";
+          if (mod & KMOD_SHIFT) key_name += "S-";
+          switch (key) {
+            case SDLK_UP:
+              key_name += "up";
+              break;
+            case SDLK_DOWN:
+              key_name += "down";
+              break;
+            case SDLK_LEFT:
+              key_name += "left";
+              break;
+            case SDLK_RIGHT:
+              key_name += "right";
+              break;
+            case SDLK_ESCAPE:
+              key_name += "esc";
+              break;
+            default:
+              key_name.clear();
+          }
+          Log() << "key:" << key << " mod:" << mod << " name:" << key_name;
+          if (key_name == "esc") {
+            done_ = true;
+          } else if (!key_name.empty()) {
+            renderer_.AddKbEvent(key_name);
+          }
+#if 0
           if (key == SDLK_ESCAPE) {
             done_ = true;
+          } else {
+
           }
+#endif
+          brk = true;
           break;
         }
         case SDL_WINDOWEVENT: {
           switch (event.window.event) {
             case SDL_WINDOWEVENT_SIZE_CHANGED:
               ctx_.reset();
+              brk = true;
               break;
           }
           break;
         }
         case SDL_QUIT:
           done_ = true;
+          brk = true;
           break;
+        case SDL_USEREVENT: {
+          auto* fn = static_cast<std::function<bool()>*>(event.user.data1);
+          brk |= (*fn)();
+          delete fn;
+        }
         default:
           break;
       }
-      // after the first event we go back to polling to flush out the rest
-      next_event = [](SDL_Event* ev) { return SDL_PollEvent(ev); };
+      if (brk) {
+        // after the first event we go back to polling to flush out the rest
+        next_event = [](SDL_Event* ev) { return SDL_PollEvent(ev); };
+      }
     }
+    frame_number_++;
   }
 
   static boost::filesystem::path FileFromCmdLine(int argc, char** argv) {
@@ -227,10 +421,13 @@ class GUI : public Application {
   }
 
   bool done_ = false;
-  bool animating_ = false;
   SDL_Window* window_ = nullptr;
+  Theme theme_{Theme::DEFAULT};
   Client client_;
+  Renderer renderer_{this};
+  uint64_t frame_number_ = 0;
   std::unique_ptr<GUICtx> ctx_;
+  std::unique_ptr<Buffer> buffer_;
 };
 
 REGISTER_APPLICATION(GUI);

@@ -208,7 +208,9 @@ void SpawnServer(const boost::filesystem::path& ced_bin,
   run_daemon(
       ced_bin,
       {
-          "-mode", "ProjectServer", "-logfile",
+          "-mode",
+          "ProjectServer",
+          "-logfile",
           (project.aspect<ProjectRoot>()->LocalAddressPath().parent_path() /
            absl::StrCat(".cedlog.server.", ced_src_hash))
               .string(),

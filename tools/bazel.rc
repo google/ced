@@ -1,4 +1,5 @@
 build --client_env=CC=clang
+build --cxxopt -std=c++14
 
 build:asan --strip=never 
 build:asan --copt -fsanitize=address 

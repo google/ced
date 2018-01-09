@@ -50,6 +50,7 @@ cc_library(
           'src/base/ftfntfmt.c',
           'src/base/ftlcdfil.c',
           'src/base/fttype1.c',
+          'src/base/ftbdf.c',
           'builds/unix/ftsystem.c',
          ],
   includes = ['include'],

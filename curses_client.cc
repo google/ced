@@ -17,21 +17,14 @@
 #include "application.h"
 #include "buffer.h"
 #include "client.h"
+#include "client_collaborator.h"
 #include "render.h"
-#include "terminal_collaborator.h"
 #include "terminal_color.h"
 
 // include last: curses.h obnoxiously #define's OK
 #include <curses.h>
 
-static std::atomic<bool> invalidated;
-void InvalidateTerminal() {
-  Log() << "InvalidatedTerminal";
-  invalidated = true;
-  kill(getpid(), SIGWINCH);
-}
-
-class Curses : public Application {
+class Curses final : public Application, public Device, public Invalidator {
  public:
   Curses(int argc, char** argv)
       : client_(argv[0], FileFromCmdLine(argc, argv)) {
@@ -53,23 +46,140 @@ class Curses : public Application {
     Log::SetCerrLog(true);
   }
 
-  int Run() {
+  void Invalidate() override {
+    invalidated_ = true;
+    kill(getpid(), SIGWINCH);
+  }
+
+  void ClipboardPut(const std::string& s) override { clipboard_ = s; }
+
+  std::string ClipboardGet() override { return clipboard_; }
+
+  void Paint(const Renderer* renderer, const Widget& widget) override {
+    auto e = renderer->extents();  // grab cached copy
+    PaintWindow(widget, 0, 0, e.win_width, e.win_height);
+  }
+
+  void PaintWindow(const Widget& widget, int parent_left, int parent_top,
+                   int parent_right, int parent_bottom) {
+    class Ctx final : public DeviceContext {
+     public:
+      Ctx(Curses* c, int ofsx, int ofsy, int left, int top, int right,
+          int bottom)
+          : c_(c),
+            ofsx_(ofsx),
+            ofsy_(ofsy),
+            left_(left),
+            top_(top),
+            right_(right),
+            bottom_(bottom) {}
+
+      int width() const override { return right_ - left_; }
+      int height() const override { return bottom_ - top_; }
+
+      void Fill(float left, float top, float right, float bottom,
+                Color color) override {
+        left = std::max(left_, static_cast<int>(left) + ofsx_);
+        right = std::min(right_, static_cast<int>(right) + ofsx_);
+        if (left >= right) return;
+        top = std::max(top_, static_cast<int>(top) + ofsy_);
+        bottom = std::min(bottom_, static_cast<int>(bottom) + ofsy_);
+        if (top >= bottom) return;
+        for (int y = top; y < bottom; y++) {
+          for (int x = left; x < right; x++) {
+            Cell& cell = c_->cells_[y * c_->fb_cols_ + x];
+            cell.c = ' ';
+            cell.fmt.background = color;
+          }
+        }
+      }
+
+      void PutText(float x, float y, const char* text, size_t length,
+                   Color color, Highlight highlight) override {
+        x += ofsx_;
+        y += ofsy_;
+        if (y < top_) return;
+        if (y >= bottom_) return;
+        if (x < left_) return;
+        if (x >= right_) return;
+        for (int i = 0; i < length && x + i < right_; i++) {
+          Cell& cell = c_->cells_[y * c_->fb_cols_ + x + i];
+          cell.c = text[i];
+          cell.fmt.foreground = color;
+          cell.fmt.highlight = highlight;
+        }
+      }
+
+      void MoveCursor(float row, float col) override {
+        Log() << "MoveCursor: " << row << "," << col << ": ofs=" << ofsy_ << ","
+              << ofsx_;
+        c_->cursor_row_ = -1;
+        c_->cursor_col_ = -1;
+        const int r = row + ofsy_;
+        const int c = col + ofsx_;
+        if (r < top_) return;
+        if (r >= bottom_) return;
+        if (c < left_) return;
+        if (c >= right_) return;
+        c_->cursor_row_ = r;
+        c_->cursor_col_ = c;
+      }
+
+     private:
+      Curses* const c_;
+      const int ofsx_;
+      const int ofsy_;
+      const int left_;
+      const int top_;
+      const int right_;
+      const int bottom_;
+    };
+    int left = std::max(static_cast<int>(widget.left().value()) + parent_left,
+                        parent_left);
+    int top = std::max(static_cast<int>(widget.top().value()) + parent_top,
+                       parent_top);
+    int right = std::min(static_cast<int>(widget.right().value()) + parent_left,
+                         parent_right);
+    int bottom = std::min(
+        static_cast<int>(widget.bottom().value()) + parent_top, parent_bottom);
+    Log() << "WIDGET " << widget.id() << " type " << widget.type()
+          << " parent (" << parent_left << "," << parent_top << ")-("
+          << parent_right << "," << parent_bottom << ")"
+          << " self (" << left << "," << top << ")-(" << right << "," << bottom
+          << ")";
+    Ctx ctx(this, parent_left, parent_top, left, top, right, bottom);
+    widget.PaintSelf(&ctx);
+    for (const auto* c : widget.children()) {
+      PaintWindow(*c, left, top, right, bottom);
+    }
+  }
+
+  Extents GetExtents() override {
+    int fb_rows, fb_cols;
+    getmaxyx(stdscr, fb_rows, fb_cols);
+    return Extents{fb_rows, fb_cols, 1, 1};
+  }
+
+  int Run() override {
     bool was_invalidated = false;
     absl::Time last_key_press = absl::Now();
     std::unique_ptr<LogTimer> log_timer(new LogTimer("main_loop"));
     for (;;) {
-      bool animating = false;
+      absl::optional<absl::Time> next_frame_time;
       if (was_invalidated) {
-        animating = true;
+        next_frame_time = absl::Now() + absl::Milliseconds(16);
         log_timer->Mark("animating_due_to_invalidated");
       } else {
         erase();
-        animating = Render(log_timer.get(), last_key_press);
+        next_frame_time = Render(log_timer.get(), last_key_press);
         log_timer->Mark("rendered");
       }
-      timeout(animating ? 10 : -1);
+      absl::Time now = absl::Now();
+      timeout(next_frame_time && *next_frame_time >= now
+                  ? ToInt64Milliseconds(*next_frame_time - now)
+                  : -1);
       if (!was_invalidated) log_timer.reset();
-      int c = invalidated ? -1 : getch();
+      int c = invalidated_ ? -1 : getch();
       if (!was_invalidated) log_timer.reset(new LogTimer("main_loop"));
       Log() << "GOTKEY: " << c;
       if (!was_invalidated) last_key_press = absl::Now();
@@ -84,16 +194,65 @@ class Curses : public Application {
           break;
         case 27:
           return 0;
+        case KEY_SLEFT:
+          renderer_.AddKbEvent("S-left");
+          break;
+        case KEY_LEFT:
+          renderer_.AddKbEvent("left");
+          break;
+        case KEY_SRIGHT:
+          renderer_.AddKbEvent("S-right");
+          break;
+        case KEY_RIGHT:
+          renderer_.AddKbEvent("right");
+          break;
+        case KEY_HOME:
+          renderer_.AddKbEvent("home");
+          break;
+        case KEY_END:
+          renderer_.AddKbEvent("end");
+          break;
+        case KEY_PPAGE:
+          renderer_.AddKbEvent("page-up");
+          break;
+        case KEY_NPAGE:
+          renderer_.AddKbEvent("page-down");
+          break;
+        case KEY_SR:  // shift down on my mac
+          renderer_.AddKbEvent("S-up");
+          break;
+        case KEY_SF:
+          renderer_.AddKbEvent("S-down");
+          break;
+        case KEY_UP:
+          renderer_.AddKbEvent("up");
+          break;
+        case KEY_DOWN:
+          renderer_.AddKbEvent("down");
+          break;
+        case '\n':
+          renderer_.AddKbEvent("ret");
+          break;
+        case 127:
+        case KEY_BACKSPACE:
+          renderer_.AddKbEvent("del");
+          break;
         default:
-          TerminalCollaborator::All_ProcessKey(&app_env_, c);
+          if (c >= 1 && c < 32) {
+            char code[4] = {'C', '-', static_cast<char>(c + 'a' - 1), 0};
+            renderer_.AddKbEvent(code);
+          } else if (c >= 32 && c < 127) {
+            char ch = c;
+            renderer_.AddKbEvent(absl::string_view(&ch, 1));
+          }
       }
 
       log_timer->Mark("input_processed");
 
       bool expected = true;
-      if (!invalidated.compare_exchange_strong(expected, false,
-                                               std::memory_order_relaxed,
-                                               std::memory_order_relaxed)) {
+      if (!invalidated_.compare_exchange_strong(expected, false,
+                                                std::memory_order_relaxed,
+                                                std::memory_order_relaxed)) {
         log_timer->Mark("clear_invalidated");
         was_invalidated = false;
       }
@@ -107,25 +266,27 @@ class Curses : public Application {
   }
 
  private:
-  bool Render(LogTimer* log_timer, absl::Time last_key_press) {
-    TerminalRenderer renderer;
-    int fb_rows, fb_cols;
-    getmaxyx(stdscr, fb_rows, fb_cols);
-    auto top = renderer.AddContainer(LAY_COLUMN).FixSize(fb_cols, fb_rows);
-    auto body = top.AddContainer(LAY_FILL, LAY_ROW);
-    TerminalRenderContainers containers{
-        body.AddContainer(LAY_LEFT | LAY_VFILL, LAY_ROW),
-        body.AddContainer(LAY_FILL, LAY_COLUMN),
-        top.AddContainer(LAY_BOTTOM | LAY_HFILL, LAY_COLUMN),
-        top.AddContainer(LAY_HFILL, LAY_ROW).FixSize(0, 1),
+  absl::optional<absl::Time> Render(LogTimer* log_timer,
+                                    absl::Time last_key_press) {
+    getmaxyx(stdscr, fb_rows_, fb_cols_);
+    cells_.resize(fb_rows_ * fb_cols_);
+    renderer_.BeginFrame();
+    auto top = renderer_.MakeRow(Widget::Options().set_id("top"));
+    RenderContainers containers{
+        top->MakeRow(Widget::Options().set_id("main")),
+        top->MakeColumn(Widget::Options().set_id("side_bar")),
     };
-    TerminalCollaborator::All_Render(containers);
+    ClientCollaborator::All_Render(containers, color_->theme());
     log_timer->Mark("collected_layout");
-    renderer.Layout();
-    log_timer->Mark("layout");
-    TerminalRenderContext ctx{color_.get(), nullptr, -1, -1, false};
-    renderer.Draw(&ctx);
-    log_timer->Mark("draw");
+    absl::optional<absl::Time> next_frame = renderer_.FinishFrame();
+    log_timer->Mark("drawn");
+
+    for (int i = 0; i < fb_rows_; i++) {
+      for (int j = 0; j < fb_cols_; j++) {
+        auto cell = cells_[i * fb_cols_ + j];
+        mvaddch(i, j, cell.c | color_->Lookup(cell.fmt));
+      }
+    }
 
     auto frame_time = absl::Now() - last_key_press;
     std::ostringstream out;
@@ -135,14 +296,18 @@ class Curses : public Application {
                       ? color_->Theme({"invalid"}, 0)
                       : color_->Theme({}, 0);
     for (size_t i = 0; i < ftstr.length(); i++) {
-      mvaddch(fb_rows - 1, fb_cols - ftstr.length() + i, ftstr[i] | attr);
+      mvaddch(fb_rows_ - 1, fb_cols_ - ftstr.length() + i, ftstr[i] | attr);
     }
 
-    if (ctx.crow != -1) {
-      move(ctx.crow, ctx.ccol);
+    Log() << "finally move cursor " << cursor_row_ << ", " << cursor_col_;
+    if (cursor_row_ != -1) {
+      move(cursor_row_, cursor_col_);
+      curs_set(1);
+    } else {
+      curs_set(0);
     }
 
-    return ctx.animating;
+    return next_frame;
   }
 
   static boost::filesystem::path FileFromCmdLine(int argc, char** argv) {
@@ -153,9 +318,20 @@ class Curses : public Application {
   }
 
   Client client_;
+  Renderer renderer_{this};
+  int cursor_row_ = -1;
+  int cursor_col_ = -1;
   std::unique_ptr<Buffer> buffer_;
   std::unique_ptr<TerminalColor> color_;
-  AppEnv app_env_;
+  std::string clipboard_;
+  std::atomic<bool> invalidated_;
+  struct Cell {
+    char c;
+    CharFmt fmt;
+  };
+  int fb_rows_;
+  int fb_cols_;
+  std::vector<Cell> cells_;
 };
 
 REGISTER_APPLICATION(Curses);
