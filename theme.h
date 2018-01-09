@@ -33,6 +33,7 @@ class Theme {
 
   static constexpr uint32_t HIGHLIGHT_LINE = 1;
   static constexpr uint32_t SELECTED = 2;
+  static constexpr uint32_t CARET = 4;
 
   typedef std::vector<std::string> Tag;
 

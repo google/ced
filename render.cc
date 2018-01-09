@@ -16,6 +16,8 @@
 #include "absl/strings/str_join.h"
 #include "log.h"
 
+static const auto kAnimatingFrameTime = absl::Milliseconds(16);
+
 Widget* Widget::MakeSimpleText(CharFmt fmt,
                                const std::vector<std::string>& text) {
   auto c = MakeContent();
@@ -273,7 +275,7 @@ bool Widget::Animator::DeclTarget(absl::Time time, double new_target) {
 
 double Widget::Animator::ValueAt(absl::Time time, Renderer* renderer) const {
   const double t = ScaleTime(time);
-  if (t < 1.0) renderer->animating_ = true;
+  if (t < 1.0) renderer->RefreshIn(kAnimatingFrameTime);
   const auto c = CalcCoefficients();
   return c.a * t * t * t + c.b * t * t + c.c * t + c.d;
 }
@@ -322,7 +324,7 @@ void Renderer::BeginFrame() {
   focus_widget_ = 0;
   EnterFrame(nullptr, DefaultOptions());
   frame_time_ = absl::Now();
-  animating_ = false;
+  next_frame_ = absl::optional<absl::Time>();
   extents_ = device_->GetExtents();
   Log() << "extents: sw=" << extents_.win_width
         << " sh=" << extents_.win_height;
@@ -390,9 +392,5 @@ absl::optional<absl::Time> Renderer::FinishFrame() {
     widgets_.erase(w);
   }
 
-  if (animating_) {
-    return frame_time_ + absl::Milliseconds(16);
-  } else {
-    return absl::optional<absl::Time>();
-  }
+  return next_frame_;
 }

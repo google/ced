@@ -244,10 +244,15 @@ class Device {
     int chr_width;
   };
 
-  virtual void Paint(const Renderer* renderer, const Widget& widget) = 0;
+  virtual void Paint(Renderer* renderer, const Widget& widget) = 0;
   virtual Extents GetExtents() = 0;
   virtual void ClipboardPut(const std::string& s) = 0;
   virtual std::string ClipboardGet() = 0;
+};
+
+enum CaretFlags {
+  CARET_PRIMARY = 1,
+  CARET_BLINKING = 2,
 };
 
 class DeviceContext {
@@ -255,7 +260,7 @@ class DeviceContext {
   virtual int width() const = 0;
   virtual int height() const = 0;
 
-  virtual void MoveCursor(float row, float col) = 0;
+  virtual void PutCaret(float x, float y, unsigned flags, Color color) = 0;
   virtual void Fill(float left, float top, float right, float bottom,
                     Color color) = 0;
   virtual void PutText(float x, float y, const char* text, size_t length,
@@ -280,11 +285,19 @@ class Renderer : public Widget {
     kbev_.append(event.data(), event.length());
   }
 
+  void RefreshIn(absl::Duration dt) {
+    auto when = frame_time_ + dt;
+    if (next_frame_ && *next_frame_ < when) return;
+    next_frame_ = when;
+  }
+
+  absl::Time frame_time() const { return frame_time_; }
+
  private:
   friend class Widget;
 
   Device* const device_;
-  bool animating_ = false;
+  absl::optional<absl::Time> next_frame_;
   absl::Time frame_time_;
   Device::Extents extents_;
   uint64_t focus_widget_ = 0;

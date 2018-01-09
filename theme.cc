@@ -125,6 +125,9 @@ CharFmt Theme::ThemeToken(Tag token, uint32_t flags) {
   if (flags & SELECTED) {
     background = Merge(composite.selection, background);
   }
+  if (flags & CARET) {
+    foreground = Merge(composite.caret, foreground);
+  }
 
   CharFmt result{foreground ? *foreground : Color{255, 255, 255, 255},
                  background ? *background : Color{0, 0, 0, 255},

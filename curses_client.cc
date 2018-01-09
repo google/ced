@@ -55,7 +55,7 @@ class Curses final : public Application, public Device, public Invalidator {
 
   std::string ClipboardGet() override { return clipboard_; }
 
-  void Paint(const Renderer* renderer, const Widget& widget) override {
+  void Paint(Renderer* renderer, const Widget& widget) override {
     auto e = renderer->extents();  // grab cached copy
     PaintWindow(widget, 0, 0, e.win_width, e.win_height);
   }
@@ -110,19 +110,29 @@ class Curses final : public Application, public Device, public Invalidator {
         }
       }
 
-      void MoveCursor(float row, float col) override {
-        Log() << "MoveCursor: " << row << "," << col << ": ofs=" << ofsy_ << ","
-              << ofsx_;
-        c_->cursor_row_ = -1;
-        c_->cursor_col_ = -1;
-        const int r = row + ofsy_;
-        const int c = col + ofsx_;
-        if (r < top_) return;
-        if (r >= bottom_) return;
-        if (c < left_) return;
-        if (c >= right_) return;
-        c_->cursor_row_ = r;
-        c_->cursor_col_ = c;
+      void PutCaret(float x, float y, unsigned flags, Color color) override {
+        if (flags == CARET_PRIMARY) {
+          Log() << "MoveCursor: " << x << "," << y << ": ofs=" << ofsx_ << ","
+                << ofsy_;
+          c_->cursor_row_ = -1;
+          c_->cursor_col_ = -1;
+          const int r = y + ofsy_;
+          const int c = x + ofsx_;
+          if (r < top_) return;
+          if (r >= bottom_) return;
+          if (c < left_) return;
+          if (c >= right_) return;
+          c_->cursor_row_ = r;
+          c_->cursor_col_ = c;
+        } else {
+          const int r = y + ofsy_;
+          const int c = x + ofsx_;
+          if (r < top_) return;
+          if (r >= bottom_) return;
+          if (c < left_) return;
+          if (c >= right_) return;
+          c_->cells_[r * c_->fb_cols_ + c].fmt.background = color;
+        }
       }
 
      private:

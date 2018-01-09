@@ -487,7 +487,9 @@ void Editor::RenderLine(DeviceContext* ctx, const Device::Extents& extents,
       if (it.is_visible() && it.id() != lit.id()) {
         if (it.value() == '\n') {
           if (it.id() == cursor) {
-            ctx->MoveCursor(y + extents.chr_height, 0);
+            ctx->PutCaret(0, y + extents.chr_height,
+                          CARET_PRIMARY | CARET_BLINKING,
+                          theme->ThemeToken(cd.tags, Theme::CARET).foreground);
           }
           break;
         } else {
@@ -501,7 +503,9 @@ void Editor::RenderLine(DeviceContext* ctx, const Device::Extents& extents,
         }
       }
       if (it.id() == cursor) {
-        ctx->MoveCursor(y, x_start + to_print.length() * extents.chr_width);
+        ctx->PutCaret(x_start + to_print.length() * extents.chr_width, y,
+                      CARET_PRIMARY | CARET_BLINKING,
+                      theme->ThemeToken(cd.tags, Theme::CARET).foreground);
       }
     }
     it.MoveNext();

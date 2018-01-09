@@ -36,6 +36,9 @@
 static const int kMsaaSampleCount = 0;  // 4;
 static const int kStencilBits = 8;      // Skia needs 8 stencil bits
 
+static const absl::Duration kCaretBlinkTime(absl::Milliseconds(500));
+static const absl::Time kCaretStartTime = absl::Now();
+
 static void ConfigureFontConfig() {
 #ifdef __APPLE__
   std::string config_prefix = R"(<?xml version="1.0"?>
@@ -79,7 +82,7 @@ class GUICtx {
     textual_paint_.setFlags(textual_paint_.getFlags() |
                             SkPaint::kSubpixelText_Flag |
                             SkPaint::kLCDRenderText_Flag);
-    textual_paint_.setTextSize(12);
+    textual_paint_.setTextSize(16);
   }
 
   SkCanvas* canvas() const { return canvas_; }
@@ -226,17 +229,33 @@ class GUI : public Application, public Device, public Invalidator {
     };
   }
 
-  void Paint(const Renderer* renderer, const Widget& widget) override {
+  void Paint(Renderer* renderer, const Widget& widget) override {
     class Ctx final : public DeviceContext {
      public:
-      Ctx(GUICtx* guictx)
+      Ctx(GUICtx* guictx, Renderer* renderer)
           : guictx_(guictx),
             canvas_(guictx->canvas()),
-            clip_bounds_(canvas_->getLocalClipBounds()) {}
+            clip_bounds_(canvas_->getLocalClipBounds()),
+            renderer_(renderer) {}
 
       int width() const override { return clip_bounds_.width(); }
       int height() const override { return clip_bounds_.height(); }
-      void MoveCursor(float row, float col) override {}
+      void PutCaret(float x, float y, unsigned flags, Color color) override {
+        bool draw = true;
+        if (flags & CARET_BLINKING) {
+          auto t = renderer_->frame_time() - kCaretStartTime;
+          auto cycle = t % (2 * kCaretBlinkTime);
+          draw = cycle < kCaretBlinkTime;
+          auto refresh = kCaretBlinkTime - t % kCaretBlinkTime;
+          Log() << "t:" << t << " cycle:" << cycle << " refresh:" << refresh;
+          renderer_->RefreshIn(refresh);
+        }
+        if (draw) {
+          SkPaint::FontMetrics metrics;
+          SkScalar spacing = guictx_->textual_paint().getFontMetrics(&metrics);
+          Fill(x - 1, y, x + 1, y + spacing, color);
+        }
+      }
 
       void Fill(float left, float top, float right, float bottom,
                 Color color) override {
@@ -258,6 +277,7 @@ class GUI : public Application, public Device, public Invalidator {
       GUICtx* const guictx_;
       SkCanvas* const canvas_;
       const SkRect clip_bounds_;
+      Renderer* const renderer_;
     };
     SkCanvas* canvas = ctx_->canvas();
     SkAutoCanvasRestore restore_canvas(canvas, true);
@@ -265,7 +285,7 @@ class GUI : public Application, public Device, public Invalidator {
     canvas->clipRect(
         SkRect::MakeWH(widget.right().value() - widget.left().value(),
                        widget.bottom().value() - widget.top().value()));
-    Ctx ctx(ctx_.get());
+    Ctx ctx(ctx_.get(), renderer);
     widget.PaintSelf(&ctx);
     for (const auto* c : widget.children()) {
       Paint(renderer, *c);
