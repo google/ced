@@ -79,6 +79,7 @@ class GUICtx {
     textual_paint_.setFlags(textual_paint_.getFlags() |
                             SkPaint::kSubpixelText_Flag |
                             SkPaint::kLCDRenderText_Flag);
+    textual_paint_.setTextSize(10);
   }
 
   SkCanvas* canvas() const { return canvas_; }
@@ -213,6 +214,12 @@ class GUI : public Application, public Device, public Invalidator {
   Extents GetExtents() override {
     SkPaint::FontMetrics metrics;
     SkScalar spacing = ctx_->textual_paint().getFontMetrics(&metrics);
+    Log() << "spacing:" << spacing
+          << " avg_char_width:" << metrics.fAvgCharWidth
+          << " text_size:" << ctx_->textual_paint().getTextSize()
+          << " top:" << metrics.fTop << " ascent:" << metrics.fAscent
+          << " descent:" << metrics.fDescent << " bottom:" << metrics.fBottom
+          << " leading:" << metrics.fLeading;
     return Extents{
         ctx_->height(), ctx_->width(), static_cast<int>(spacing),
         static_cast<int>(metrics.fAvgCharWidth),
@@ -242,7 +249,9 @@ class GUI : public Application, public Device, public Invalidator {
                    Highlight highlight) override {
         SkPaint paint = guictx_->textual_paint();
         paint.setColor(SkColorSetARGB(color.a, color.r, color.g, color.b));
-        canvas_->drawText(text, length, x, y, paint);
+        SkPaint::FontMetrics metrics;
+        paint.getFontMetrics(&metrics);
+        canvas_->drawText(text, length, x, y - metrics.fAscent, paint);
       }
 
      private:
