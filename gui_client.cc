@@ -79,7 +79,7 @@ class GUICtx {
     textual_paint_.setFlags(textual_paint_.getFlags() |
                             SkPaint::kSubpixelText_Flag |
                             SkPaint::kLCDRenderText_Flag);
-    textual_paint_.setTextSize(10);
+    textual_paint_.setTextSize(12);
   }
 
   SkCanvas* canvas() const { return canvas_; }
@@ -236,17 +236,17 @@ class GUI : public Application, public Device, public Invalidator {
 
       int width() const override { return clip_bounds_.width(); }
       int height() const override { return clip_bounds_.height(); }
-      void MoveCursor(int row, int col) override {}
+      void MoveCursor(float row, float col) override {}
 
-      void Fill(int left, int top, int right, int bottom,
+      void Fill(float left, float top, float right, float bottom,
                 Color color) override {
         SkPaint paint = guictx_->textual_paint();
         paint.setColor(SkColorSetARGB(color.a, color.r, color.g, color.b));
         canvas_->drawRect(SkRect::MakeLTRB(left, top, right, bottom), paint);
       }
 
-      void PutText(int x, int y, const char* text, size_t length, Color color,
-                   Highlight highlight) override {
+      void PutText(float x, float y, const char* text, size_t length,
+                   Color color, Highlight highlight) override {
         SkPaint paint = guictx_->textual_paint();
         paint.setColor(SkColorSetARGB(color.a, color.r, color.g, color.b));
         SkPaint::FontMetrics metrics;

@@ -255,9 +255,10 @@ class DeviceContext {
   virtual int width() const = 0;
   virtual int height() const = 0;
 
-  virtual void MoveCursor(int row, int col) = 0;
-  virtual void Fill(int left, int top, int right, int bottom, Color color) = 0;
-  virtual void PutText(int x, int y, const char* text, size_t length,
+  virtual void MoveCursor(float row, float col) = 0;
+  virtual void Fill(float left, float top, float right, float bottom,
+                    Color color) = 0;
+  virtual void PutText(float x, float y, const char* text, size_t length,
                        Color color, Highlight highlight) = 0;
 };
 

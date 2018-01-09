@@ -77,13 +77,13 @@ class Curses final : public Application, public Device, public Invalidator {
       int width() const override { return right_ - left_; }
       int height() const override { return bottom_ - top_; }
 
-      void Fill(int left, int top, int right, int bottom,
+      void Fill(float left, float top, float right, float bottom,
                 Color color) override {
-        left = std::max(left_, left + ofsx_);
-        right = std::min(right_, right + ofsx_);
+        left = std::max(left_, static_cast<int>(left) + ofsx_);
+        right = std::min(right_, static_cast<int>(right) + ofsx_);
         if (left >= right) return;
-        top = std::max(top_, top + ofsy_);
-        bottom = std::min(bottom_, bottom + ofsy_);
+        top = std::max(top_, static_cast<int>(top) + ofsy_);
+        bottom = std::min(bottom_, static_cast<int>(bottom) + ofsy_);
         if (top >= bottom) return;
         for (int y = top; y < bottom; y++) {
           for (int x = left; x < right; x++) {
@@ -94,8 +94,8 @@ class Curses final : public Application, public Device, public Invalidator {
         }
       }
 
-      void PutText(int x, int y, const char* text, size_t length, Color color,
-                   Highlight highlight) override {
+      void PutText(float x, float y, const char* text, size_t length,
+                   Color color, Highlight highlight) override {
         x += ofsx_;
         y += ofsy_;
         if (y < top_) return;
@@ -110,7 +110,7 @@ class Curses final : public Application, public Device, public Invalidator {
         }
       }
 
-      void MoveCursor(int row, int col) override {
+      void MoveCursor(float row, float col) override {
         Log() << "MoveCursor: " << row << "," << col << ": ofs=" << ofsy_ << ","
               << ofsx_;
         c_->cursor_row_ = -1;
