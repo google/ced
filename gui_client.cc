@@ -160,7 +160,7 @@ class GUI : public Application, public Device, public Invalidator {
     /*
      * In a real application you might want to initialize more subsystems
      */
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_TIMER) != 0) {
       throw std::runtime_error(SDL_GetError());
     }
 
@@ -335,21 +335,25 @@ class GUI : public Application, public Device, public Invalidator {
   }
 
   void Invalidate() override {
+    InvalidateAfter(10);
+  }
+
+  void InvalidateAfter(int millis) {
+    Log() << "InvalidateAfter: " << millis;
     auto fn_at_inval = frame_number_;
-    After(10, [this, fn_at_inval]() { return frame_number_ == fn_at_inval; });
+    After(millis, [this, fn_at_inval]() { Log() << "inval:" << frame_number_ << ":" << fn_at_inval; return frame_number_ == fn_at_inval; });
   }
 
   void HandleEvents(absl::optional<absl::Time> end_time) {
     SDL_Event event;
-    std::function<bool(SDL_Event*)> next_event;
+    std::function<bool(SDL_Event*)> next_event = [](SDL_Event* ev) { return SDL_WaitEvent(ev); };
     if (end_time) {
-      next_event = [end_time](SDL_Event* ev) {
-        auto now = absl::Now();
-        if (*end_time < now) return SDL_PollEvent(ev);
-        return SDL_WaitEventTimeout(ev, ToInt64Milliseconds(*end_time - now));
-      };
-    } else {
-      next_event = [](SDL_Event* ev) { return SDL_WaitEvent(ev); };
+      absl::Time now = absl::Now();
+      if (*end_time < now) {
+        next_event = [](SDL_Event* ev) { return SDL_PollEvent(ev); };
+      } else {
+        InvalidateAfter(absl::ToInt64Milliseconds(*end_time - now));
+      }
     }
     bool brk = false;
     while (next_event(&event)) {
@@ -394,13 +398,6 @@ class GUI : public Application, public Device, public Invalidator {
           } else if (!key_name.empty()) {
             renderer_.AddKbEvent(key_name);
           }
-#if 0
-          if (key == SDLK_ESCAPE) {
-            done_ = true;
-          } else {
-
-          }
-#endif
           brk = true;
           break;
         }
