@@ -207,7 +207,7 @@ git_repository(
 new_git_repository(
     name = "cityhash",
     remote = "https://github.com/google/cityhash.git",
-    commit = "8af9b8c",
+    commit = "8af9b8c2b889d80c22d6bc26ba0df1afb79a30db",
     build_file_content = """
 genrule(
   name = 'cnfig',
@@ -262,7 +262,7 @@ cc_library(
 git_repository(
   name = "skia",
   remote = "https://github.com/ctiller/skia.git",
-  commit = "d87da72",
+  commit = "d87da723ceff7f5463143a4269627b55c3ed1a07",
 )
 
 new_http_archive(

@@ -371,16 +371,16 @@ genrule(
 
 # fake urllib2.py to keep build hermetic
 genrule(
-  name = 'fakeurl',
-  outs = ['fc-blanks/urllib2.py'],
-  cmd = 'echo "class URLError: pass; def urlopen(*args): raise URLError();" > $(OUTS)'
+  name = 'run-with-fake-urllib2_py',
+  outs = ['run-with-fake-urllib2.py'],
+  cmd = 'printf "import urllib\ndef urlopen(*args):\n  raise urllib.URLError()\nurllib.urlopen = urlopen\nimport imp\nimport sys\nimp.load_source(\'main\', sys.argv[1])\n" > $(OUTS)'
 )
 
 genrule(
   name = 'fcblanks_rule',
-  srcs = ['fc-blanks/fcblanks.tmpl.h', 'fc-blanks/fc-blanks.py', 'fc-blanks/urllib2.py'],
+  srcs = ['fc-blanks/fcblanks.tmpl.h', 'fc-blanks/fc-blanks.py', 'run-with-fake-urllib2.py'],
   outs = ['fc-blanks/fcblanks.h'],
-  cmd = './$(location fc-blanks/fc-blanks.py) < $(location fc-blanks/fcblanks.tmpl.h) > $(OUTS)'
+  cmd = 'python $(location run-with-fake-urllib2.py) $(location fc-blanks/fc-blanks.py) < $(location fc-blanks/fcblanks.tmpl.h) > $(OUTS)'
 )
 
 genrule(

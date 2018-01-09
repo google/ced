@@ -30,13 +30,20 @@ int main(int argc, char** argv) {
     Log() << args->file << ":" << args->line << ": " << args->message;
   });
 
-  try {
-    return Application::RunMode(FLAGS_mode, argc, argv);
-  } catch (std::exception& e) {
-    Log() << "FATAL EXCEPTION: " << e.what();
-    return 1;
-  } catch (...) {
-    Log() << "FATAL EXCEPTION";
-    return 1;
+  for (;;) {
+    try {
+      return Application::RunMode(FLAGS_mode, argc, argv);
+    } catch (std::exception& e) {
+      Log() << "FATAL EXCEPTION: " << e.what();
+      if (FLAGS_mode == "GUI") {
+        Log() << "Try again with Curses";
+        FLAGS_mode = "Curses";
+        continue;
+      }
+      return 1;
+    } catch (...) {
+      Log() << "FATAL EXCEPTION";
+      return 1;
+    }
   }
 }

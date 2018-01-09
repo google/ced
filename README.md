@@ -38,3 +38,6 @@ BUILD REQUIREMENTS
 - pip install lxml
 - gperf
 
+Linux only:
+- opengl headers
+
