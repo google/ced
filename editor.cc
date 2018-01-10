@@ -377,7 +377,7 @@ void Editor::Render(Theme* theme, Widget* parent) {
       [line_cr, cursor_line, cursor, ex, theme, content](DeviceContext* ctx) {
         ctx->Fill(0, 0, ctx->width(), ctx->height(),
                   theme->ThemeToken({}, 0).background);
-        int cl = cursor_line.value() * ex.chr_height;
+        float cl = cursor_line.value() * ex.chr_height;
         ctx->Fill(0, cl, ctx->width(), cl + ex.chr_height,
                   theme->ThemeToken({}, Theme::HIGHLIGHT_LINE).background);
         AnnotatedString::LineIterator line_bk = line_cr;

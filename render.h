@@ -238,10 +238,10 @@ class Widget {
 class Device {
  public:
   struct Extents {
-    int win_height;
-    int win_width;
-    int chr_height;
-    int chr_width;
+    float win_height;
+    float win_width;
+    float chr_height;
+    float chr_width;
   };
 
   virtual void Paint(Renderer* renderer, const Widget& widget) = 0;

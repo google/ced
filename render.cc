@@ -329,7 +329,9 @@ void Renderer::BeginFrame() {
   Log() << "extents: sw=" << extents_.win_width
         << " sh=" << extents_.win_height;
   solver_->add_constraints({
-      left_ == 0, top_ == 0, right_ == extents_.win_width,
+      left_ == 0,
+      top_ == 0,
+      right_ == extents_.win_width,
       bottom_ == extents_.win_height,
   });
 }

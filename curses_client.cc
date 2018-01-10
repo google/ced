@@ -167,7 +167,8 @@ class Curses final : public Application, public Device, public Invalidator {
   Extents GetExtents() override {
     int fb_rows, fb_cols;
     getmaxyx(stdscr, fb_rows, fb_cols);
-    return Extents{fb_rows, fb_cols, 1, 1};
+    return Extents{static_cast<float>(fb_rows), static_cast<float>(fb_cols), 1,
+                   1};
   }
 
   int Run() override {

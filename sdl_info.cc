@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include <stdlib.h>
-#include "application.h"
 #include "SDL.h"
+#include "application.h"
 
 class SDLInfo final : public Application {
  public:
@@ -24,7 +24,7 @@ class SDLInfo final : public Application {
       printf("NO VIDEO DRIVERS\n");
     } else {
       printf("VIDEO DRIVERS:\n");
-      for (int i=0; i<SDL_GetNumVideoDrivers(); i++) {
+      for (int i = 0; i < SDL_GetNumVideoDrivers(); i++) {
         printf("  %d. %s\n", i, SDL_GetVideoDriver(i));
       }
     }

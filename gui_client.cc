@@ -53,10 +53,11 @@ static void ConfigureFontConfig() {
   std::string config_suffix = "</fontconfig>";
   FcConfig* cfg = FcConfigCreate();
   FcConfigParseAndLoadFromMemory(
-      cfg, reinterpret_cast<const FcChar8*>(
-               absl::StrCat(config_prefix, default_dirs, fontconfig_conf_files,
-                            config_suffix)
-                   .c_str()),
+      cfg,
+      reinterpret_cast<const FcChar8*>(absl::StrCat(config_prefix, default_dirs,
+                                                    fontconfig_conf_files,
+                                                    config_suffix)
+                                           .c_str()),
       true);
   FcConfigSetCurrent(cfg);
 #endif
@@ -224,8 +225,10 @@ class GUI : public Application, public Device, public Invalidator {
           << " descent:" << metrics.fDescent << " bottom:" << metrics.fBottom
           << " leading:" << metrics.fLeading;
     return Extents{
-        ctx_->height(), ctx_->width(), static_cast<int>(spacing),
-        static_cast<int>(metrics.fAvgCharWidth),
+        static_cast<float>(ctx_->height()),
+        static_cast<float>(ctx_->width()),
+        spacing,
+        metrics.fAvgCharWidth,
     };
   }
 
@@ -247,7 +250,6 @@ class GUI : public Application, public Device, public Invalidator {
           auto cycle = t % (2 * kCaretBlinkTime);
           draw = cycle < kCaretBlinkTime;
           auto refresh = kCaretBlinkTime - t % kCaretBlinkTime;
-          Log() << "t:" << t << " cycle:" << cycle << " refresh:" << refresh;
           renderer_->RefreshIn(refresh);
         }
         if (draw) {
@@ -334,19 +336,19 @@ class GUI : public Application, public Device, public Invalidator {
     SDL_AddTimer(millis, TimerCB, new std::function<void()>(cb));
   }
 
-  void Invalidate() override {
-    InvalidateAfter(10);
-  }
+  void Invalidate() override { InvalidateAfter(10); }
 
   void InvalidateAfter(int millis) {
-    Log() << "InvalidateAfter: " << millis;
     auto fn_at_inval = frame_number_;
-    After(millis, [this, fn_at_inval]() { Log() << "inval:" << frame_number_ << ":" << fn_at_inval; return frame_number_ == fn_at_inval; });
+    After(millis,
+          [this, fn_at_inval]() { return frame_number_ == fn_at_inval; });
   }
 
   void HandleEvents(absl::optional<absl::Time> end_time) {
     SDL_Event event;
-    std::function<bool(SDL_Event*)> next_event = [](SDL_Event* ev) { return SDL_WaitEvent(ev); };
+    std::function<bool(SDL_Event*)> next_event = [](SDL_Event* ev) {
+      return SDL_WaitEvent(ev);
+    };
     if (end_time) {
       absl::Time now = absl::Now();
       if (*end_time < now) {
@@ -389,10 +391,14 @@ class GUI : public Application, public Device, public Invalidator {
             case SDLK_ESCAPE:
               key_name += "esc";
               break;
+            case SDLK_BACKSPACE:
+              key_name += "del";
+              break;
             default:
               key_name.clear();
           }
-          Log() << "key:" << key << " mod:" << mod << " name:" << key_name;
+          Log() << "key:" << key << " mod:" << mod << " name:" << key_name
+                << " repeat:" << event.key.repeat;
           if (key_name == "esc") {
             done_ = true;
           } else if (!key_name.empty()) {
