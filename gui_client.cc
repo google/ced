@@ -74,23 +74,44 @@ class GUICtx {
             &props_)),
         canvas_(surface_->getCanvas()) {
     SkASSERT(grcontext_);
-
-    textual_paint_.setColor(SK_ColorBLACK);
-    textual_paint_.setTypeface(
-        SkTypeface::MakeFromName("Fira Code", SkFontStyle()));
-    textual_paint_.setAntiAlias(true);
-    textual_paint_.setHinting(SkPaint::kFull_Hinting);
-    textual_paint_.setFlags(textual_paint_.getFlags() |
-                            SkPaint::kSubpixelText_Flag |
-                            SkPaint::kLCDRenderText_Flag);
-    textual_paint_.setTextSize(16);
   }
 
   SkCanvas* canvas() const { return canvas_; }
   int width() const { return winsz_.width; }
   int height() const { return winsz_.height; }
 
-  const SkPaint& textual_paint() { return textual_paint_; }
+  const SkPaint& PaintFor(Color color, Highlight highlight) {
+    auto key = std::make_tuple(color, highlight);
+    auto it = text_paints_.find(key);
+    if (it == text_paints_.end()) {
+      SkPaint p;
+      p.setColor(SkColorSetARGB(color.a, color.r, color.g, color.b));
+      switch (highlight) {
+        case Highlight::UNSET:
+        case Highlight::NONE:
+        case Highlight::STRIKE:
+        case Highlight::UNDERLINE:
+          p.setTypeface(
+              SkTypeface::MakeFromName("Fira Code", SkFontStyle::Normal()));
+          break;
+        case Highlight::BOLD:
+          p.setTypeface(
+              SkTypeface::MakeFromName("Fira Code", SkFontStyle::Bold()));
+          break;
+        case Highlight::ITALIC:
+          p.setTypeface(
+              SkTypeface::MakeFromName("Fira Code", SkFontStyle::Italic()));
+          break;
+      }
+      p.setAntiAlias(true);
+      p.setHinting(SkPaint::kFull_Hinting);
+      p.setFlags(p.getFlags() | SkPaint::kSubpixelText_Flag |
+                 SkPaint::kLCDRenderText_Flag);
+      p.setTextSize(16);
+      it = text_paints_.emplace(key, p).first;
+    }
+    return it->second;
+  }
 
  private:
   struct WinSz {
@@ -116,7 +137,7 @@ class GUICtx {
   SkSurfaceProps props_{SkSurfaceProps::kLegacyFontHost_InitType};
   const sk_sp<SkSurface> surface_;
   SkCanvas* canvas_;
-  SkPaint textual_paint_;
+  std::map<std::tuple<Color, Highlight>, SkPaint> text_paints_;
 };
 
 class GUI : public Application, public Device, public Invalidator {
@@ -217,13 +238,8 @@ class GUI : public Application, public Device, public Invalidator {
 
   Extents GetExtents() override {
     SkPaint::FontMetrics metrics;
-    SkScalar spacing = ctx_->textual_paint().getFontMetrics(&metrics);
-    Log() << "spacing:" << spacing
-          << " avg_char_width:" << metrics.fAvgCharWidth
-          << " text_size:" << ctx_->textual_paint().getTextSize()
-          << " top:" << metrics.fTop << " ascent:" << metrics.fAscent
-          << " descent:" << metrics.fDescent << " bottom:" << metrics.fBottom
-          << " leading:" << metrics.fLeading;
+    SkScalar spacing =
+        ctx_->PaintFor(Color(), Highlight::NONE).getFontMetrics(&metrics);
     return Extents{
         static_cast<float>(ctx_->height()),
         static_cast<float>(ctx_->width()),
@@ -254,25 +270,29 @@ class GUI : public Application, public Device, public Invalidator {
         }
         if (draw) {
           SkPaint::FontMetrics metrics;
-          SkScalar spacing = guictx_->textual_paint().getFontMetrics(&metrics);
+          SkScalar spacing = guictx_->PaintFor(Color(), Highlight::NONE)
+                                 .getFontMetrics(&metrics);
           Fill(x - 1, y, x + 1, y + spacing, color);
         }
       }
 
       void Fill(float left, float top, float right, float bottom,
                 Color color) override {
-        SkPaint paint = guictx_->textual_paint();
-        paint.setColor(SkColorSetARGB(color.a, color.r, color.g, color.b));
-        canvas_->drawRect(SkRect::MakeLTRB(left, top, right, bottom), paint);
+        canvas_->drawRect(SkRect::MakeLTRB(left, top, right, bottom),
+                          guictx_->PaintFor(color, Highlight::NONE));
       }
 
-      void PutText(float x, float y, const char* text, size_t length,
-                   Color color, Highlight highlight) override {
-        SkPaint paint = guictx_->textual_paint();
-        paint.setColor(SkColorSetARGB(color.a, color.r, color.g, color.b));
-        SkPaint::FontMetrics metrics;
-        paint.getFontMetrics(&metrics);
-        canvas_->drawText(text, length, x, y - metrics.fAscent, paint);
+      void PutText(float x, float y, const TextElem* text,
+                   size_t length) override {
+        for (size_t i = 0; i < length; i++) {
+          char c = text[i].ch;
+          const SkPaint& paint =
+              guictx_->PaintFor(text[i].color, text[i].highlight);
+          SkPaint::FontMetrics metrics;
+          paint.getFontMetrics(&metrics);
+          canvas_->drawText(&c, 1, x, y - metrics.fAscent, paint);
+          x += paint.measureText(&c, 1, nullptr);
+        }
       }
 
      private:

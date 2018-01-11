@@ -94,8 +94,8 @@ class Curses final : public Application, public Device, public Invalidator {
         }
       }
 
-      void PutText(float x, float y, const char* text, size_t length,
-                   Color color, Highlight highlight) override {
+      void PutText(float x, float y, const TextElem* text,
+                   size_t length) override {
         x += ofsx_;
         y += ofsy_;
         if (y < top_) return;
@@ -104,9 +104,9 @@ class Curses final : public Application, public Device, public Invalidator {
         if (x >= right_) return;
         for (int i = 0; i < length && x + i < right_; i++) {
           Cell& cell = c_->cells_[y * c_->fb_cols_ + x + i];
-          cell.c = text[i];
-          cell.fmt.foreground = color;
-          cell.fmt.highlight = highlight;
+          cell.c = text[i].ch;
+          cell.fmt.foreground = text[i].color;
+          cell.fmt.highlight = text[i].highlight;
         }
       }
 

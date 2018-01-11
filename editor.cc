@@ -462,21 +462,7 @@ void Editor::RenderLine(DeviceContext* ctx, const Device::Extents& extents,
   AnnotatedString::AllIterator it = lit.AsAllIterator();
   const uint32_t base_flags = highlight ? Theme::HIGHLIGHT_LINE : 0;
   GutterVec gutter_annotations;
-  int x_start = 0;
-  std::string to_print;
-  const CharFmt base_fmt = theme->ThemeToken({}, base_flags);
-  CharFmt fmt = base_fmt;
-  auto flush_print = [&]() {
-    if (to_print.empty()) return;
-    int x_end = x_start + extents.chr_width * to_print.length();
-    if (fmt.background != base_fmt.background) {
-      ctx->Fill(x_start, y, x_end, y + extents.chr_height, fmt.background);
-    }
-    ctx->PutText(x_start, y, to_print.data(), to_print.length(), fmt.foreground,
-                 fmt.highlight);
-    x_start = x_end;
-    to_print.clear();
-  };
+  std::vector<DeviceContext::TextElem> to_print;
   while (it.id() != AnnotatedString::End()) {
     if (it.is_visible() || it.is_begin()) {
       CharDet cd(base_flags, &gutter_annotations);
@@ -494,23 +480,20 @@ void Editor::RenderLine(DeviceContext* ctx, const Device::Extents& extents,
           break;
         } else {
           char c = it.value();
-          auto cfmt = theme->ThemeToken(cd.tags, cd.chr_flags);
-          if (cfmt != fmt) {
-            flush_print();
-            fmt = cfmt;
-          }
-          to_print += c;
+          auto fmt = theme->ThemeToken(cd.tags, cd.chr_flags);
+          to_print.emplace_back(DeviceContext::TextElem{
+              static_cast<uint32_t>(c), fmt.foreground, fmt.highlight});
         }
       }
       if (it.id() == cursor) {
-        ctx->PutCaret(x_start + to_print.length() * extents.chr_width, y,
+        ctx->PutCaret(to_print.size() * extents.chr_width, y,
                       CARET_PRIMARY | CARET_BLINKING,
                       theme->ThemeToken(cd.tags, Theme::CARET).foreground);
       }
     }
     it.MoveNext();
   }
-  flush_print();
+  ctx->PutText(0, y, to_print.data(), to_print.size());
   std::string gutter = absl::StrJoin(gutter_annotations, ",");
   int x = ctx->width() - gutter.length() * extents.chr_width;
   CharFmt fill_attr =

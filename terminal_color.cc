@@ -104,6 +104,25 @@ chtype TerminalColor::Lookup(CharFmt fmt) {
     Log() << init_pair(n, fg, bg);
     pit = pair_cache_.insert(std::make_pair(std::make_pair(fg, bg), n)).first;
   }
-  return cfcache_.insert(std::make_pair(fmt, COLOR_PAIR(pit->second)))
+  chtype highlight_or = 0;
+  switch (fmt.highlight) {
+    case Highlight::UNSET:
+    case Highlight::NONE:
+      break;
+    case Highlight::UNDERLINE:
+      highlight_or = A_UNDERLINE;
+      break;
+    case Highlight::BOLD:
+      highlight_or = A_BOLD;
+      break;
+    case Highlight::ITALIC:
+      highlight_or = A_ITALIC;
+      break;
+    case Highlight::STRIKE:
+      highlight_or = A_BLINK;
+      break;
+  }
+  return cfcache_
+      .insert(std::make_pair(fmt, COLOR_PAIR(pit->second) | highlight_or))
       .first->second;
 }

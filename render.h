@@ -263,8 +263,22 @@ class DeviceContext {
   virtual void PutCaret(float x, float y, unsigned flags, Color color) = 0;
   virtual void Fill(float left, float top, float right, float bottom,
                     Color color) = 0;
-  virtual void PutText(float x, float y, const char* text, size_t length,
-                       Color color, Highlight highlight) = 0;
+  struct TextElem {
+    uint32_t ch;
+    Color color;
+    Highlight highlight;
+  };
+  virtual void PutText(float x, float y, const TextElem* text,
+                       size_t length) = 0;
+  void PutText(float x, float y, const char* text, size_t length, Color color,
+               Highlight highlight) {
+    std::vector<TextElem> te;
+    for (size_t i = 0; i < length; i++) {
+      te.emplace_back(
+          TextElem{static_cast<uint32_t>(text[i]), color, highlight});
+    }
+    PutText(x, y, te.data(), te.size());
+  }
 };
 
 class Renderer : public Widget {
