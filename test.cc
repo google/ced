@@ -16,7 +16,7 @@
 
 class X final {
  public:
-  int foo() { return 0; }
+  int foo() { return 0; };
 };
 
 // This is just an example struct
@@ -25,7 +25,7 @@ struct A {
   double b;
   int i : 1;
   int j : 2;
-  int k : 3;
+  int k : 1;
   int l : 1;
   int m : 1;
   int n;

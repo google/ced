@@ -463,6 +463,7 @@ void Editor::RenderLine(DeviceContext* ctx, const Device::Extents& extents,
   const uint32_t base_flags = highlight ? Theme::HIGHLIGHT_LINE : 0;
   GutterVec gutter_annotations;
   std::vector<DeviceContext::TextElem> to_print;
+  CharFmt base_fmt = theme->ThemeToken({}, 0);
   while (it.id() != AnnotatedString::End()) {
     if (it.is_visible() || it.is_begin()) {
       CharDet cd(base_flags, &gutter_annotations);
@@ -481,6 +482,9 @@ void Editor::RenderLine(DeviceContext* ctx, const Device::Extents& extents,
         } else {
           char c = it.value();
           auto fmt = theme->ThemeToken(cd.tags, cd.chr_flags);
+          if (fmt.background != base_fmt.background) {
+            ctx->Fill(to_print.size() * extents.chr_width, y, (to_print.size()+1) * extents.chr_width, y + extents.chr_height, fmt.background);
+          }
           to_print.emplace_back(DeviceContext::TextElem{
               static_cast<uint32_t>(c), fmt.foreground, fmt.highlight});
         }

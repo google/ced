@@ -116,7 +116,9 @@ chtype TerminalColor::Lookup(CharFmt fmt) {
       highlight_or = A_BOLD;
       break;
     case Highlight::ITALIC:
+#ifdef A_ITALIC
       highlight_or = A_ITALIC;
+#endif
       break;
     case Highlight::STRIKE:
       highlight_or = A_BLINK;
