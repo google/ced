@@ -131,7 +131,7 @@ class Widget {
   uint64_t id() const { return id_; }
 
   static const Options& DefaultOptions() {
-    static const Options options;
+    static const Options options{};
     return options;
   }
 

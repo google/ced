@@ -414,6 +414,12 @@ class GUI : public Application, public Device, public Invalidator {
             case SDLK_BACKSPACE:
               key_name += "del";
               break;
+            case SDLK_END:
+              key_name += "end";
+              break;
+            case SDLK_HOME:
+              key_name += "home";
+              break;
             default:
               key_name.clear();
           }
