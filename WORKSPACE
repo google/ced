@@ -14,6 +14,9 @@
 
 workspace(name = "ced")
 
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository", "new_git_repository")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 git_repository(
   name="com_google_absl",
   commit="6cf9c731027f4d8aebe3c60df8e64317e6870870",
@@ -49,7 +52,7 @@ cc_library(
   """
 )
 
-new_http_archive(
+http_archive(
   name="pugixml",
   urls = ["https://github.com/zeux/pugixml/releases/download/v1.8.1/pugixml-1.8.1.tar.gz"],
   strip_prefix = "pugixml-1.8",
@@ -63,18 +66,18 @@ cc_library(
   """
 )
 
-new_http_archive(
+http_archive(
   name="clang_linux",
   urls = ["http://releases.llvm.org/5.0.0/clang+llvm-5.0.0-linux-x86_64-ubuntu14.04.tar.xz"],
   strip_prefix = "clang+llvm-5.0.0-linux-x86_64-ubuntu14.04",
-  build_file = "BUILD.clang.linux"
+  build_file = "@//:BUILD.clang.linux"
 )
 
-new_http_archive(
+http_archive(
   name="clang_mac",
   urls = ["http://releases.llvm.org/5.0.0/clang+llvm-5.0.0-x86_64-apple-darwin.tar.xz"],
   strip_prefix = "clang+llvm-5.0.0-x86_64-apple-darwin",
-  build_file = "BUILD.clang.mac"
+  build_file = "@//:BUILD.clang.mac"
 )
 
 http_archive(
@@ -83,7 +86,7 @@ http_archive(
     strip_prefix = 're2-2017-11-01'
 )
 
-new_http_archive(
+http_archive(
   name="one_dark",
   urls = ["https://github.com/andresmichel/one-dark-theme/archive/1.3.6.tar.gz"],
   strip_prefix = "one-dark-theme-1.3.6",
@@ -96,7 +99,7 @@ filegroup(
   """
 )
 
-new_http_archive(
+http_archive(
   name="material",
   urls = ["https://github.com/equinusocio/material-theme/archive/v4.1.2.tar.gz"],
   strip_prefix = "material-theme-4.1.2",
@@ -109,7 +112,7 @@ filegroup(
   """
 )
 
-new_http_archive(
+http_archive(
   name='rhea',
   urls=['https://github.com/Nocte-/rhea/archive/0.2.4.tar.gz'],
   strip_prefix='rhea-0.2.4',
@@ -165,7 +168,7 @@ cc_library(
     """
 )
 
-new_http_archive(
+http_archive(
   name = "compiledb",
   urls = ['https://github.com/grailbio/bazel-compilation-database/archive/0.2.tar.gz'],
   strip_prefix = 'bazel-compilation-database-0.2',
@@ -178,7 +181,7 @@ filegroup(
   """
 )
 
-new_http_archive(
+http_archive(
   name = "json",
   urls = ['https://github.com/nlohmann/json/archive/v2.1.1.tar.gz'],
   strip_prefix = 'json-2.1.1',
@@ -230,19 +233,19 @@ cc_library(
 #
 
 git_repository(
-    name = "com_github_nelhage_boost",
-    commit = 'd6446dc9de6e43b039af07482a9361bdc6da5237',
+    name = "com_github_nelhage_rules_boost",
+    commit = 'a5a95642f6097f8949020646ffe89d7243008981',
     remote = "https://github.com/nelhage/rules_boost",
 )
 
-load("@com_github_nelhage_boost//:boost/boost.bzl", "boost_deps")
+load("@com_github_nelhage_rules_boost//:boost/boost.bzl", "boost_deps")
 boost_deps()
 
 #
 # imgui
 #
 
-new_http_archive(
+http_archive(
       name = "dear_imgui",
       urls = ['https://github.com/ocornut/imgui/archive/v1.52.tar.gz'],
       strip_prefix = 'imgui-1.52',
@@ -255,93 +258,30 @@ cc_library(
       """
 )
 
-#
-# Skia
-#
-
-git_repository(
-  name = "skia",
-  remote = "https://github.com/ctiller/skia.git",
-  commit = "d87da723ceff7f5463143a4269627b55c3ed1a07",
-)
-
-new_http_archive(
-    name = "jpeg",
-    urls = [
-        "https://mirror.bazel.build/github.com/libjpeg-turbo/libjpeg-turbo/archive/1.5.1.tar.gz",
-        "https://github.com/libjpeg-turbo/libjpeg-turbo/archive/1.5.1.tar.gz",
-    ],
-    sha256 = "c15a9607892113946379ccea3ca8b85018301b200754f209453ab21674268e77",
-    strip_prefix = "libjpeg-turbo-1.5.1",
-    build_file = "BUILD.libjpeg",
-)
-
-new_http_archive(
-    name = "freetype",
-    urls = [
-        "https://download.savannah.gnu.org/releases/freetype/freetype-2.8.1.tar.bz2",
-    ],
-    strip_prefix = "freetype-2.8.1",
-    build_file = "BUILD.freetype",
-)
-
-new_git_repository(
-    name = "fontconfig",
-    remote = "https://anongit.freedesktop.org/git/fontconfig",
-    tag = "2.12.6",
-    build_file = "BUILD.fontconfig"
-)
-
-new_git_repository(
-    name = "sfntly",
-    remote = "https://github.com/rillig/sfntly",
-    commit = "71b36ba9b512ddae85be6f9a3f6a3e808ae3ba82",
-    build_file = "BUILD.sfntly",
-)
-
-#git_repository(
-#    name = "com_github_spinorx_icu",
-#    remote = "https://github.com/spinorx/icu.git",
-#    tag = "v59.1.use"
-#)
-
-new_http_archive(
+http_archive(
     name = "icu",
     urls = [
         "http://download.icu-project.org/files/icu4c/60.1/icu4c-60_1-src.tgz"
     ],
     strip_prefix = "icu",
-    build_file = "BUILD.icu",
+    build_file = "@//:BUILD.icu",
 )
 
-new_http_archive(
-    name = "libpng",
-    urls = [
-        "https://mirror.bazel.build/github.com/glennrp/libpng/archive/v1.2.53.tar.gz",
-        "https://github.com/glennrp/libpng/archive/v1.2.53.tar.gz",
-    ],
-    sha256 = "716c59c7dfc808a4c368f8ada526932be72b2fcea11dd85dc9d88b1df1dfe9c2",
-    strip_prefix = "libpng-1.2.53",
-    build_file = "BUILD.libpng",
-)
+#
+# Skia
+#
 
-new_git_repository(
-    name = "webp",
-    remote = "https://chromium.googlesource.com/webm/libwebp.git",
-    tag = "v0.6.1",
-    build_file = "BUILD.libwebp",
-)
 
-new_http_archive(
+http_archive(
     name = "expat",
     urls = [
         "https://github.com/libexpat/libexpat/releases/download/R_2_2_5/expat-2.2.5.tar.bz2"
     ],
     strip_prefix = "expat-2.2.5",
-    build_file = "BUILD.expat",
+    build_file = "@//:BUILD.expat",
 )
 
-new_http_archive(
+http_archive(
     name = "nasm",
     urls = [
         "https://mirror.bazel.build/www.nasm.us/pub/nasm/releasebuilds/2.12.02/nasm-2.12.02.tar.bz2",
@@ -349,40 +289,19 @@ new_http_archive(
     ],
     sha256 = "00b0891c678c065446ca59bcee64719d0096d54d6886e6e472aeee2e170ae324",
     strip_prefix = "nasm-2.12.02",
-    build_file = "BUILD.nasm",
-)
-
-new_git_repository(
-    name = "xmp_sdk",
-    remote = "https://github.com/hfiguiere/exempi.git",
-    commit = "b1859382628b5ba961548980e3b0725d6f934b20",
-    build_file = "BUILD.xmp_sdk"
-)
-
-new_git_repository(
-    name = "dng_sdk",
-    remote = "https://github.com/ctiller/dng_sdk.git",
-    commit = "679d38be04af4f6d1c35fa9e09fed96f291843bd",
-    build_file = "BUILD.dng_sdk"
-)
-
-new_git_repository(
-    name = 'piex',
-    remote = 'https://github.com/google/piex.git',
-    commit = '473434f2dd974978b329faf5c87ae8aa09a2714d',
-    build_file = 'BUILD.piex'
+    build_file = "@//:BUILD.nasm",
 )
 
 #
 # SDL
 #
 
-new_http_archive(
+http_archive(
     name = 'SDL2',
     urls = [
       'https://www.libsdl.org/release/SDL2-2.0.7.tar.gz',
     ],
-    build_file = 'BUILD.SDL2',
+    build_file = '@//:BUILD.SDL2',
     strip_prefix = 'SDL2-2.0.7',
 )
 
@@ -397,9 +316,9 @@ git_repository(
   commit = 'de93112a3f70afa39d3e9aa87da165f9f737fdef'
 )
 
-new_http_archive(
+http_archive(
     name = "com_github_madler_zlib",
-    build_file = "BUILD.zlib",
+    build_file = "@//:BUILD.zlib",
     strip_prefix = "zlib-cacf7f1d4e3d44d871b605da3b647f07d718623f",
     url = "https://github.com/madler/zlib/archive/cacf7f1d4e3d44d871b605da3b647f07d718623f.tar.gz",
 )
@@ -410,16 +329,16 @@ http_archive(
     url = "https://boringssl.googlesource.com/boringssl/+archive/886e7d75368e3f4fab3f4d0d3584e4abfc557755.tar.gz",
 )
 
-new_http_archive(
+http_archive(
     name = "com_github_cares_cares",
-    build_file = "BUILD.cares",
+    build_file = "@//:BUILD.cares",
     strip_prefix = "c-ares-3be1924221e1326df520f8498d704a5c4c8d0cce",
     url = "https://github.com/c-ares/c-ares/archive/3be1924221e1326df520f8498d704a5c4c8d0cce.tar.gz",
 )
 
 new_local_repository(
     name = "cares_local_files",
-    build_file = "BUILD.cares_local_files",
+    build_file = "@//:BUILD.cares_local_files",
     path = 'third_party/cares'
 )
 

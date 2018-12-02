@@ -133,51 +133,22 @@ apple_binary(
 
 cc_binary(
   name = 'ced',
+  srcs = ["main.cc"],
+  copts = ['-DDEFAULT_MODE=\\"Curses\\"'],
   deps = [
+    ":application",
     ":curses_client",
-    ":scan_fonts",
     ":peep_show",
-  ] + select({
-    ':darwin': [':ced_main_curses'],
-    ':darwin_x86_64': [':ced_main_curses'],
-    '//conditions:default': [':ced_main_gui', ':gui_client'],
-  }),
+    ":standard_project_types",
+    ":standard_collaborator_types",
+    "@com_github_gflags_gflags//:gflags",
+  ],
   linkstatic = 1,
   linkopts = ["-lcurses", "-ldl"] + select({
     ':darwin': ['-framework CoreServices'],
     ':darwin_x86_64': ['-framework CoreServices'],
     '//conditions:default': ['-lpthread'],
   })
-)
-
-cc_library(
-  name = "ced_common",
-  deps = [
-    ":standard_project_types",
-    ":standard_collaborator_types",
-  ]
-)
-
-cc_library(
-  name = "ced_main_gui",
-  srcs = ["main.cc"],
-  copts = ['-DDEFAULT_MODE=\\"GUI\\"'],
-  deps = [
-    ":application",
-    ":ced_common",
-    "@com_github_gflags_gflags//:gflags",
-  ],
-)
-
-cc_library(
-  name = "ced_main_curses",
-  srcs = ["main.cc"],
-  copts = ['-DDEFAULT_MODE=\\"Curses\\"'],
-  deps = [
-    ":application",
-    ":ced_common",
-    "@com_github_gflags_gflags//:gflags",
-  ],
 )
 
 cc_library(
@@ -674,38 +645,11 @@ cc_library(
 )
 
 cc_library(
-  name = "gui_client",
-  srcs = ["gui_client.cc"],
-  deps = [
-    ":buffer",
-    ":client_collaborator",
-    ":client",
-    ":application",
-    ":fontconfig_conf_files",
-    "@skia//:skia",
-    "@SDL2//:sdl2",
-    ":scan_fonts",
-    ":sdl_info",
-  ],
-  alwayslink = 1,
-)
-
-cc_library(
   name = "peep_show",
   srcs = ["peep_show.cc"],
   deps = [
     ":client",
     ":application",
-  ],
-  alwayslink = 1,
-)
-
-cc_library(
-  name = "scan_fonts",
-  srcs = ["scan_fonts.cc"],
-  deps = [
-    ":application",
-    "@fontconfig//:fontconfig_lib",
   ],
   alwayslink = 1,
 )

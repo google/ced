@@ -35,8 +35,6 @@ BUILD REQUIREMENTS
 ------------------
 
 - libncurses-dev
-- pip install lxml
-- gperf
 
 Linux only:
 - opengl headers
