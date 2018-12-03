@@ -1,5 +1,5 @@
-build --client_env=CC=clang
-build --cxxopt -std=c++14
+build --crosstool_top @llvm_toolchain//:toolchain
+build --cxxopt -std=c++17
 
 build:asan --strip=never 
 build:asan --copt -fsanitize=address 
